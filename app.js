@@ -5,7 +5,6 @@ const app = express();
 
 const session = require('express-session');
 const MongoStore = require('connect-mongo');
-
 const bodyParser = require('body-parser');
 const mongoose = require('mongoose');
 
