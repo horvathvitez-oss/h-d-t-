@@ -1,3 +1,6 @@
+gamelogic.js
+
+
 var socket = io('/' + gameid);
 var countriesLayer;
 var mapTerritories = [];
@@ -12,9 +15,11 @@ var USER = null;
 var activeQuestionId = null;
 var questionCountdownInterval = null;
 
+
 var element = function (id) {
   return document.getElementById(id);
 };
+
 
 var messages = element('messages');
 var gamelogs = element('gamelog');
@@ -34,11 +39,13 @@ var lastPhaseGroupShown = null;
 var phaseSplashTimer = null;
 var questionRevealTimer = null;
 
+
 var PLAYER_FILL_COLORS = ['#a95f4f', '#6d8660', '#d7cfbd'];
 var PLAYER_STROKE_COLORS = ['#5e2f20', '#334b31', '#7c7464'];
 var PLAYER_NAMES_FALLBACK = ['Piros', 'Zöld', 'Fehér'];
 var UNOWNED_FILL = '#b69f79';
 var UNOWNED_STROKE = '#5a442d';
+
 
 var map = L.map('map', {
   zoomControl: false,
@@ -46,7 +53,9 @@ var map = L.map('map', {
 }).setView([43.8476, 18.3564], 2);
 L.control.zoom({ position: 'bottomright' }).addTo(map);
 
+
 var questionModal = buildQuestionModal();
+
 
 function buildQuestionModal() {
   var modal = document.createElement('div');
@@ -64,16 +73,19 @@ function buildQuestionModal() {
   return modal;
 }
 
+
 function showQuestion(question) {
   clearQuestionCountdown();
   activeQuestionId = question.id;
   questionModal.classList.add('is-open');
+
 
   var canAnswer = Boolean(USER) && question.participants.indexOf(USER.pid) !== -1;
   var body = element('question-body');
   var note = element('question-note');
   var context = element('question-context');
   element('question-prompt').textContent = question.prompt;
+
 
   if (question.context && question.context.flow === 'EXPANSION') {
     context.textContent = 'Területszerzés';
@@ -83,12 +95,15 @@ function showQuestion(question) {
     context.textContent = 'Kérdés';
   }
 
+
   note.textContent = canAnswer ? 'Válaszolj időben. A szerver értékel.' : 'Néző vagy ennél a kérdésnél.';
+
 
   if (question.type === 'mcq') {
     body.innerHTML = question.options.map(function (option, index) {
       return '<button class="question-option" data-option="' + index + '">' + escapeHtml(option) + '</button>';
     }).join('');
+
 
     Array.prototype.slice.call(body.querySelectorAll('.question-option')).forEach(function (button) {
       button.disabled = !canAnswer;
@@ -115,6 +130,7 @@ function showQuestion(question) {
       question.unit ? '<div class="question-unit">Egység: ' + escapeHtml(question.unit) + '</div>' : ''
     ].join('');
 
+
     if (canAnswer) {
       element('guess-submit').addEventListener('click', function () {
         var value = Number(element('guess-input').value);
@@ -130,8 +146,10 @@ function showQuestion(question) {
     }
   }
 
+
   startQuestionCountdown(question.deadline);
 }
+
 
 function hideQuestion() {
   clearQuestionCountdown();
@@ -142,6 +160,7 @@ function hideQuestion() {
   activeQuestionId = null;
   questionModal.classList.remove('is-open');
 }
+
 
 function showQuestionReveal(payload) {
   if (!payload || !payload.revealLines || !payload.revealLines.length) {
@@ -162,6 +181,7 @@ function showQuestionReveal(payload) {
   }, 2600);
 }
 
+
 function startQuestionCountdown(deadline) {
   function render() {
     var remaining = Math.max(0, deadline - Date.now());
@@ -171,12 +191,14 @@ function startQuestionCountdown(deadline) {
   questionCountdownInterval = setInterval(render, 100);
 }
 
+
 function clearQuestionCountdown() {
   if (questionCountdownInterval) {
     clearInterval(questionCountdownInterval);
     questionCountdownInterval = null;
   }
 }
+
 
 function escapeHtml(value) {
   return String(value)
@@ -187,6 +209,7 @@ function escapeHtml(value) {
     .replace(/'/g, '&#039;');
 }
 
+
 function countriesOnEachFeature(feature, layer) {
   mapTerritories.push(layer);
   layer.on({
@@ -194,7 +217,8 @@ function countriesOnEachFeature(feature, layer) {
     mouseover: function (e) {
       var tid = mapTerritories.indexOf(e.target);
       var baseStyle = buildLayerStyle(tid);
-      baseStyle.weight = Math.max(baseStyle.weight, 4);
+      if (!baseStyle) return;
+      baseStyle.weight = Math.max(baseStyle.weight || 2, 4);
       baseStyle.fillOpacity = Math.min((baseStyle.fillOpacity || 0.7) + 0.08, 0.92);
       e.target.setStyle(baseStyle);
     },
@@ -204,35 +228,42 @@ function countriesOnEachFeature(feature, layer) {
   });
 }
 
+
 function whenClicked(e) {
   if (gameFinished || !state.game || !USER) {
     return;
   }
+
 
   var tid = mapTerritories.indexOf(e.target);
   if (tid < 0) {
     return;
   }
 
+
   if (state.game.currentplayer !== USER.pid) {
     setStatus('Most nem te jössz.');
     return;
   }
+
 
   if (state.game.phase === 'BASE_SELECTION') {
     socket.emit('selectBase', { tid: tid });
     return;
   }
 
+
   if (state.game.phase === 'EXPANSION_SELECTION') {
     socket.emit('selectExpansionTarget', { tid: tid });
     return;
   }
 
+
   if (state.game.phase === 'BATTLE_SELECTION') {
     socket.emit('selectAttackTarget', { tid: tid });
   }
 }
+
 
 function getOwnerColor(pid) {
   if (pid < 0 || pid >= PLAYER_FILL_COLORS.length) {
@@ -241,12 +272,14 @@ function getOwnerColor(pid) {
   return PLAYER_FILL_COLORS[pid];
 }
 
+
 function getOwnerStroke(pid) {
   if (pid < 0 || pid >= PLAYER_STROKE_COLORS.length) {
     return UNOWNED_STROKE;
   }
   return PLAYER_STROKE_COLORS[pid];
 }
+
 
 function hexToRgb(hex) {
   var value = (hex || '').replace('#', '');
@@ -264,10 +297,12 @@ function hexToRgb(hex) {
   };
 }
 
+
 function rgba(hex, alpha) {
   var rgb = hexToRgb(hex);
   return 'rgba(' + rgb.r + ',' + rgb.g + ',' + rgb.b + ',' + alpha + ')';
 }
+
 
 function lightenHex(hex, amount) {
   var rgb = hexToRgb(hex);
@@ -277,9 +312,11 @@ function lightenHex(hex, amount) {
   return 'rgb(' + r + ',' + g + ',' + b + ')';
 }
 
+
 function getPlayerByPid(pid) {
   return state.players.find(function (player) { return player.pid === pid; }) || null;
 }
+
 
 function getPlayerDisplayName(player) {
   if (!player) {
@@ -288,13 +325,16 @@ function getPlayerDisplayName(player) {
   return player.name && player.name !== 'x' ? player.name : (PLAYER_NAMES_FALLBACK[player.pid] || ('P' + player.pid));
 }
 
+
 function getTerritoryByTid(tid) {
   return state.territories.find(function (territory) { return territory.tid === tid; }) || null;
 }
 
+
 function getCastleByTid(tid) {
   return state.castles.find(function (castle) { return castle.tid === tid && castle.active; }) || null;
 }
+
 
 function getExpansionSelectableTargets(pid) {
   var owned = state.territories.filter(function (territory) { return territory.ownsto === pid; });
@@ -302,6 +342,7 @@ function getExpansionSelectableTargets(pid) {
   if (!owned.length) {
     return { adjacent: [], all: unowned };
   }
+
 
   var adjacent = [];
   var seen = {};
@@ -315,12 +356,14 @@ function getExpansionSelectableTargets(pid) {
     });
   });
 
+
   var reserved = (state.game && state.game.reservedTerritories) || [];
   return {
     adjacent: adjacent.filter(function (tid) { return reserved.indexOf(tid) === -1; }),
     all: unowned.filter(function (tid) { return reserved.indexOf(tid) === -1; }),
   };
 }
+
 
 function getAttackableTargets(pid) {
   var seen = {};
@@ -339,6 +382,7 @@ function getAttackableTargets(pid) {
   return targets;
 }
 
+
 function isSelectableBase(tid) {
   var territory = getTerritoryByTid(tid);
   if (!territory || territory.ownsto !== -1) return false;
@@ -349,6 +393,7 @@ function isSelectableBase(tid) {
   });
 }
 
+
 function isSelectableExpansion(tid) {
   if (!USER) return false;
   var selection = getExpansionSelectableTargets(USER.pid);
@@ -358,18 +403,22 @@ function isSelectableExpansion(tid) {
   return selection.all.indexOf(tid) !== -1;
 }
 
+
 function isSelectableAttack(tid) {
   if (!USER) return false;
   return getAttackableTargets(USER.pid).indexOf(tid) !== -1;
 }
 
+
 function buildLayerStyle(tid) {
   var territory = getTerritoryByTid(tid);
   if (!territory) return null;
 
+
   var castle = getCastleByTid(tid);
   var ownerFill = territory.ownsto >= 0 ? getOwnerColor(territory.ownsto) : UNOWNED_FILL;
   var ownerStroke = territory.ownsto >= 0 ? getOwnerStroke(territory.ownsto) : UNOWNED_STROKE;
+
 
   var style = {
     weight: castle ? 4 : 2,
@@ -380,6 +429,7 @@ function buildLayerStyle(tid) {
     fillColor: ownerFill,
   };
 
+
   if (!gameFinished && state.game && USER && state.game.currentplayer === USER.pid) {
     if (state.game.phase === 'BASE_SELECTION' && isSelectableBase(tid)) {
       style.weight = 4;
@@ -389,6 +439,7 @@ function buildLayerStyle(tid) {
       style.dashArray = '';
     }
 
+
     if (state.game.phase === 'EXPANSION_SELECTION' && isSelectableExpansion(tid)) {
       style.weight = 4;
       style.color = '#f4ddab';
@@ -396,6 +447,7 @@ function buildLayerStyle(tid) {
       style.fillOpacity = 0.8;
       style.dashArray = '';
     }
+
 
     if (state.game.phase === 'BATTLE_SELECTION' && isSelectableAttack(tid)) {
       style.weight = 5;
@@ -406,18 +458,23 @@ function buildLayerStyle(tid) {
     }
   }
 
+
   return style;
 }
+
 
 function applyLayerStyle(layer, tid) {
   var territory = getTerritoryByTid(tid);
   if (!territory) return;
 
+
   var castle = getCastleByTid(tid);
   var style = buildLayerStyle(tid);
   if (!style) return;
 
+
   layer.setStyle(style);
+
 
   var owner = getPlayerByPid(territory.ownsto);
   var label = castle ? ('<div class="castle-pill"><span class="castle-pill-icon">♜</span><span>' + castle.hp + '</span></div>') : '';
@@ -432,13 +489,16 @@ function applyLayerStyle(layer, tid) {
     });
   }
 
+
 }
+
 
 function renderAllTerritories() {
   mapTerritories.forEach(function (layer, tid) {
     applyLayerStyle(layer, tid);
   });
 }
+
 
 function getCurrentPhaseGroup() {
   if (!state.game || !state.game.phase) return 'WAIT';
@@ -448,6 +508,7 @@ function getCurrentPhaseGroup() {
   if (state.game.phase === 'FINISHED') return 'FINISHED';
   return 'WAIT';
 }
+
 
 function renderPlayerCards() {
   var html = state.players
@@ -461,12 +522,15 @@ function renderPlayerCards() {
       if (!player.connected && !player.eliminated) classes.push('is-offline');
       if (player.eliminated) classes.push('is-eliminated');
 
+
       var status = 'aktív';
       if (player.eliminated) status = 'kiesett';
       else if (!player.connected) status = 'offline';
       else if (state.game && state.game.currentplayer === player.pid) status = 'soron van';
 
+
       var castleTowers = castle ? castle.hp : 0;
+
 
       return [
         '<div class="' + classes.join(' ') + '">',
@@ -488,8 +552,10 @@ function renderPlayerCards() {
     })
     .join('');
 
+
   playercards.innerHTML = html;
 }
+
 
 function renderPhaseBoard() {
   if (!state.game) {
@@ -497,9 +563,11 @@ function renderPhaseBoard() {
     return;
   }
 
+
   var phaseGroup = getCurrentPhaseGroup();
   var title = 'Várakozás';
   var subtitle = 'A meccs előkészítése folyamatban.';
+
 
   if (phaseGroup === 'BASE') {
     title = 'Bázisfoglalás';
@@ -515,6 +583,7 @@ function renderPhaseBoard() {
     subtitle = 'A meccs lezárult.';
   }
 
+
   phaseboard.innerHTML = [
     '<div class="phase-compact">',
     '<div class="phase-compact-title">' + escapeHtml(title) + '</div>',
@@ -522,6 +591,7 @@ function renderPhaseBoard() {
     '</div>'
   ].join('');
 }
+
 
 function getPermutations(arr) {
   var result = [];
@@ -538,6 +608,7 @@ function getPermutations(arr) {
   return result;
 }
 
+
 function renderOrderBoard() {
   if (!state.game) {
     orderboard.innerHTML = '';
@@ -545,6 +616,7 @@ function renderOrderBoard() {
     ordersummary.innerHTML = '';
     return;
   }
+
 
   var orderedPlayers = state.players.slice().sort(function (a, b) { return a.pid - b.pid; }).map(function (player) { return player.pid; });
   var orders = getPermutations(orderedPlayers);
@@ -554,8 +626,10 @@ function renderOrderBoard() {
   var roundNumber = phaseGroup === 'BATTLE' ? (state.game.battleRound || 0) : (state.game.expansionRound || 0);
   var phaseRound = Math.max(1, roundNumber || 1);
 
+
   ordermeta.textContent = phaseGroup === 'BATTLE' ? ('Csata • ' + phaseRound + '/6') : (phaseGroup === 'EXPANSION' ? ('Foglalás • ' + phaseRound + '/6') : 'Sorrendciklus');
   ordersummary.textContent = currentIndex >= 0 ? ('Aktív sor: ' + (currentIndex + 1) + '/6') : 'Aktív sor: —';
+
 
   orderboard.innerHTML = '<div class="cycle-board">' + orders.map(function (order, rowIndex) {
     var isCurrent = rowIndex === currentIndex;
@@ -574,19 +648,24 @@ function renderOrderBoard() {
   }).join('') + '</div>';
 }
 
+
 function renderStatus() {
   if (!state.game) return;
 
+
   var current = getPlayerByPid(state.game.currentplayer);
+
 
   if (gameFinished) {
     return;
   }
 
+
   if (!USER) {
     setStatus('A saját játékosprofil szinkronizálása folyamatban.');
     return;
   }
+
 
   if (state.game.phase === 'WAITING_FOR_PLAYERS') {
     setStatus('Várakozás a játékosokra.');
@@ -613,6 +692,7 @@ function renderStatus() {
   }
 }
 
+
 function renderHUD() {
   renderPlayerCards();
   renderPhaseBoard();
@@ -620,9 +700,11 @@ function renderHUD() {
   renderStatus();
 }
 
+
 function setStatus(text) {
   gamestatus.textContent = text;
 }
+
 
 function showPhaseSplash(title) {
   if (!phaseSplash || !phaseSplashTitle) return;
@@ -633,6 +715,7 @@ function showPhaseSplash(title) {
     phaseSplash.classList.remove('is-visible');
   }, 1800);
 }
+
 
 function maybeShowPhaseSplash() {
   var phaseGroup = getCurrentPhaseGroup();
@@ -648,6 +731,7 @@ function maybeShowPhaseSplash() {
   if (phaseGroup === 'BATTLE') showPhaseSplash('CSATA');
 }
 
+
 function showWinnerModal(winner) {
   if (!winnerModal || !winnerTitle || !winnerSubtitle) return;
   winnerTitle.textContent = winner ? (getPlayerDisplayName(winner) + ' nyert!') : 'A meccs véget ért';
@@ -656,6 +740,7 @@ function showWinnerModal(winner) {
     : (winner ? ('Győztes: ' + getPlayerDisplayName(winner)) : 'A győztes nem ismert.');
   winnerModal.classList.add('is-visible');
 }
+
 
 function finishGame(winnerPid) {
   gameFinished = true;
@@ -667,6 +752,7 @@ function finishGame(winnerPid) {
   showWinnerModal(winner);
 }
 
+
 function onStateSnapshot(payload) {
   state = payload;
   USER = state.players.find(function (player) { return player.name === username; }) || null;
@@ -677,6 +763,7 @@ function onStateSnapshot(payload) {
     finishGame(state.game.winner);
   }
 }
+
 
 function initializeMap() {
   function baseStyle() {
@@ -690,6 +777,7 @@ function initializeMap() {
     };
   }
 
+
   if (maplevel === 'medium') {
     countriesLayer = L.geoJson(countries30, { style: baseStyle, onEachFeature: countriesOnEachFeature }).addTo(map);
   } else {
@@ -697,9 +785,11 @@ function initializeMap() {
   }
 }
 
+
 initializeMap();
 socket.emit('joingame', { username: username });
 socket.emit('getmsgs', { gameid: gameid });
+
 
 socket.on('stateSnapshot', onStateSnapshot);
 socket.on('question:start', function (question) {
@@ -753,6 +843,7 @@ socket.on('outputmsg', function (data) {
   $('#messages').scrollTop($('#messages')[0].scrollHeight);
 });
 
+
 textarea.addEventListener('keydown', function (event) {
   if (event.which === 13 && event.shiftKey === false) {
     socket.emit('newmessage', {
@@ -764,6 +855,7 @@ textarea.addEventListener('keydown', function (event) {
     event.preventDefault();
   }
 });
+
 
 window.onbeforeunload = function (e) {
   e = e || window.event;
