@@ -1,6 +1,3 @@
-gamelogic.js
-
-
 var socket = io('/' + gameid);
 var countriesLayer;
 var mapTerritories = [];
