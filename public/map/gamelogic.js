@@ -3,24 +3,18 @@ var countriesLayer;
 var mapTerritories = [];
 var gameFinished = false;
 var state = {
-  game: null,
-  players: [],
-  territories: [],
-  castles: [],
+game: null,
+players: [],
+territories: [],
+castles: [],
 };
 var USER = null;
 var activeQuestionId = null;
 var questionCountdownInterval = null;
 
-
-
-
 var element = function (id) {
-  return document.getElementById(id);
+return document.getElementById(id);
 };
-
-
-
 
 var messages = element('messages');
 var gamelogs = element('gamelog');
@@ -29,6 +23,8 @@ var playercards = element('playercards');
 var phaseboard = element('phaseboard');
 var orderboard = element('orderboard');
 var ordermeta = element('ordermeta');
+
+
 var ordersummary = element('ordersummary');
 var gamestatus = element('gamestatus');
 var phaseSplash = element('phase-splash');
@@ -39,9 +35,13 @@ var winnerSubtitle = element('winner-subtitle');
 var lastPhaseGroupShown = null;
 var phaseSplashTimer = null;
 var questionRevealTimer = null;
-
-
-
+var selectionPreview = {
+pendingSelections: {},
+battleTargetTid: null,
+battleAttackerPid: null
+};
+var playerColorNoticeShown = false;
+var playerColorNoticeTimer = null;
 
 var PLAYER_FILL_COLORS = ['#a95f4f', '#6d8660', '#d7cfbd'];
 var PLAYER_STROKE_COLORS = ['#5e2f20', '#334b31', '#7c7464'];
@@ -49,28 +49,29 @@ var PLAYER_NAMES_FALLBACK = ['Piros', 'Zöld', 'Fehér'];
 var UNOWNED_FILL = '#b69f79';
 var UNOWNED_STROKE = '#5a442d';
 
-
 var SOUND_BASE = document.body.getAttribute('data-sound-base') || '/sounds';
 var soundState = {
-  unlocked: false,
-  goodVoiceCount: 0,
-  badVoiceCount: 0,
-  currentBg: null,
-  lastSnapshotSeen: false
+unlocked: false,
+goodVoiceCount: 0,
+badVoiceCount: 0,
+currentBg: null,
+lastSnapshotSeen: false
 };
 
 var soundPlayers = {
-  lobbyBg: new Audio(SOUND_BASE + '/lobby_bg.mp3'),
-  gameBg: new Audio(SOUND_BASE + '/game_bg.mp3'),
-  battleBg: new Audio(SOUND_BASE + '/battle_bg.mp3'),
-  questionTimer: new Audio(SOUND_BASE + '/question_timer.mp3'),
-  popupBase: new Audio(SOUND_BASE + '/popup_base.mp3'),
-  popupExpansion: new Audio(SOUND_BASE + '/popup_expansion.mp3'),
-  popupBattle: new Audio(SOUND_BASE + '/popup_battle.mp3'),
-  actionClick: new Audio(SOUND_BASE + '/action_click.mp3'),
-  correctAction: new Audio(SOUND_BASE + '/correct_action.mp3'),
-  territoryCapture: new Audio(SOUND_BASE + '/territory_capture.mp3'),
-  attackEnemyAction: new Audio(SOUND_BASE + '/attack_enemy_action.mp3')
+
+
+lobbyBg: new Audio(SOUND_BASE + '/lobby_bg.mp3'),
+gameBg: new Audio(SOUND_BASE + '/game_bg.mp3'),
+battleBg: new Audio(SOUND_BASE + '/battle_bg.mp3'),
+questionTimer: new Audio(SOUND_BASE + '/question_timer.mp3'),
+popupBase: new Audio(SOUND_BASE + '/popup_base.mp3'),
+popupExpansion: new Audio(SOUND_BASE + '/popup_expansion.mp3'),
+popupBattle: new Audio(SOUND_BASE + '/popup_battle.mp3'),
+actionClick: new Audio(SOUND_BASE + '/action_click.mp3'),
+correctAction: new Audio(SOUND_BASE + '/correct_action.mp3'),
+territoryCapture: new Audio(SOUND_BASE + '/territory_capture.mp3'),
+attackEnemyAction: new Audio(SOUND_BASE + '/attack_enemy_action.mp3')
 };
 
 soundPlayers.lobbyBg.loop = true;
@@ -79,1164 +80,1106 @@ soundPlayers.battleBg.loop = true;
 soundPlayers.questionTimer.loop = true;
 
 function safePlay(audio) {
-  if (!audio) return;
-  try {
-    var playPromise = audio.play();
-    if (playPromise && typeof playPromise.catch === 'function') {
-      playPromise.catch(function () {});
-    }
-  } catch (e) {}
+if (!audio) return;
+try {
+var playPromise = audio.play();
+if (playPromise && typeof playPromise.catch === 'function') {
+playPromise.catch(function () {});
+}
+} catch (e) {}
 }
 
+
 function playOneShot(audio) {
-  if (!audio) return;
-  try {
-    var clone = audio.cloneNode();
-    clone.volume = audio.volume;
-    safePlay(clone);
-  } catch (e) {
-    try {
-      audio.currentTime = 0;
-      safePlay(audio);
-    } catch (err) {}
-  }
+if (!audio) return;
+try {
+var clone = audio.cloneNode();
+clone.volume = audio.volume;
+safePlay(clone);
+} catch (e) {
+try {
+audio.currentTime = 0;
+safePlay(audio);
+} catch (err) {}
+}
 }
 
 function stopAudio(audio) {
-  if (!audio) return;
-  try {
-    audio.pause();
-    audio.currentTime = 0;
-  } catch (e) {}
+if (!audio) return;
+try {
+audio.pause();
+audio.currentTime = 0;
+} catch (e) {}
 }
 
 function unlockSound() {
-  if (soundState.unlocked) return;
-  soundState.unlocked = true;
-  syncBackgroundMusic();
+if (soundState.unlocked) return;
+soundState.unlocked = true;
+syncBackgroundMusic();
 }
+
 
 document.addEventListener('click', unlockSound, { once: true, capture: true });
 document.addEventListener('keydown', unlockSound, { once: true, capture: true });
 
 function syncBackgroundMusic() {
-  if (!soundState.unlocked) return;
-  var phaseGroup = getCurrentPhaseGroup();
-  var wanted = null;
+if (!soundState.unlocked) return;
+var phaseGroup = getCurrentPhaseGroup();
+var wanted = null;
 
-  if (gameFinished || phaseGroup === 'FINISHED' || phaseGroup === 'WAIT') {
-    wanted = null;
-  } else if (phaseGroup === 'BATTLE') {
-    wanted = 'battleBg';
-  } else if (state.game) {
-    wanted = 'gameBg';
-  }
+if (gameFinished || phaseGroup === 'FINISHED' || phaseGroup === 'WAIT') {
+wanted = null;
+} else if (phaseGroup === 'BATTLE') {
+wanted = 'battleBg';
+} else if (state.game) {
+wanted = 'gameBg';
+}
 
-  if (soundState.currentBg === wanted) return;
+if (soundState.currentBg === wanted) return;
 
-  stopAudio(soundPlayers.gameBg);
-  stopAudio(soundPlayers.battleBg);
+stopAudio(soundPlayers.gameBg);
+stopAudio(soundPlayers.battleBg);
 
-  soundState.currentBg = wanted;
-  if (wanted) safePlay(soundPlayers[wanted]);
+soundState.currentBg = wanted;
+if (wanted) safePlay(soundPlayers[wanted]);
 }
 
 function playPopupPhaseVoice(phaseGroup) {
-  if (!soundState.unlocked) return;
-  if (phaseGroup === 'BASE') playOneShot(soundPlayers.popupBase);
-  if (phaseGroup === 'EXPANSION') playOneShot(soundPlayers.popupExpansion);
-  if (phaseGroup === 'BATTLE') playOneShot(soundPlayers.popupBattle);
+if (!soundState.unlocked) return;
+if (phaseGroup === 'BASE') playOneShot(soundPlayers.popupBase);
+
+
+if (phaseGroup === 'EXPANSION') playOneShot(soundPlayers.popupExpansion);
+if (phaseGroup === 'BATTLE') playOneShot(soundPlayers.popupBattle);
 }
 
 function maybePlayActionClick(event) {
-  if (!soundState.unlocked) return;
-  var target = event && event.target;
-  if (!target || !target.closest) return;
-  if (target.closest('button, a, input, textarea, select, label')) return;
-  playOneShot(soundPlayers.actionClick);
+if (!soundState.unlocked) return;
+var target = event && event.target;
+if (!target || !target.closest) return;
+if (target.closest('button, a, input, textarea, select, label')) return;
+playOneShot(soundPlayers.actionClick);
 }
 
 document.addEventListener('click', maybePlayActionClick, true);
 
 function startQuestionTimerSound() {
-  if (!soundState.unlocked) return;
-  safePlay(soundPlayers.questionTimer);
+if (!soundState.unlocked) return;
+safePlay(soundPlayers.questionTimer);
 }
 
 function stopQuestionTimerSound() {
-  stopAudio(soundPlayers.questionTimer);
+stopAudio(soundPlayers.questionTimer);
 }
 
 function pickRandom(list) {
-  if (!list || !list.length) return null;
-  return list[Math.floor(Math.random() * list.length)];
+if (!list || !list.length) return null;
+return list[Math.floor(Math.random() * list.length)];
 }
 
+
 function playAnswerVoice(isCorrect) {
-  var audio = null;
+var audio = null;
 
-  if (isCorrect) {
-    soundState.goodVoiceCount += 1;
-    if (soundState.goodVoiceCount % 4 === 0) {
-      audio = pickRandom([
-        new Audio(SOUND_BASE + '/answer_good_rare_1.mp3')
-      ]);
-    } else {
-      audio = pickRandom([
-        new Audio(SOUND_BASE + '/answer_good_common_1.mp3'),
-        new Audio(SOUND_BASE + '/answer_good_common_2.mp3')
-      ]);
-    }
-  } else {
-    soundState.badVoiceCount += 1;
-    if (soundState.badVoiceCount % 4 === 0) {
-      audio = pickRandom([
-        new Audio(SOUND_BASE + '/answer_bad_rare_1.mp3'),
-        new Audio(SOUND_BASE + '/answer_bad_rare_2.mp3'),
-        new Audio(SOUND_BASE + '/answer_bad_rare_3.mp3')
-      ]);
-    } else {
-      audio = pickRandom([
-        new Audio(SOUND_BASE + '/answer_bad_common_1.mp3'),
-        new Audio(SOUND_BASE + '/answer_bad_common_2.mp3')
-      ]);
-    }
-  }
+if (isCorrect) {
+soundState.goodVoiceCount += 1;
+if (soundState.goodVoiceCount % 4 === 0) {
+audio = pickRandom([
+new Audio(SOUND_BASE + '/answer_good_rare_1.mp3')
+]);
+} else {
+audio = pickRandom([
+new Audio(SOUND_BASE + '/answer_good_common_1.mp3'),
+new Audio(SOUND_BASE + '/answer_good_common_2.mp3')
+]);
+}
+} else {
+soundState.badVoiceCount += 1;
+if (soundState.badVoiceCount % 4 === 0) {
+audio = pickRandom([
+new Audio(SOUND_BASE + '/answer_bad_rare_1.mp3'),
+new Audio(SOUND_BASE + '/answer_bad_rare_2.mp3'),
+new Audio(SOUND_BASE + '/answer_bad_rare_3.mp3')
+]);
+} else {
+audio = pickRandom([
+new Audio(SOUND_BASE + '/answer_bad_common_1.mp3'),
+new Audio(SOUND_BASE + '/answer_bad_common_2.mp3')
+]);
 
-  playOneShot(audio);
+
+}
+}
+
+playOneShot(audio);
 }
 
 function maybePlayTerritoryCaptureSound(previousState, nextState) {
-  if (!soundState.unlocked || !previousState || !previousState.territories || !USER) return;
+if (!soundState.unlocked || !previousState || !previousState.territories || !USER) return;
 
-  var before = {};
-  previousState.territories.forEach(function (territory) {
-    before[territory.tid] = territory.ownsto;
-  });
+var before = {};
+previousState.territories.forEach(function (territory) {
+before[territory.tid] = territory.ownsto;
+});
 
-  var gained = (nextState.territories || []).some(function (territory) {
-    return before.hasOwnProperty(territory.tid) && before[territory.tid] !== USER.pid && territory.ownsto === USER.pid;
-  });
+var gained = (nextState.territories || []).some(function (territory) {
+return before.hasOwnProperty(territory.tid) && before[territory.tid] !== USER.pid &&
+territory.ownsto === USER.pid;
+});
 
-  if (gained) {
-    playOneShot(soundPlayers.territoryCapture);
-  }
+if (gained) {
+playOneShot(soundPlayers.territoryCapture);
+}
 }
 
 
+function clearSelectionPreview() {
+selectionPreview.pendingSelections = {};
+selectionPreview.battleTargetTid = null;
+selectionPreview.battleAttackerPid = null;
+}
 
+function syncSelectionPreviewFromState() {
+selectionPreview.pendingSelections = state && state.game && state.game.pendingSelections
+? state.game.pendingSelections
+: {};
+if (!state || !state.game || state.game.phase !== 'BATTLE_QUESTION') {
+selectionPreview.battleTargetTid = null;
+selectionPreview.battleAttackerPid = null;
+}
+}
+
+function getPreviewOwnersForTid(tid) {
+var owners = [];
+var pending = selectionPreview.pendingSelections || {};
+Object.keys(pending).forEach(function (pid) {
+if (Number(pending[pid]) === tid) {
+owners.push(Number(pid));
+}
+});
+return owners;
+}
+
+function buildSelectionPreviewMarkup(tid) {
+var parts = [];
+getPreviewOwnersForTid(tid).forEach(function (pid) {
+parts.push(
+'<span style="display:inline-block;width:12px;height:12px;border-radius:999px;background:' +
+getOwnerColor(pid) + ';border:2px solid ' + getOwnerStroke(pid) +
+';box-shadow:0 2px 6px rgba(0,0,0,0.28);"></span>'
+);
+});
+
+if (selectionPreview.battleTargetTid === tid && selectionPreview.battleAttackerPid !== null && selectionPreview.battleAttackerPid !== undefined) {
+parts.push(
+'<span style="display:inline-flex;align-items:center;justify-content:center;min-width:26px;height:26px;padding:0 9px;border-radius:999px;background:' +
+rgba(getOwnerColor(selectionPreview.battleAttackerPid), 0.92) +
+';border:2px solid ' + getOwnerStroke(selectionPreview.battleAttackerPid) +
+';color:#fff7ea;font-size:14px;font-weight:900;box-shadow:0 4px 10px rgba(0,0,0,0.24);">⚔</span>'
+);
+}
+
+if (!parts.length) return '';
+return '<div style="display:flex;justify-content:center;align-items:center;gap:6px;margin-top:6px;">' + parts.join('') + '</div>';
+}
+
+function getPlayerColorName(pid) {
+return ['Piros', 'Zöld', 'Fehér'][pid] || 'Ismeretlen';
+}
+
+function showPlayerColorNotice() {
+if (!USER) return;
+
+var existing = document.getElementById('player-color-notice');
+if (existing && existing.parentNode) {
+existing.parentNode.removeChild(existing);
+}
+
+var notice = document.createElement('div');
+notice.id = 'player-color-notice';
+notice.setAttribute('style',
+'position:fixed;left:50%;top:124px;transform:translateX(-50%);z-index:950;' +
+'padding:14px 22px;border-radius:18px;background:' + getOwnerColor(USER.pid) + ';' +
+'border:2px solid ' + getOwnerStroke(USER.pid) + ';color:#fff8ea;font-weight:900;' +
+'font-size:18px;letter-spacing:0.04em;box-shadow:0 18px 34px rgba(0,0,0,0.32);' +
+'text-transform:uppercase;pointer-events:none;');
+notice.textContent = 'A te színed: ' + getPlayerColorName(USER.pid);
+document.body.appendChild(notice);
+
+if (playerColorNoticeTimer) {
+clearTimeout(playerColorNoticeTimer);
+}
+playerColorNoticeTimer = setTimeout(function () {
+if (notice.parentNode) {
+notice.parentNode.removeChild(notice);
+}
+}, 3000);
+}
 
 
 var map = L.map('map', {
-  zoomControl: false,
-  attributionControl: false,
+zoomControl: false,
+
+
+attributionControl: false,
 }).setView([43.8476, 18.3564], 2);
 L.control.zoom({ position: 'bottomright' }).addTo(map);
 
-
-
-
 var questionModal = buildQuestionModal();
 
-
-
-
 function buildQuestionModal() {
-  var modal = document.createElement('div');
-  modal.id = 'question-modal';
-  modal.innerHTML = [
-    '<div class="question-panel">',
-    '<div id="question-context" class="question-context"></div>',
-    '<div id="question-prompt" class="question-prompt"></div>',
-    '<div id="question-timer" class="question-timer"></div>',
-    '<div id="question-body"></div>',
-    '<div id="question-note" class="question-note"></div>',
-    '</div>'
-  ].join('');
-  document.body.appendChild(modal);
-  return modal;
+var modal = document.createElement('div');
+modal.id = 'question-modal';
+modal.innerHTML = [
+'<div class="question-panel">',
+'<div id="question-context" class="question-context"></div>',
+'<div id="question-prompt" class="question-prompt"></div>',
+'<div id="question-timer" class="question-timer"></div>',
+'<div id="question-body"></div>',
+'<div id="question-note" class="question-note"></div>',
+'</div>'
+].join('');
+document.body.appendChild(modal);
+return modal;
 }
-
-
-
 
 function showQuestion(question) {
-  clearQuestionCountdown();
-  activeQuestionId = question.id;
-  questionModal.classList.add('is-open');
+clearQuestionCountdown();
 
 
+activeQuestionId = question.id;
+questionModal.classList.add('is-open');
 
+var canAnswer = Boolean(USER) && question.participants.indexOf(USER.pid) !== -1;
+var body = element('question-body');
+var note = element('question-note');
+var context = element('question-context');
+element('question-prompt').textContent = question.prompt;
 
-  var canAnswer = Boolean(USER) && question.participants.indexOf(USER.pid) !== -1;
-  var body = element('question-body');
-  var note = element('question-note');
-  var context = element('question-context');
-  element('question-prompt').textContent = question.prompt;
-
-
-
-
-  if (question.context && question.context.flow === 'EXPANSION') {
-    context.textContent = 'Területszerzés';
-  } else if (question.context && question.context.flow === 'BATTLE') {
-    context.textContent = question.context.isCastle ? 'Várostrom' : 'Csata';
-  } else {
-    context.textContent = 'Kérdés';
-  }
-
-
-
-
-  note.textContent = canAnswer ? 'Válaszolj időben. A szerver értékel.' : 'Néző vagy ennél a kérdésnél.';
-
-
-
-
-  if (question.type === 'mcq') {
-    body.innerHTML = question.options.map(function (option, index) {
-      return '<button class="question-option" data-option="' + index + '">' + escapeHtml(option) + '</button>';
-    }).join('');
-
-
-
-
-    Array.prototype.slice.call(body.querySelectorAll('.question-option')).forEach(function (button) {
-      button.disabled = !canAnswer;
-      if (canAnswer) {
-        button.addEventListener('click', function () {
-          Array.prototype.slice.call(body.querySelectorAll('.question-option')).forEach(function (item) {
-            item.disabled = true;
-            item.style.opacity = '0.58';
-          });
-          button.style.opacity = '1';
-          button.style.borderColor = '#8d5a29';
-          button.style.boxShadow = '0 12px 20px rgba(0,0,0,0.08)';
-          socket.emit('submitAnswer', { questionId: activeQuestionId, selectedIndex: Number(button.getAttribute('data-option')) });
-          note.textContent = 'Válasz elküldve. Várjuk a kiértékelést.';
-        });
-      }
-    });
-  } else {
-    body.innerHTML = [
-      '<div class="question-guess-row">',
-      '<input id="guess-input" type="number" ' + (canAnswer ? '' : 'disabled') + ' />',
-      '<button id="guess-submit" ' + (canAnswer ? '' : 'disabled') + '>Küldés</button>',
-      '</div>',
-      question.unit ? '<div class="question-unit">Egység: ' + escapeHtml(question.unit) + '</div>' : ''
-    ].join('');
-
-
-
-
-    if (canAnswer) {
-      element('guess-submit').addEventListener('click', function () {
-        var value = Number(element('guess-input').value);
-        if (!Number.isFinite(value)) {
-          note.textContent = 'Adj meg egy számot.';
-          return;
-        }
-        element('guess-input').disabled = true;
-        element('guess-submit').disabled = true;
-        socket.emit('submitAnswer', { questionId: activeQuestionId, guess: value });
-        note.textContent = 'Tipp elküldve. Várjuk a kiértékelést.';
-      });
-    }
-  }
-
-
-
-
-  startQuestionCountdown(question.deadline);
-  startQuestionTimerSound();
+if (question.context && question.context.flow === 'EXPANSION') {
+context.textContent = 'Területszerzés';
+} else if (question.context && question.context.flow === 'BATTLE') {
+context.textContent = question.context.isCastle ? 'Várostrom' : 'Csata';
+} else {
+context.textContent = 'Kérdés';
 }
 
+note.textContent = canAnswer ? 'Válaszolj időben. A szerver értékel.' : 'Néző vagy ennél a kérdésnél.';
 
+if (question.type === 'mcq') {
+body.innerHTML = question.options.map(function (option, index) {
+
+
+return '<button class="question-option" data-option="' + index + '">' +
+escapeHtml(option) + '</button>';
+}).join('');
+
+Array.prototype.slice.call(body.querySelectorAll('.question-option')).forEach(function
+(button) {
+button.disabled = !canAnswer;
+if (canAnswer) {
+button.addEventListener('click', function () {
+Array.prototype.slice.call(body.querySelectorAll('.questionoption')).forEach(function (item) {
+item.disabled = true;
+item.style.opacity = '0.58';
+});
+button.style.opacity = '1';
+button.style.borderColor = '#8d5a29';
+button.style.boxShadow = '0 12px 20px rgba(0,0,0,0.08)';
+socket.emit('submitAnswer', { questionId: activeQuestionId, selectedIndex:
+Number(button.getAttribute('data-option')) });
+note.textContent = 'Válasz elküldve. Várjuk a kiértékelést.';
+});
+}
+});
+} else {
+body.innerHTML = [
+'<div class="question-guess-row">',
+'<input id="guess-input" type="number" ' + (canAnswer ? '' : 'disabled') + ' />',
+'<button id="guess-submit" ' + (canAnswer ? '' : 'disabled') + '>Küldés</button>',
+
+
+'</div>',
+question.unit ? '<div class="question-unit">Egység: ' + escapeHtml(question.unit) +
+'</div>' : ''
+].join('');
+
+if (canAnswer) {
+element('guess-submit').addEventListener('click', function () {
+var value = Number(element('guess-input').value);
+if (!Number.isFinite(value)) {
+note.textContent = 'Adj meg egy számot.';
+return;
+}
+element('guess-input').disabled = true;
+element('guess-submit').disabled = true;
+socket.emit('submitAnswer', { questionId: activeQuestionId, guess: value });
+note.textContent = 'Tipp elküldve. Várjuk a kiértékelést.';
+});
+}
+}
+
+startQuestionCountdown(question.deadline);
+startQuestionTimerSound();
+}
 
 
 function hideQuestion() {
-  clearQuestionCountdown();
-  if (questionRevealTimer) {
-    clearTimeout(questionRevealTimer);
-    questionRevealTimer = null;
-  }
-  activeQuestionId = null;
-  questionModal.classList.remove('is-open');
-  stopQuestionTimerSound();
+clearQuestionCountdown();
+if (questionRevealTimer) {
+clearTimeout(questionRevealTimer);
+questionRevealTimer = null;
 }
-
-
-
+activeQuestionId = null;
+questionModal.classList.remove('is-open');
+stopQuestionTimerSound();
+}
 
 function showQuestionReveal(payload) {
-  if (!payload || !payload.revealLines || !payload.revealLines.length) {
-    hideQuestion();
-    return;
-  }
-  clearQuestionCountdown();
-  stopQuestionTimerSound();
-  var body = element('question-body');
-  var note = element('question-note');
-  element('question-timer').textContent = payload.exactAnswer != null ? ('Pontos válasz: ' + payload.exactAnswer) : '';
-  body.innerHTML = '<div class="question-reveal-list">' + payload.revealLines.map(function(line) {
-    return '<div class="question-reveal-item">' + escapeHtml(line) + '</div>';
-  }).join('') + '</div>';
-  note.textContent = 'Lejárt az idő. Eredmények megjelenítése...';
-  if (questionRevealTimer) clearTimeout(questionRevealTimer);
-  questionRevealTimer = setTimeout(function() {
-    hideQuestion();
-  }, 2600);
+if (!payload || !payload.revealLines || !payload.revealLines.length) {
+hideQuestion();
+return;
 }
+clearQuestionCountdown();
+stopQuestionTimerSound();
+var body = element('question-body');
+var note = element('question-note');
+element('question-timer').textContent = payload.exactAnswer != null ? ('Pontos válasz: '
++ payload.exactAnswer) : '';
+body.innerHTML = '<div class="question-reveal-list">' +
+payload.revealLines.map(function(line) {
+return '<div class="question-reveal-item">' + escapeHtml(line) + '</div>';
+}).join('') + '</div>';
+note.textContent = 'Lejárt az idő. Eredmények megjelenítése...';
 
 
-
+if (questionRevealTimer) clearTimeout(questionRevealTimer);
+questionRevealTimer = setTimeout(function() {
+hideQuestion();
+}, 2600);
+}
 
 function startQuestionCountdown(deadline) {
-  function render() {
-    var remaining = Math.max(0, deadline - Date.now());
-    element('question-timer').textContent = 'Hátralévő idő: ' + (remaining / 1000).toFixed(1) + ' mp';
-  }
-  render();
-  questionCountdownInterval = setInterval(render, 100);
+function render() {
+var remaining = Math.max(0, deadline - Date.now());
+element('question-timer').textContent = 'Hátralévő idő: ' + (remaining /
+1000).toFixed(1) + ' mp';
 }
-
-
-
+render();
+questionCountdownInterval = setInterval(render, 100);
+}
 
 function clearQuestionCountdown() {
-  if (questionCountdownInterval) {
-    clearInterval(questionCountdownInterval);
-    questionCountdownInterval = null;
-  }
+if (questionCountdownInterval) {
+clearInterval(questionCountdownInterval);
+questionCountdownInterval = null;
 }
-
-
-
+}
 
 function escapeHtml(value) {
-  return String(value)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;');
+
+
+return String(value)
+.replace(/&/g, '&amp;')
+.replace(/</g, '&lt;')
+.replace(/>/g, '&gt;')
+.replace(/"/g, '&quot;')
+.replace(/'/g, '&#039;');
 }
-
-
-
 
 function countriesOnEachFeature(feature, layer) {
-  mapTerritories.push(layer);
-  layer.on({
-    click: whenClicked,
-    mouseover: function (e) {
-      var tid = mapTerritories.indexOf(e.target);
-      var baseStyle = buildLayerStyle(tid);
-      if (!baseStyle) return;
-      baseStyle.weight = Math.max(baseStyle.weight || 2, 4);
-      baseStyle.fillOpacity = Math.min((baseStyle.fillOpacity || 0.7) + 0.08, 0.92);
-      e.target.setStyle(baseStyle);
-    },
-    mouseout: function (e) {
-      applyLayerStyle(e.target, mapTerritories.indexOf(e.target));
-    }
-  });
+mapTerritories.push(layer);
+layer.on({
+click: whenClicked,
+mouseover: function (e) {
+var tid = mapTerritories.indexOf(e.target);
+var baseStyle = buildLayerStyle(tid);
+if (!baseStyle) return;
+baseStyle.weight = Math.max(baseStyle.weight || 2, 4);
+baseStyle.fillOpacity = Math.min((baseStyle.fillOpacity || 0.7) + 0.08, 0.92);
+e.target.setStyle(baseStyle);
+},
+mouseout: function (e) {
+applyLayerStyle(e.target, mapTerritories.indexOf(e.target));
 }
-
-
+});
+}
 
 
 function whenClicked(e) {
-  if (gameFinished || !state.game || !USER) {
-    return;
-  }
+if (gameFinished || !state.game || !USER) {
+return;
+}
 
+var tid = mapTerritories.indexOf(e.target);
+if (tid < 0) {
+return;
+}
 
+if (state.game.currentplayer !== USER.pid) {
+setStatus('Most nem te jössz.');
+return;
+}
 
-
-  var tid = mapTerritories.indexOf(e.target);
-  if (tid < 0) {
-    return;
-  }
-
-
-
-
-  if (state.game.currentplayer !== USER.pid) {
-    setStatus('Most nem te jössz.');
-    return;
-  }
-
-
-
-
-  if (state.game.phase === 'BASE_SELECTION') {
-    playOneShot(soundPlayers.actionClick);
-    socket.emit('selectBase', { tid: tid });
-    return;
-  }
-
-
-
-
-  if (state.game.phase === 'EXPANSION_SELECTION') {
-    playOneShot(soundPlayers.actionClick);
-    socket.emit('selectExpansionTarget', { tid: tid });
-    return;
-  }
-
-
-
-
-  if (state.game.phase === 'BATTLE_SELECTION') {
-    playOneShot(soundPlayers.attackEnemyAction);
-    socket.emit('selectAttackTarget', { tid: tid });
-  }
+if (state.game.phase === 'BASE_SELECTION') {
+playOneShot(soundPlayers.actionClick);
+socket.emit('selectBase', { tid: tid });
+return;
 }
 
 
+if (state.game.phase === 'EXPANSION_SELECTION') {
+playOneShot(soundPlayers.actionClick);
+socket.emit('selectExpansionTarget', { tid: tid });
+return;
+}
 
+if (state.game.phase === 'BATTLE_SELECTION') {
+playOneShot(soundPlayers.attackEnemyAction);
+socket.emit('selectAttackTarget', { tid: tid });
+}
+}
 
 function getOwnerColor(pid) {
-  if (pid < 0 || pid >= PLAYER_FILL_COLORS.length) {
-    return UNOWNED_FILL;
-  }
-  return PLAYER_FILL_COLORS[pid];
+if (pid < 0 || pid >= PLAYER_FILL_COLORS.length) {
+return UNOWNED_FILL;
 }
-
-
-
+return PLAYER_FILL_COLORS[pid];
+}
 
 function getOwnerStroke(pid) {
-  if (pid < 0 || pid >= PLAYER_STROKE_COLORS.length) {
-    return UNOWNED_STROKE;
-  }
-  return PLAYER_STROKE_COLORS[pid];
+if (pid < 0 || pid >= PLAYER_STROKE_COLORS.length) {
+return UNOWNED_STROKE;
+
+
 }
-
-
-
+return PLAYER_STROKE_COLORS[pid];
+}
 
 function hexToRgb(hex) {
-  var value = (hex || '').replace('#', '');
-  if (value.length === 3) {
-    value = value.split('').map(function (part) { return part + part; }).join('');
-  }
-  var number = parseInt(value, 16);
-  if (!Number.isFinite(number)) {
-    return { r: 190, g: 190, b: 190 };
-  }
-  return {
-    r: (number >> 16) & 255,
-    g: (number >> 8) & 255,
-    b: number & 255,
-  };
+var value = (hex || '').replace('#', '');
+if (value.length === 3) {
+value = value.split('').map(function (part) { return part + part; }).join('');
 }
-
-
-
+var number = parseInt(value, 16);
+if (!Number.isFinite(number)) {
+return { r: 190, g: 190, b: 190 };
+}
+return {
+r: (number >> 16) & 255,
+g: (number >> 8) & 255,
+b: number & 255,
+};
+}
 
 function rgba(hex, alpha) {
-  var rgb = hexToRgb(hex);
-  return 'rgba(' + rgb.r + ',' + rgb.g + ',' + rgb.b + ',' + alpha + ')';
+var rgb = hexToRgb(hex);
+return 'rgba(' + rgb.r + ',' + rgb.g + ',' + rgb.b + ',' + alpha + ')';
 }
-
-
 
 
 function lightenHex(hex, amount) {
-  var rgb = hexToRgb(hex);
-  var r = Math.round(rgb.r + (255 - rgb.r) * amount);
-  var g = Math.round(rgb.g + (255 - rgb.g) * amount);
-  var b = Math.round(rgb.b + (255 - rgb.b) * amount);
-  return 'rgb(' + r + ',' + g + ',' + b + ')';
+var rgb = hexToRgb(hex);
+var r = Math.round(rgb.r + (255 - rgb.r) * amount);
+var g = Math.round(rgb.g + (255 - rgb.g) * amount);
+var b = Math.round(rgb.b + (255 - rgb.b) * amount);
+return 'rgb(' + r + ',' + g + ',' + b + ')';
 }
-
-
-
 
 function getPlayerByPid(pid) {
-  return state.players.find(function (player) { return player.pid === pid; }) || null;
+return state.players.find(function (player) { return player.pid === pid; }) || null;
 }
-
-
-
 
 function getPlayerDisplayName(player) {
-  if (!player) {
-    return '—';
-  }
-  return player.name && player.name !== 'x' ? player.name : (PLAYER_NAMES_FALLBACK[player.pid] || ('P' + player.pid));
+if (!player) {
+return '—';
 }
-
-
-
+return player.name && player.name !== 'x' ? player.name :
+(PLAYER_NAMES_FALLBACK[player.pid] || ('P' + player.pid));
+}
 
 function getTerritoryByTid(tid) {
-  return state.territories.find(function (territory) { return territory.tid === tid; }) || null;
+return state.territories.find(function (territory) { return territory.tid === tid; }) || null;
+
+
 }
-
-
-
 
 function getCastleByTid(tid) {
-  return state.castles.find(function (castle) { return castle.tid === tid && castle.active; }) || null;
+return state.castles.find(function (castle) { return castle.tid === tid && castle.active; }) ||
+null;
 }
-
-
-
 
 function getExpansionSelectableTargets(pid) {
-  var owned = state.territories.filter(function (territory) { return territory.ownsto === pid; });
-  var unowned = state.territories.filter(function (territory) { return territory.ownsto === -1; }).map(function (territory) { return territory.tid; });
-  if (!owned.length) {
-    return { adjacent: [], all: unowned };
-  }
-
-
-
-
-  var adjacent = [];
-  var seen = {};
-  owned.forEach(function (territory) {
-    territory.neighbors.forEach(function (neighborTid) {
-      var neighbor = getTerritoryByTid(neighborTid);
-      if (neighbor && neighbor.ownsto === -1 && !seen[neighborTid]) {
-        seen[neighborTid] = true;
-        adjacent.push(neighborTid);
-      }
-    });
-  });
-
-
-
-
-  var reserved = (state.game && state.game.reservedTerritories) || [];
-  return {
-    adjacent: adjacent.filter(function (tid) { return reserved.indexOf(tid) === -1; }),
-    all: unowned.filter(function (tid) { return reserved.indexOf(tid) === -1; }),
-  };
+var owned = state.territories.filter(function (territory) { return territory.ownsto === pid; });
+var unowned = state.territories.filter(function (territory) { return territory.ownsto === -1;
+}).map(function (territory) { return territory.tid; });
+if (!owned.length) {
+return { adjacent: [], all: unowned };
 }
 
+var adjacent = [];
+var seen = {};
+owned.forEach(function (territory) {
+territory.neighbors.forEach(function (neighborTid) {
+var neighbor = getTerritoryByTid(neighborTid);
+if (neighbor && neighbor.ownsto === -1 && !seen[neighborTid]) {
+seen[neighborTid] = true;
+adjacent.push(neighborTid);
+}
+});
 
 
+});
+
+var reserved = (state.game && state.game.reservedTerritories) || [];
+return {
+adjacent: adjacent.filter(function (tid) { return reserved.indexOf(tid) === -1; }),
+all: unowned.filter(function (tid) { return reserved.indexOf(tid) === -1; }),
+};
+}
 
 function getAttackableTargets(pid) {
-  var seen = {};
-  var targets = [];
-  state.territories.forEach(function (territory) {
-    if (territory.ownsto !== pid) return;
-    territory.neighbors.forEach(function (neighborTid) {
-      var neighbor = getTerritoryByTid(neighborTid);
-      if (!neighbor) return;
-      if (neighbor.ownsto >= 0 && neighbor.ownsto !== pid && !seen[neighborTid]) {
-        seen[neighborTid] = true;
-        targets.push(neighborTid);
-      }
-    });
-  });
-  return targets;
+var seen = {};
+var targets = [];
+state.territories.forEach(function (territory) {
+if (territory.ownsto !== pid) return;
+territory.neighbors.forEach(function (neighborTid) {
+var neighbor = getTerritoryByTid(neighborTid);
+if (!neighbor) return;
+if (neighbor.ownsto >= 0 && neighbor.ownsto !== pid && !seen[neighborTid]) {
+seen[neighborTid] = true;
+targets.push(neighborTid);
 }
-
-
+});
+});
+return targets;
+}
 
 
 function isSelectableBase(tid) {
-  var territory = getTerritoryByTid(tid);
-  if (!territory || territory.ownsto !== -1) return false;
-  return !state.castles.some(function (castle) {
-    if (!castle.active) return false;
-    var castleTerritory = getTerritoryByTid(castle.tid);
-    return castleTerritory && castleTerritory.neighbors.indexOf(tid) !== -1;
-  });
+var territory = getTerritoryByTid(tid);
+if (!territory || territory.ownsto !== -1) return false;
+return !state.castles.some(function (castle) {
+if (!castle.active) return false;
+var castleTerritory = getTerritoryByTid(castle.tid);
+return castleTerritory && castleTerritory.neighbors.indexOf(tid) !== -1;
+});
 }
-
-
-
 
 function isSelectableExpansion(tid) {
-  if (!USER) return false;
-  var selection = getExpansionSelectableTargets(USER.pid);
-  if (selection.adjacent.length) {
-    return selection.adjacent.indexOf(tid) !== -1;
-  }
-  return selection.all.indexOf(tid) !== -1;
+if (!USER) return false;
+var selection = getExpansionSelectableTargets(USER.pid);
+if (selection.adjacent.length) {
+return selection.adjacent.indexOf(tid) !== -1;
 }
-
-
-
+return selection.all.indexOf(tid) !== -1;
+}
 
 function isSelectableAttack(tid) {
-  if (!USER) return false;
-  return getAttackableTargets(USER.pid).indexOf(tid) !== -1;
+if (!USER) return false;
+return getAttackableTargets(USER.pid).indexOf(tid) !== -1;
 }
-
-
 
 
 function buildLayerStyle(tid) {
-  var territory = getTerritoryByTid(tid);
-  if (!territory) return null;
+var territory = getTerritoryByTid(tid);
+if (!territory) return null;
+
+var castle = getCastleByTid(tid);
+var ownerFill = territory.ownsto >= 0 ? getOwnerColor(territory.ownsto) :
+UNOWNED_FILL;
+var ownerStroke = territory.ownsto >= 0 ? getOwnerStroke(territory.ownsto) :
+UNOWNED_STROKE;
+
+var style = {
+weight: castle ? 4 : 2,
+opacity: 1,
+color: ownerStroke,
+dashArray: castle ? '' : '4 4',
+fillOpacity: territory.ownsto >= 0 ? 0.9 : 0.58,
+fillColor: ownerFill,
+};
+
+if (!gameFinished && state.game && USER && state.game.currentplayer === USER.pid) {
+if (state.game.phase === 'BASE_SELECTION' && isSelectableBase(tid)) {
+style.weight = 4;
 
 
-
-
-  var castle = getCastleByTid(tid);
-  var ownerFill = territory.ownsto >= 0 ? getOwnerColor(territory.ownsto) : UNOWNED_FILL;
-  var ownerStroke = territory.ownsto >= 0 ? getOwnerStroke(territory.ownsto) : UNOWNED_STROKE;
-
-
-
-
-  var style = {
-    weight: castle ? 4 : 2,
-    opacity: 1,
-    color: ownerStroke,
-    dashArray: castle ? '' : '4 4',
-    fillOpacity: territory.ownsto >= 0 ? 0.9 : 0.58,
-    fillColor: ownerFill,
-  };
-
-
-
-
-  if (!gameFinished && state.game && USER && state.game.currentplayer === USER.pid) {
-    if (state.game.phase === 'BASE_SELECTION' && isSelectableBase(tid)) {
-      style.weight = 4;
-      style.color = '#f3d8a3';
-      style.fillColor = lightenHex(ownerFill, 0.18);
-      style.fillOpacity = 0.72;
-      style.dashArray = '';
-    }
-
-
-
-
-    if (state.game.phase === 'EXPANSION_SELECTION' && isSelectableExpansion(tid)) {
-      style.weight = 4;
-      style.color = '#f4ddab';
-      style.fillColor = rgba(getOwnerColor(USER.pid), 0.76);
-      style.fillOpacity = 0.8;
-      style.dashArray = '';
-    }
-
-
-
-
-    if (state.game.phase === 'BATTLE_SELECTION' && isSelectableAttack(tid)) {
-      style.weight = 5;
-      style.color = '#f7e1a0';
-      style.fillColor = rgba(getOwnerColor(USER.pid), 0.72);
-      style.fillOpacity = 0.84;
-      style.dashArray = '';
-    }
-  }
-
-
-
-
-  return style;
+style.color = '#f3d8a3';
+style.fillColor = lightenHex(ownerFill, 0.18);
+style.fillOpacity = 0.72;
+style.dashArray = '';
 }
 
+if (state.game.phase === 'EXPANSION_SELECTION' && isSelectableExpansion(tid)) {
+style.weight = 4;
+style.color = '#f4ddab';
+style.fillColor = rgba(getOwnerColor(USER.pid), 0.76);
+style.fillOpacity = 0.8;
+style.dashArray = '';
+}
+
+if (state.game.phase === 'BATTLE_SELECTION' && isSelectableAttack(tid)) {
+style.weight = 5;
+style.color = '#f7e1a0';
+style.fillColor = rgba(getOwnerColor(USER.pid), 0.72);
+style.fillOpacity = 0.84;
+style.dashArray = '';
+}
+}
+
+return style;
 
 
+}
 
 function applyLayerStyle(layer, tid) {
-  var territory = getTerritoryByTid(tid);
-  if (!territory) return;
+var territory = getTerritoryByTid(tid);
+if (!territory) return;
+
+var castle = getCastleByTid(tid);
+var style = buildLayerStyle(tid);
+if (!style) return;
+
+layer.setStyle(style);
+
+var owner = getPlayerByPid(territory.ownsto);
+var label = castle ? ('<div class="castle-pill"><span class="castle-pillicon">♜</span><span>' + castle.hp + '</span></div>') : '';
+label += buildSelectionPreviewMarkup(tid);
+if (layer.getTooltip()) {
+layer.unbindTooltip();
+}
+if (label) {
+layer.bindTooltip(label, {
+permanent: true,
+direction: 'center',
 
 
-
-
-  var castle = getCastleByTid(tid);
-  var style = buildLayerStyle(tid);
-  if (!style) return;
-
-
-
-
-  layer.setStyle(style);
-
-
-
-
-  var owner = getPlayerByPid(territory.ownsto);
-  var label = castle ? ('<div class="castle-pill"><span class="castle-pill-icon">♜</span><span>' + castle.hp + '</span></div>') : '';
-  if (layer.getTooltip()) {
-    layer.unbindTooltip();
-  }
-  if (label) {
-    layer.bindTooltip(label, {
-      permanent: true,
-      direction: 'center',
-      className: 'countryLabel castle-label ' + 'countryLabel' + (territory.ownsto >= 0 ? territory.ownsto : 0)
-    });
-  }
-
-
-
-
+className: 'countryLabel castle-label ' + 'countryLabel' + (territory.ownsto >= 0 ?
+territory.ownsto : 0)
+});
 }
 
-
-
+}
 
 function renderAllTerritories() {
-  mapTerritories.forEach(function (layer, tid) {
-    applyLayerStyle(layer, tid);
-  });
+mapTerritories.forEach(function (layer, tid) {
+applyLayerStyle(layer, tid);
+});
 }
-
-
-
 
 function getCurrentPhaseGroup() {
-  if (!state.game || !state.game.phase) return 'WAIT';
-  if (state.game.phase === 'BASE_SELECTION') return 'BASE';
-  if (state.game.phase.indexOf('EXPANSION') === 0) return 'EXPANSION';
-  if (state.game.phase.indexOf('BATTLE') === 0) return 'BATTLE';
-  if (state.game.phase === 'FINISHED') return 'FINISHED';
-  return 'WAIT';
+if (!state.game || !state.game.phase) return 'WAIT';
+if (state.game.phase === 'BASE_SELECTION') return 'BASE';
+if (state.game.phase.indexOf('EXPANSION') === 0) return 'EXPANSION';
+if (state.game.phase.indexOf('BATTLE') === 0) return 'BATTLE';
+if (state.game.phase === 'FINISHED') return 'FINISHED';
+return 'WAIT';
 }
-
-
-
 
 function renderPlayerCards() {
-  var html = state.players
-    .slice()
-    .sort(function (a, b) { return a.pid - b.pid; })
-    .map(function (player) {
-      var castle = state.castles.find(function (item) { return item.pid === player.pid && item.active; });
-      var classes = ['player-card', 'player-card-sword'];
-      if (USER && USER.pid === player.pid) classes.push('is-me');
-      if (state.game && state.game.currentplayer === player.pid) classes.push('is-turn');
-      if (!player.connected && !player.eliminated) classes.push('is-offline');
-      if (player.eliminated) classes.push('is-eliminated');
 
 
+var html = state.players
+.slice()
+.sort(function (a, b) { return a.pid - b.pid; })
+.map(function (player) {
+var castle = state.castles.find(function (item) { return item.pid === player.pid &&
+item.active; });
+var classes = ['player-card', 'player-card-sword'];
+if (USER && USER.pid === player.pid) classes.push('is-me');
+if (state.game && state.game.currentplayer === player.pid) classes.push('is-turn');
+if (!player.connected && !player.eliminated) classes.push('is-offline');
+if (player.eliminated) classes.push('is-eliminated');
+
+var status = 'aktív';
+if (player.eliminated) status = 'kiesett';
+else if (!player.connected) status = 'offline';
+else if (state.game && state.game.currentplayer === player.pid) status = 'soron van';
+
+var castleTowers = castle ? castle.hp : 0;
+
+return [
+'<div class="' + classes.join(' ') + '">',
+'<div class="player-card-accent" style="background:' + getOwnerColor(player.pid) +
+';"></div>',
+'<div class="player-card-gem" style="background:' + getOwnerColor(player.pid) +
+';"></div>',
 
 
-      var status = 'aktív';
-      if (player.eliminated) status = 'kiesett';
-      else if (!player.connected) status = 'offline';
-      else if (state.game && state.game.currentplayer === player.pid) status = 'soron van';
+'<div class="player-card-body">',
+'<div class="player-name-row">',
+'<div class="player-name">' + escapeHtml(getPlayerDisplayName(player)) + '</div>',
+'<div class="player-sub">' + escapeHtml(status) + '</div>',
+'</div>',
+'<div class="player-mini-stats">',
+'<span class="player-mini-stat"><strong>' + player.score +
+'</strong><em>PONT</em></span>',
+'<span class="player-mini-stat"><strong>' + player.territories.length +
+'</strong><em>TER.</em></span>',
+'<span class="player-mini-stat"><strong>' + castleTowers +
+'</strong><em>TORONY</em></span>',
+'</div>',
+'</div>',
+'</div>'
+].join('');
+})
+.join('');
 
-
-
-
-      var castleTowers = castle ? castle.hp : 0;
-
-
-
-
-      return [
-        '<div class="' + classes.join(' ') + '">',
-        '<div class="player-card-accent" style="background:' + getOwnerColor(player.pid) + ';"></div>',
-        '<div class="player-card-gem" style="background:' + getOwnerColor(player.pid) + ';"></div>',
-        '<div class="player-card-body">',
-        '<div class="player-name-row">',
-        '<div class="player-name">' + escapeHtml(getPlayerDisplayName(player)) + '</div>',
-        '<div class="player-sub">' + escapeHtml(status) + '</div>',
-        '</div>',
-        '<div class="player-mini-stats">',
-        '<span class="player-mini-stat"><strong>' + player.score + '</strong><em>PONT</em></span>',
-        '<span class="player-mini-stat"><strong>' + player.territories.length + '</strong><em>TER.</em></span>',
-        '<span class="player-mini-stat"><strong>' + castleTowers + '</strong><em>TORONY</em></span>',
-        '</div>',
-        '</div>',
-        '</div>'
-      ].join('');
-    })
-    .join('');
-
-
-
-
-  playercards.innerHTML = html;
+playercards.innerHTML = html;
 }
-
-
-
 
 function renderPhaseBoard() {
-  if (!state.game) {
-    phaseboard.innerHTML = '';
-    return;
-  }
+if (!state.game) {
+phaseboard.innerHTML = '';
+return;
 
 
-
-
-  var phaseGroup = getCurrentPhaseGroup();
-  var title = 'Várakozás';
-  var subtitle = 'A meccs előkészítése folyamatban.';
-
-
-
-
-  if (phaseGroup === 'BASE') {
-    title = 'Bázisfoglalás';
-    subtitle = 'Mindenki kijelöli a saját kezdő várát.';
-  } else if (phaseGroup === 'EXPANSION') {
-    title = 'Területfoglalás';
-    subtitle = 'Foglalási kör: ' + Math.max(1, state.game.expansionRound || 1) + '/6';
-  } else if (phaseGroup === 'BATTLE') {
-    title = 'Csata';
-    subtitle = 'Csatakör: ' + Math.max(1, state.game.battleRound || 1) + '/6';
-  } else if (phaseGroup === 'FINISHED') {
-    title = 'Vége';
-    subtitle = 'A meccs lezárult.';
-  }
-
-
-
-
-  phaseboard.innerHTML = [
-    '<div class="phase-compact">',
-    '<div class="phase-compact-title">' + escapeHtml(title) + '</div>',
-    '<div class="phase-compact-sub">' + escapeHtml(subtitle) + '</div>',
-    '</div>'
-  ].join('');
 }
 
+var phaseGroup = getCurrentPhaseGroup();
+var title = 'Várakozás';
+var subtitle = 'A meccs előkészítése folyamatban.';
+
+if (phaseGroup === 'BASE') {
+title = 'Bázisfoglalás';
+subtitle = 'Mindenki kijelöli a saját kezdő várát.';
+} else if (phaseGroup === 'EXPANSION') {
+title = 'Területfoglalás';
+subtitle = 'Foglalási kör: ' + Math.max(1, state.game.expansionRound || 1) + '/6';
+} else if (phaseGroup === 'BATTLE') {
+title = 'Csata';
+subtitle = 'Csatakör: ' + Math.max(1, state.game.battleRound || 1) + '/6';
+} else if (phaseGroup === 'FINISHED') {
+title = 'Vége';
+subtitle = 'A meccs lezárult.';
+}
+
+phaseboard.innerHTML = [
+'<div class="phase-compact">',
+'<div class="phase-compact-title">' + escapeHtml(title) + '</div>',
+'<div class="phase-compact-sub">' + escapeHtml(subtitle) + '</div>',
 
 
+'</div>'
+].join('');
+}
 
 function getPermutations(arr) {
-  var result = [];
-  function permute(prefix, rest) {
-    if (!rest.length) {
-      result.push(prefix);
-      return;
-    }
-    for (var i = 0; i < rest.length; i++) {
-      permute(prefix.concat(rest[i]), rest.slice(0, i).concat(rest.slice(i + 1)));
-    }
-  }
-  permute([], arr.slice());
-  return result;
+var result = [];
+function permute(prefix, rest) {
+if (!rest.length) {
+result.push(prefix);
+return;
 }
-
-
-
+for (var i = 0; i < rest.length; i++) {
+permute(prefix.concat(rest[i]), rest.slice(0, i).concat(rest.slice(i + 1)));
+}
+}
+permute([], arr.slice());
+return result;
+}
 
 function renderOrderBoard() {
-  if (!state.game) {
-    orderboard.innerHTML = '';
-    ordermeta.innerHTML = '';
-    ordersummary.innerHTML = '';
-    return;
-  }
+if (!state.game) {
+orderboard.innerHTML = '';
+ordermeta.innerHTML = '';
+ordersummary.innerHTML = '';
+return;
 
 
-
-
-  var orderedPlayers = state.players.slice().sort(function (a, b) { return a.pid - b.pid; }).map(function (player) { return player.pid; });
-  var orders = getPermutations(orderedPlayers);
-  var currentOrderKey = (state.game.currentOrder || []).join('-');
-  var currentIndex = orders.findIndex(function (order) { return order.join('-') === currentOrderKey; });
-  var phaseGroup = getCurrentPhaseGroup();
-  var roundNumber = phaseGroup === 'BATTLE' ? (state.game.battleRound || 0) : (state.game.expansionRound || 0);
-  var phaseRound = Math.max(1, roundNumber || 1);
-
-
-
-
-  ordermeta.textContent = phaseGroup === 'BATTLE' ? ('Csata • ' + phaseRound + '/6') : (phaseGroup === 'EXPANSION' ? ('Foglalás • ' + phaseRound + '/6') : 'Sorrendciklus');
-  ordersummary.textContent = currentIndex >= 0 ? ('Aktív sor: ' + (currentIndex + 1) + '/6') : 'Aktív sor: —';
-
-
-
-
-  orderboard.innerHTML = '<div class="cycle-board">' + orders.map(function (order, rowIndex) {
-    var isCurrent = rowIndex === currentIndex;
-    return [
-      '<div class="cycle-row ' + (isCurrent ? 'is-current' : '') + '">',
-      '<div class="cycle-arrow">' + (isCurrent ? '➜' : '') + '</div>',
-      '<div class="cycle-dots">',
-      order.map(function (pid) {
-        var player = getPlayerByPid(pid);
-        var label = player ? getPlayerDisplayName(player).charAt(0).toUpperCase() : '';
-        return '<span class="cycle-dot ' + (isCurrent && state.game.currentplayer === pid ? 'is-turn' : '') + '" style="background:' + getOwnerColor(pid) + '" title="' + escapeHtml(getPlayerDisplayName(player)) + '">' + escapeHtml(label) + '</span>';
-      }).join(''),
-      '</div>',
-      '</div>'
-    ].join('');
-  }).join('') + '</div>';
 }
 
+var orderedPlayers = state.players.slice().sort(function (a, b) { return a.pid - b.pid;
+}).map(function (player) { return player.pid; });
+var orders = getPermutations(orderedPlayers);
+var currentOrderKey = (state.game.currentOrder || []).join('-');
+var currentIndex = orders.findIndex(function (order) { return order.join('-') ===
+currentOrderKey; });
+var phaseGroup = getCurrentPhaseGroup();
+var roundNumber = phaseGroup === 'BATTLE' ? (state.game.battleRound || 0) :
+(state.game.expansionRound || 0);
+var phaseRound = Math.max(1, roundNumber || 1);
+
+ordermeta.textContent = phaseGroup === 'BATTLE' ? ('Csata • ' + phaseRound + '/6') :
+(phaseGroup === 'EXPANSION' ? ('Foglalás • ' + phaseRound + '/6') : 'Sorrendciklus');
+ordersummary.textContent = currentIndex >= 0 ? ('Aktív sor: ' + (currentIndex + 1) + '/6') :
+'Aktív sor: —';
+
+orderboard.innerHTML = '<div class="cycle-board">' + orders.map(function (order,
+rowIndex) {
+var isCurrent = rowIndex === currentIndex;
+return [
+'<div class="cycle-row ' + (isCurrent ? 'is-current' : '') + '">',
+'<div class="cycle-arrow">' + (isCurrent ? '➜' : '') + '</div>',
+'<div class="cycle-dots">',
+order.map(function (pid) {
 
 
+var player = getPlayerByPid(pid);
+var label = player ? getPlayerDisplayName(player).charAt(0).toUpperCase() : '';
+return '<span class="cycle-dot ' + (isCurrent && state.game.currentplayer === pid ?
+'is-turn' : '') + '" style="background:' + getOwnerColor(pid) + '" title="' +
+escapeHtml(getPlayerDisplayName(player)) + '">' + escapeHtml(label) + '</span>';
+}).join(''),
+'</div>',
+'</div>'
+].join('');
+}).join('') + '</div>';
+}
 
 function renderStatus() {
-  if (!state.game) return;
+if (!state.game) return;
 
+var current = getPlayerByPid(state.game.currentplayer);
 
-
-
-  var current = getPlayerByPid(state.game.currentplayer);
-
-
-
-
-  if (gameFinished) {
-    return;
-  }
-
-
-
-
-  if (!USER) {
-    setStatus('A saját játékosprofil szinkronizálása folyamatban.');
-    return;
-  }
-
-
-
-
-  if (state.game.phase === 'WAITING_FOR_PLAYERS') {
-    setStatus('Várakozás a játékosokra.');
-  } else if (state.game.phase === 'BASE_SELECTION') {
-    setStatus(state.game.currentplayer === USER.pid ? 'Te választasz bázist. Kattints egy érvényes üres mezőre.' : 'Most más választ bázist.');
-  } else if (state.game.phase === 'EXPANSION_SELECTION') {
-    var selectable = getExpansionSelectableTargets(USER.pid);
-    var canChooseAny = selectable.adjacent.length === 0;
-    if (state.game.currentplayer === USER.pid) {
-      setStatus(canChooseAny
-        ? 'Te jössz. Nincs szomszédos üres meződ, ezért bármelyik szabad mezőt választhatod.'
-        : 'Te jössz. Válassz egy szomszédos üres mezőt a területszerzéshez.');
-    } else {
-      setStatus('Most más választ foglalási célpontot.');
-    }
-  } else if (state.game.phase === 'EXPANSION_QUESTION') {
-    setStatus('Közös foglalási kérdés fut.');
-  } else if (state.game.phase === 'BATTLE_SELECTION') {
-    setStatus(state.game.currentplayer === USER.pid ? 'Te támadsz. A halványan kiemelt területek támadhatók.' : 'Most más támad.');
-  } else if (state.game.phase === 'BATTLE_QUESTION') {
-    setStatus('Csatakérdés fut.');
-  } else if (state.game.phase === 'FINISHED') {
-    setStatus('A meccs véget ért.');
-  }
+if (gameFinished) {
+return;
 }
 
+if (!USER) {
+setStatus('A saját játékosprofil szinkronizálása folyamatban.');
 
 
+return;
+}
+
+if (state.game.phase === 'WAITING_FOR_PLAYERS') {
+setStatus('Várakozás a játékosokra.');
+} else if (state.game.phase === 'BASE_SELECTION') {
+setStatus(state.game.currentplayer === USER.pid ? 'Te választasz bázist. Kattints egy érvényes üres mezőre.' : 'Most más választ bázist.');
+} else if (state.game.phase === 'EXPANSION_SELECTION') {
+var selectable = getExpansionSelectableTargets(USER.pid);
+var canChooseAny = selectable.adjacent.length === 0;
+if (state.game.currentplayer === USER.pid) {
+setStatus(canChooseAny
+? 'Te jössz. Nincs szomszédos üres meződ, ezért bármelyik szabad mezőt választhatod.'
+: 'Te jössz. Válassz egy szomszédos üres mezőt a területszerzéshez.');
+} else {
+setStatus('Most más választ foglalási célpontot.');
+}
+} else if (state.game.phase === 'EXPANSION_QUESTION') {
+setStatus('Közös foglalási kérdés fut.');
+} else if (state.game.phase === 'BATTLE_SELECTION') {
+setStatus(state.game.currentplayer === USER.pid ? 'Te támadsz. A halványan kiemelt területek támadhatók.' : 'Most más támad.');
+} else if (state.game.phase === 'BATTLE_QUESTION') {
+setStatus('Csatakérdés fut.');
+} else if (state.game.phase === 'FINISHED') {
+setStatus('A meccs véget ért.');
+
+
+}
+}
 
 function renderHUD() {
-  renderPlayerCards();
-  renderPhaseBoard();
-  renderOrderBoard();
-  renderStatus();
+renderPlayerCards();
+renderPhaseBoard();
+renderOrderBoard();
+renderStatus();
 }
-
-
-
 
 function setStatus(text) {
-  gamestatus.textContent = text;
+gamestatus.textContent = text;
 }
-
-
-
 
 function showPhaseSplash(title) {
-  if (!phaseSplash || !phaseSplashTitle) return;
-  clearTimeout(phaseSplashTimer);
-  phaseSplashTitle.textContent = title;
-  phaseSplash.classList.add('is-visible');
-  phaseSplashTimer = setTimeout(function () {
-    phaseSplash.classList.remove('is-visible');
-  }, 1800);
+if (!phaseSplash || !phaseSplashTitle) return;
+clearTimeout(phaseSplashTimer);
+phaseSplashTitle.textContent = title;
+phaseSplash.classList.add('is-visible');
+phaseSplashTimer = setTimeout(function () {
+phaseSplash.classList.remove('is-visible');
+}, 1800);
 }
-
-
 
 
 function maybeShowPhaseSplash() {
-  var phaseGroup = getCurrentPhaseGroup();
-  if (!phaseGroup || phaseGroup === 'WAIT' || phaseGroup === 'FINISHED') {
-    return;
-  }
-  if (phaseGroup === lastPhaseGroupShown) {
-    return;
-  }
-  lastPhaseGroupShown = phaseGroup;
-  if (phaseGroup === 'BASE') showPhaseSplash('BÁZISFOGLALÁS');
-  if (phaseGroup === 'EXPANSION') showPhaseSplash('TERÜLETFOGLALÁS');
-  if (phaseGroup === 'BATTLE') showPhaseSplash('CSATA');
-  playPopupPhaseVoice(phaseGroup);
+var phaseGroup = getCurrentPhaseGroup();
+if (!phaseGroup || phaseGroup === 'WAIT' || phaseGroup === 'FINISHED') {
+return;
 }
-
-
-
+if (phaseGroup === lastPhaseGroupShown) {
+return;
+}
+lastPhaseGroupShown = phaseGroup;
+if (phaseGroup === 'BASE') showPhaseSplash('BÁZISFOGLALÁS');
+if (phaseGroup === 'EXPANSION') showPhaseSplash('TERÜLETFOGLALÁS');
+if (phaseGroup === 'BATTLE') showPhaseSplash('CSATA');
+playPopupPhaseVoice(phaseGroup);
+if (phaseGroup === 'BASE' && USER && !playerColorNoticeShown) {
+playerColorNoticeShown = true;
+setTimeout(function () {
+showPlayerColorNotice();
+}, 320);
+}
+}
 
 function showWinnerModal(winner) {
-  if (!winnerModal || !winnerTitle || !winnerSubtitle) return;
-  winnerTitle.textContent = winner ? (getPlayerDisplayName(winner) + ' nyert!') : 'A meccs véget ért';
-  winnerSubtitle.textContent = winner && USER && winner.pid === USER.pid
-    ? 'Gratulálok, te győztél.'
-    : (winner ? ('Győztes: ' + getPlayerDisplayName(winner)) : 'A győztes nem ismert.');
-  winnerModal.classList.add('is-visible');
+if (!winnerModal || !winnerTitle || !winnerSubtitle) return;
+winnerTitle.textContent = winner ? (getPlayerDisplayName(winner) + ' nyert!') : 'A meccs véget ért';
+winnerSubtitle.textContent = winner && USER && winner.pid === USER.pid
+? 'Gratulálok, te győztél.'
+: (winner ? ('Győztes: ' + getPlayerDisplayName(winner)) : 'A győztes nem ismert.');
+winnerModal.classList.add('is-visible');
 }
-
-
 
 
 function finishGame(winnerPid) {
-  gameFinished = true;
-  hideQuestion();
-  var winner = getPlayerByPid(winnerPid);
-  setStatus(winner && USER && winner.pid === USER.pid ? 'Megnyerted a meccset.' : 'A meccs véget ért. Győztes: ' + (winner ? getPlayerDisplayName(winner) : 'ismeretlen'));
-  renderAllTerritories();
-  renderHUD();
-  syncBackgroundMusic();
-  showWinnerModal(winner);
+gameFinished = true;
+hideQuestion();
+var winner = getPlayerByPid(winnerPid);
+setStatus(winner && USER && winner.pid === USER.pid ? 'Megnyerted a meccset.' : 'A meccs véget ért. Győztes: ' + (winner ? getPlayerDisplayName(winner) : 'ismeretlen'));
+renderAllTerritories();
+renderHUD();
+syncBackgroundMusic();
+showWinnerModal(winner);
 }
-
-
-
 
 function onStateSnapshot(payload) {
-  var previousState = state;
-  state = payload;
-  USER = state.players.find(function (player) { return player.name === username; }) || null;
-  maybePlayTerritoryCaptureSound(soundState.lastSnapshotSeen ? previousState : null, state);
-  soundState.lastSnapshotSeen = true;
-  renderAllTerritories();
-  renderHUD();
-  maybeShowPhaseSplash();
-  syncBackgroundMusic();
-  if (state.game && state.game.phase === 'FINISHED' && !gameFinished) {
-    finishGame(state.game.winner);
-  }
+var previousState = state;
+state = payload;
+USER = state.players.find(function (player) { return player.name === username; }) || null;
+syncSelectionPreviewFromState();
+maybePlayTerritoryCaptureSound(soundState.lastSnapshotSeen ? previousState : null,
+state);
+soundState.lastSnapshotSeen = true;
+renderAllTerritories();
+renderHUD();
+maybeShowPhaseSplash();
+syncBackgroundMusic();
+if (state.game && state.game.phase === 'FINISHED' && !gameFinished) {
+finishGame(state.game.winner);
+
+
 }
-
-
-
+}
 
 function initializeMap() {
-  function baseStyle() {
-    return {
-      fillColor: UNOWNED_FILL,
-      weight: 2,
-      opacity: 1,
-      color: UNOWNED_STROKE,
-      dashArray: '4 4',
-      fillOpacity: 0.58,
-    };
-  }
-
-
-
-
-  if (maplevel === 'medium') {
-    countriesLayer = L.geoJson(countries30, { style: baseStyle, onEachFeature: countriesOnEachFeature }).addTo(map);
-  } else {
-    countriesLayer = L.geoJson(countries, { style: baseStyle, onEachFeature: countriesOnEachFeature }).addTo(map);
-  }
+function baseStyle() {
+return {
+fillColor: UNOWNED_FILL,
+weight: 2,
+opacity: 1,
+color: UNOWNED_STROKE,
+dashArray: '4 4',
+fillOpacity: 0.58,
+};
 }
 
-
-
+if (maplevel === 'medium') {
+countriesLayer = L.geoJson(countries30, { style: baseStyle, onEachFeature:
+countriesOnEachFeature }).addTo(map);
+} else {
+countriesLayer = L.geoJson(countries, { style: baseStyle, onEachFeature:
+countriesOnEachFeature }).addTo(map);
+}
+}
 
 initializeMap();
 
 
-
-
 socket.on('stateSnapshot', onStateSnapshot);
 socket.on('question:start', function (question) {
-  showQuestion(question);
+if (question && question.context) {
+if (question.context.flow === 'EXPANSION' && question.context.pendingSelections) {
+selectionPreview.pendingSelections = question.context.pendingSelections;
+}
+if (question.context.flow === 'BATTLE') {
+selectionPreview.battleTargetTid = typeof question.context.targetTid === 'number' ? question.context.targetTid : null;
+selectionPreview.battleAttackerPid = typeof question.context.attackerPid === 'number' ? question.context.attackerPid : null;
+}
+}
+renderAllTerritories();
+showQuestion(question);
 });
 socket.on('question:resolved', function (payload) {
-  var myAnswer = USER && payload && payload.answers ? payload.answers[USER.pid] : null;
-  if (myAnswer && typeof myAnswer.correct === 'boolean') {
-    if (myAnswer.correct) {
-      playOneShot(soundPlayers.correctAction);
-      playAnswerVoice(true);
-    } else {
-      playAnswerVoice(false);
-    }
-  }
+var myAnswer = USER && payload && payload.answers ? payload.answers[USER.pid] :
+null;
+if (myAnswer && typeof myAnswer.correct === 'boolean') {
+if (myAnswer.correct) {
+playOneShot(soundPlayers.correctAction);
+playAnswerVoice(true);
+} else {
+playAnswerVoice(false);
+}
+}
 
-  if (payload && payload.revealLines && payload.revealLines.length) {
-    showQuestionReveal(payload);
-  } else {
-    hideQuestion();
-  }
-  if (payload.messages && payload.messages.length) {
-    setStatus(payload.messages.join(' '));
-  }
+if (payload && payload.revealLines && payload.revealLines.length) {
+showQuestionReveal(payload);
+} else {
+hideQuestion();
+}
+if (payload.messages && payload.messages.length) {
+setStatus(payload.messages.join(' '));
+}
 });
 socket.on('battle:result', function (payload) {
-  if (payload && payload.message) {
-    setStatus(payload.message);
-  }
+
+
+if (payload && payload.message) {
+setStatus(payload.message);
+}
 });
 socket.on('gamefinish', function (data) {
-  if (data && data.length) {
-    finishGame(data[0].winner);
-  } else {
-    finishGame();
-  }
+if (data && data.length) {
+finishGame(data[0].winner);
+} else {
+finishGame();
+}
 });
 socket.on('serverstatus', function (data) {
-  if (data && data.length) {
-    setStatus(data[0]);
-  }
+if (data && data.length) {
+setStatus(data[0]);
+}
 });
 socket.on('gamelog', function (data) {
-  if (!data || !data.length) return;
-  data.forEach(function (line) {
-    var gameLogMessage = document.createElement('div');
-    gameLogMessage.id = 'gamelogs';
-    gameLogMessage.innerHTML = line;
-    gamelogs.append(gameLogMessage);
-  });
-  $('#gamelog').scrollTop($('#gamelog')[0].scrollHeight);
+if (!data || !data.length) return;
+data.forEach(function (line) {
+var gameLogMessage = document.createElement('div');
+gameLogMessage.id = 'gamelogs';
+gameLogMessage.innerHTML = line;
+gamelogs.append(gameLogMessage);
+});
+$('#gamelog').scrollTop($('#gamelog')[0].scrollHeight);
 });
 socket.on('outputmsg', function (data) {
-  if (!data || !data.length) return;
-  data.forEach(function (item) {
-    var chatMessage = document.createElement('div');
-    chatMessage.id = 'chatmsgs';
-    chatMessage.innerHTML = '<b>' + escapeHtml(item.name) + '</b>: ' + escapeHtml(item.message);
-    messages.append(chatMessage);
-  });
-  $('#messages').scrollTop($('#messages')[0].scrollHeight);
+if (!data || !data.length) return;
+
+
+data.forEach(function (item) {
+var chatMessage = document.createElement('div');
+chatMessage.id = 'chatmsgs';
+chatMessage.innerHTML = '<b>' + escapeHtml(item.name) + '</b>: ' +
+escapeHtml(item.message);
+messages.append(chatMessage);
 });
-
-
-
+$('#messages').scrollTop($('#messages')[0].scrollHeight);
+});
 
 socket.on('connect', function () {
-  socket.emit('joingame', { username: username });
-  socket.emit('getmsgs', { gameid: gameid });
+socket.emit('joingame', { username: username });
+socket.emit('getmsgs', { gameid: gameid });
 });
-
-
-
 
 textarea.addEventListener('keydown', function (event) {
-  if (event.which === 13 && event.shiftKey === false) {
-    socket.emit('newmessage', {
-      gameid: gameid,
-      name: USER ? USER.name : username,
-      message: textarea.value,
-    });
-    textarea.value = '';
-    event.preventDefault();
-  }
+if (event.which === 13 && event.shiftKey === false) {
+socket.emit('newmessage', {
+gameid: gameid,
+name: USER ? USER.name : username,
+message: textarea.value,
 });
-
-
+textarea.value = '';
+event.preventDefault();
+}
+});
 
 
 window.onbeforeunload = function (e) {
-  e = e || window.event;
-  if (e) {
-    e.returnValue = 'Biztosan bezárod az oldalt?';
-  }
-  return 'Biztosan bezárod az oldalt?';
+e = e || window.event;
+if (e) {
+e.returnValue = 'Biztosan bezárod az oldalt?';
+}
+return 'Biztosan bezárod az oldalt?';
 };
+
+
