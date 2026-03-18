@@ -22,8 +22,8 @@ const TERRITORY_SCORE = 200;
 const CASTLE_SCORE_BONUS = 800; // 200 (territory) + 800 = 1000
 const DEFENSE_BONUS = 100;
 const MAX_BATTLE_ROUNDS = 6;
-const MCQ_TIME_LIMIT_MS = 180000;
-const GUESS_TIME_LIMIT_MS = 180000;
+const MCQ_TIME_LIMIT_MS = 18000;
+const GUESS_TIME_LIMIT_MS = 18000;
 
 
 
@@ -1367,7 +1367,6 @@ function emitSnapshot(room, socket = null) {
       expansionRound: room.game.expansionRound,
       battleRound: room.game.battleRound,
       reservedTerritories: room.game.reservedTerritories,
-      pendingSelections: room.game.pendingSelections || {},
       gamefinish: room.game.gamefinish,
       winner: room.game.winner ?? null,
     },
@@ -1401,7 +1400,6 @@ function publicQuestionContext(context) {
     flow: 'BATTLE',
     isCastle: Boolean(context.isCastle),
     targetTid: context.targetTid,
-    attackerPid: context.attackerPid,
     castleStage: context.castleStage || 1,
     duelType: context.duelType || 'PRIMARY',
   };
@@ -1443,11 +1441,20 @@ function drawMultipleChoiceQuestion(room) {
   if (room.usedMcqIds.size >= MULTIPLE_CHOICE_QUESTIONS.length) {
     room.usedMcqIds.clear();
   }
-  let question = MULTIPLE_CHOICE_QUESTIONS[Math.floor(Math.random() * MULTIPLE_CHOICE_QUESTIONS.length)];
-  while (room.usedMcqIds.has(question.id)) {
-    question = MULTIPLE_CHOICE_QUESTIONS[Math.floor(Math.random() * MULTIPLE_CHOICE_QUESTIONS.length)];
-  }
+
+  var availableQuestions = MULTIPLE_CHOICE_QUESTIONS.filter(function(question) {
+    return !room.usedMcqIds.has(question.id);
+  });
+
+  var preferredQuestions = availableQuestions.filter(function(question) {
+    return question.correctOptionIndex !== room.lastMcqCorrectOptionIndex;
+  });
+
+  var pool = preferredQuestions.length ? preferredQuestions : availableQuestions;
+  var question = pool[Math.floor(Math.random() * pool.length)];
+
   room.usedMcqIds.add(question.id);
+  room.lastMcqCorrectOptionIndex = question.correctOptionIndex;
   return question;
 }
 

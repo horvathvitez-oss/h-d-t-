@@ -11,6 +11,7 @@ var state = {
 var USER = null;
 var activeQuestionId = null;
 var questionCountdownInterval = null;
+var questionRevealTimer = null;
 
 
 
