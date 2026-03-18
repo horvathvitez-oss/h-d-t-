@@ -1,3 +1,4 @@
+
 module.exports = function(io, db) {
   var LobbyStore = require('./lobbyStore');
   var client = io.of('/lobby');
@@ -27,10 +28,10 @@ module.exports = function(io, db) {
   function emitLobbyState(gameid) {
     var lobby = LobbyStore.getLobby(gameid);
     if (!lobby) {
-      client.to(roomName(gameid)).emit('lobbyClosed');
+      client.in(roomName(gameid)).emit('lobbyClosed');
       return;
     }
-    client.to(roomName(gameid)).emit('lobbyState', toPublicLobbyState(lobby));
+    client.in(roomName(gameid)).emit('lobbyState', toPublicLobbyState(lobby));
   }
 
   function emitLobbyError(socket, message) {
@@ -38,6 +39,7 @@ module.exports = function(io, db) {
   }
 
   client.on('connection', function(socket) {
+
     socket.on('joinLobby', function(data) {
       var gameid = String((data && data.gameid) || '');
       var username = data && data.username;
@@ -61,8 +63,6 @@ module.exports = function(io, db) {
       }
 
       socket.join(roomName(gameid));
-
-      // régi Socket.IO kompatibilis tárolás
       socket._gameid = gameid;
       socket._username = username;
 
@@ -105,7 +105,7 @@ module.exports = function(io, db) {
         return emitLobbyError(socket, 'Nem sikerült elindítani a meccset.');
       }
 
-      client.to(roomName(gameid)).emit('matchStarted', { gameid: gameid });
+      client.in(roomName(gameid)).emit('matchStarted', { gameid: gameid });
       emitLobbyState(gameid);
     });
 
@@ -119,12 +119,13 @@ module.exports = function(io, db) {
       var leaveResult = LobbyStore.leaveLobby(gameid, username);
 
       if (leaveResult && leaveResult.destroyed) {
-        client.to(roomName(gameid)).emit('lobbyClosed');
+        client.in(roomName(gameid)).emit('lobbyClosed');
         return;
       }
 
       emitLobbyState(gameid);
     });
+
   });
 
   return client;
