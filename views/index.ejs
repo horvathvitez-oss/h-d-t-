@@ -6,10 +6,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
 
+
+
   <link rel="stylesheet" href="../../../public/map/lib/leaflet/leaflet.css" />
   <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" />
   <link rel="stylesheet" href="../../../public/map/style/style.css" />
   <link rel="stylesheet" href="/views/css/custom.css" />
+
+
 
 
   <script src="../../../public/map/lib/leaflet/leaflet.js"></script>
@@ -17,6 +21,8 @@
   <script src="../../../public/map/data/countries30.geojson"></script>
   <script src="/socket.io/socket.io.js"></script>
   <script src="https://code.jquery.com/jquery-3.3.1.min.js"></script>
+
+
 
 
   <script type="text/javascript">
@@ -28,11 +34,13 @@
     var creater = '<%=creater%>';
   </script>
 </head>
-<body class="game-screen">
+<body class="game-screen" data-sound-base="/sounds">
   <div class="game-top-promo-strip"><div class="game-top-promo-strip-track"><span>NEM MENNEK A KÉRDÉSEK? - KÖZÉPSULINEKED.COM</span><span>NEM MENNEK A KÉRDÉSEK? - KÖZÉPSULINEKED.COM</span><span>NEM MENNEK A KÉRDÉSEK? - KÖZÉPSULINEKED.COM</span></div></div>
   <div id="game-shell">
     <div id="map"></div>
     <div class="map-vignette"></div>
+
+
 
 
     <div id="phase-splash" class="phase-splash" aria-hidden="true">
@@ -41,6 +49,8 @@
         <div id="phase-splash-title" class="phase-splash-title">BÁZISFOGLALÁS</div>
       </div>
     </div>
+
+
 
 
     <div id="winner-modal" class="winner-modal" aria-hidden="true">
@@ -53,6 +63,8 @@
         </div>
       </div>
     </div>
+
+
 
 
     <header class="hud-top">
@@ -68,11 +80,15 @@
     </header>
 
 
+
+
     <aside class="hud-side hud-left">
       <section class="hud-card phase-card compact-phase-card">
         <div class="hud-card-title">Játékszakasz</div>
         <div id="phaseboard"></div>
       </section>
+
+
 
 
       <section class="hud-card order-card compact-order-card">
@@ -83,12 +99,16 @@
     </aside>
 
 
+
+
     <aside class="hud-side hud-right">
       <section class="hud-card status-card compact-status-card">
         <div class="hud-card-title">Státusz</div>
         <div id="gamestatus" class="status-line">Betöltés...</div>
         <div id="ordersummary" class="order-summary"></div>
       </section>
+
+
 
 
       <section class="hud-card chat-card compact-chat-card">
@@ -98,12 +118,16 @@
       </section>
 
 
+
+
       <section class="hud-card log-card compact-log-card">
         <div class="hud-card-title">Játéknapló</div>
         <div id="gamelog" class="hud-scroll panel-body"></div>
       </section>
     </aside>
   </div>
+
+
 
 
   <script src="../../../public/map/gamelogic.js"></script>

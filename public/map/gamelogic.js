@@ -13,9 +13,13 @@ var activeQuestionId = null;
 var questionCountdownInterval = null;
 
 
+
+
 var element = function (id) {
   return document.getElementById(id);
 };
+
+
 
 
 var messages = element('messages');
@@ -37,11 +41,190 @@ var phaseSplashTimer = null;
 var questionRevealTimer = null;
 
 
+
+
 var PLAYER_FILL_COLORS = ['#a95f4f', '#6d8660', '#d7cfbd'];
 var PLAYER_STROKE_COLORS = ['#5e2f20', '#334b31', '#7c7464'];
 var PLAYER_NAMES_FALLBACK = ['Piros', 'Zöld', 'Fehér'];
 var UNOWNED_FILL = '#b69f79';
 var UNOWNED_STROKE = '#5a442d';
+
+
+var SOUND_BASE = document.body.getAttribute('data-sound-base') || '/sounds';
+var soundState = {
+  unlocked: false,
+  goodVoiceCount: 0,
+  badVoiceCount: 0,
+  currentBg: null,
+  lastSnapshotSeen: false
+};
+
+var soundPlayers = {
+  lobbyBg: new Audio(SOUND_BASE + '/lobby_bg.mp3'),
+  gameBg: new Audio(SOUND_BASE + '/game_bg.mp3'),
+  battleBg: new Audio(SOUND_BASE + '/battle_bg.mp3'),
+  questionTimer: new Audio(SOUND_BASE + '/question_timer.mp3'),
+  popupBase: new Audio(SOUND_BASE + '/popup_base.mp3'),
+  popupExpansion: new Audio(SOUND_BASE + '/popup_expansion.mp3'),
+  popupBattle: new Audio(SOUND_BASE + '/popup_battle.mp3'),
+  actionClick: new Audio(SOUND_BASE + '/action_click.mp3'),
+  correctAction: new Audio(SOUND_BASE + '/correct_action.mp3'),
+  territoryCapture: new Audio(SOUND_BASE + '/territory_capture.mp3'),
+  attackEnemyAction: new Audio(SOUND_BASE + '/attack_enemy_action.mp3')
+};
+
+soundPlayers.lobbyBg.loop = true;
+soundPlayers.gameBg.loop = true;
+soundPlayers.battleBg.loop = true;
+soundPlayers.questionTimer.loop = true;
+
+function safePlay(audio) {
+  if (!audio) return;
+  try {
+    var playPromise = audio.play();
+    if (playPromise && typeof playPromise.catch === 'function') {
+      playPromise.catch(function () {});
+    }
+  } catch (e) {}
+}
+
+function playOneShot(audio) {
+  if (!audio) return;
+  try {
+    var clone = audio.cloneNode();
+    clone.volume = audio.volume;
+    safePlay(clone);
+  } catch (e) {
+    try {
+      audio.currentTime = 0;
+      safePlay(audio);
+    } catch (err) {}
+  }
+}
+
+function stopAudio(audio) {
+  if (!audio) return;
+  try {
+    audio.pause();
+    audio.currentTime = 0;
+  } catch (e) {}
+}
+
+function unlockSound() {
+  if (soundState.unlocked) return;
+  soundState.unlocked = true;
+  syncBackgroundMusic();
+}
+
+document.addEventListener('click', unlockSound, { once: true, capture: true });
+document.addEventListener('keydown', unlockSound, { once: true, capture: true });
+
+function syncBackgroundMusic() {
+  if (!soundState.unlocked) return;
+  var phaseGroup = getCurrentPhaseGroup();
+  var wanted = null;
+
+  if (gameFinished || phaseGroup === 'FINISHED' || phaseGroup === 'WAIT') {
+    wanted = null;
+  } else if (phaseGroup === 'BATTLE') {
+    wanted = 'battleBg';
+  } else if (state.game) {
+    wanted = 'gameBg';
+  }
+
+  if (soundState.currentBg === wanted) return;
+
+  stopAudio(soundPlayers.gameBg);
+  stopAudio(soundPlayers.battleBg);
+
+  soundState.currentBg = wanted;
+  if (wanted) safePlay(soundPlayers[wanted]);
+}
+
+function playPopupPhaseVoice(phaseGroup) {
+  if (!soundState.unlocked) return;
+  if (phaseGroup === 'BASE') playOneShot(soundPlayers.popupBase);
+  if (phaseGroup === 'EXPANSION') playOneShot(soundPlayers.popupExpansion);
+  if (phaseGroup === 'BATTLE') playOneShot(soundPlayers.popupBattle);
+}
+
+function maybePlayActionClick(event) {
+  if (!soundState.unlocked) return;
+  var target = event && event.target;
+  if (!target || !target.closest) return;
+  if (target.closest('button, a, input, textarea, select, label')) return;
+  playOneShot(soundPlayers.actionClick);
+}
+
+document.addEventListener('click', maybePlayActionClick, true);
+
+function startQuestionTimerSound() {
+  if (!soundState.unlocked) return;
+  safePlay(soundPlayers.questionTimer);
+}
+
+function stopQuestionTimerSound() {
+  stopAudio(soundPlayers.questionTimer);
+}
+
+function pickRandom(list) {
+  if (!list || !list.length) return null;
+  return list[Math.floor(Math.random() * list.length)];
+}
+
+function playAnswerVoice(isCorrect) {
+  var audio = null;
+
+  if (isCorrect) {
+    soundState.goodVoiceCount += 1;
+    if (soundState.goodVoiceCount % 4 === 0) {
+      audio = pickRandom([
+        new Audio(SOUND_BASE + '/answer_good_rare_1.mp3')
+      ]);
+    } else {
+      audio = pickRandom([
+        new Audio(SOUND_BASE + '/answer_good_common_1.mp3'),
+        new Audio(SOUND_BASE + '/answer_good_common_2.mp3')
+      ]);
+    }
+  } else {
+    soundState.badVoiceCount += 1;
+    if (soundState.badVoiceCount % 4 === 0) {
+      audio = pickRandom([
+        new Audio(SOUND_BASE + '/answer_bad_rare_1.mp3'),
+        new Audio(SOUND_BASE + '/answer_bad_rare_2.mp3'),
+        new Audio(SOUND_BASE + '/answer_bad_rare_3.mp3')
+      ]);
+    } else {
+      audio = pickRandom([
+        new Audio(SOUND_BASE + '/answer_bad_common_1.mp3'),
+        new Audio(SOUND_BASE + '/answer_bad_common_2.mp3')
+      ]);
+    }
+  }
+
+  playOneShot(audio);
+}
+
+function maybePlayTerritoryCaptureSound(previousState, nextState) {
+  if (!soundState.unlocked || !previousState || !previousState.territories || !USER) return;
+
+  var before = {};
+  previousState.territories.forEach(function (territory) {
+    before[territory.tid] = territory.ownsto;
+  });
+
+  var gained = (nextState.territories || []).some(function (territory) {
+    return before.hasOwnProperty(territory.tid) && before[territory.tid] !== USER.pid && territory.ownsto === USER.pid;
+  });
+
+  if (gained) {
+    playOneShot(soundPlayers.territoryCapture);
+  }
+}
+
+
+
 
 
 var map = L.map('map', {
@@ -51,7 +234,11 @@ var map = L.map('map', {
 L.control.zoom({ position: 'bottomright' }).addTo(map);
 
 
+
+
 var questionModal = buildQuestionModal();
+
+
 
 
 function buildQuestionModal() {
@@ -71,10 +258,14 @@ function buildQuestionModal() {
 }
 
 
+
+
 function showQuestion(question) {
   clearQuestionCountdown();
   activeQuestionId = question.id;
   questionModal.classList.add('is-open');
+
+
 
 
   var canAnswer = Boolean(USER) && question.participants.indexOf(USER.pid) !== -1;
@@ -82,6 +273,8 @@ function showQuestion(question) {
   var note = element('question-note');
   var context = element('question-context');
   element('question-prompt').textContent = question.prompt;
+
+
 
 
   if (question.context && question.context.flow === 'EXPANSION') {
@@ -93,13 +286,19 @@ function showQuestion(question) {
   }
 
 
+
+
   note.textContent = canAnswer ? 'Válaszolj időben. A szerver értékel.' : 'Néző vagy ennél a kérdésnél.';
+
+
 
 
   if (question.type === 'mcq') {
     body.innerHTML = question.options.map(function (option, index) {
       return '<button class="question-option" data-option="' + index + '">' + escapeHtml(option) + '</button>';
     }).join('');
+
+
 
 
     Array.prototype.slice.call(body.querySelectorAll('.question-option')).forEach(function (button) {
@@ -128,6 +327,8 @@ function showQuestion(question) {
     ].join('');
 
 
+
+
     if (canAnswer) {
       element('guess-submit').addEventListener('click', function () {
         var value = Number(element('guess-input').value);
@@ -144,8 +345,13 @@ function showQuestion(question) {
   }
 
 
+
+
   startQuestionCountdown(question.deadline);
+  startQuestionTimerSound();
 }
+
+
 
 
 function hideQuestion() {
@@ -156,7 +362,10 @@ function hideQuestion() {
   }
   activeQuestionId = null;
   questionModal.classList.remove('is-open');
+  stopQuestionTimerSound();
 }
+
+
 
 
 function showQuestionReveal(payload) {
@@ -165,6 +374,7 @@ function showQuestionReveal(payload) {
     return;
   }
   clearQuestionCountdown();
+  stopQuestionTimerSound();
   var body = element('question-body');
   var note = element('question-note');
   element('question-timer').textContent = payload.exactAnswer != null ? ('Pontos válasz: ' + payload.exactAnswer) : '';
@@ -179,6 +389,8 @@ function showQuestionReveal(payload) {
 }
 
 
+
+
 function startQuestionCountdown(deadline) {
   function render() {
     var remaining = Math.max(0, deadline - Date.now());
@@ -189,12 +401,16 @@ function startQuestionCountdown(deadline) {
 }
 
 
+
+
 function clearQuestionCountdown() {
   if (questionCountdownInterval) {
     clearInterval(questionCountdownInterval);
     questionCountdownInterval = null;
   }
 }
+
+
 
 
 function escapeHtml(value) {
@@ -205,6 +421,8 @@ function escapeHtml(value) {
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#039;');
 }
+
+
 
 
 function countriesOnEachFeature(feature, layer) {
@@ -226,10 +444,14 @@ function countriesOnEachFeature(feature, layer) {
 }
 
 
+
+
 function whenClicked(e) {
   if (gameFinished || !state.game || !USER) {
     return;
   }
+
+
 
 
   var tid = mapTerritories.indexOf(e.target);
@@ -238,28 +460,41 @@ function whenClicked(e) {
   }
 
 
+
+
   if (state.game.currentplayer !== USER.pid) {
     setStatus('Most nem te jössz.');
     return;
   }
 
 
+
+
   if (state.game.phase === 'BASE_SELECTION') {
+    playOneShot(soundPlayers.actionClick);
     socket.emit('selectBase', { tid: tid });
     return;
   }
 
 
+
+
   if (state.game.phase === 'EXPANSION_SELECTION') {
+    playOneShot(soundPlayers.actionClick);
     socket.emit('selectExpansionTarget', { tid: tid });
     return;
   }
 
 
+
+
   if (state.game.phase === 'BATTLE_SELECTION') {
+    playOneShot(soundPlayers.attackEnemyAction);
     socket.emit('selectAttackTarget', { tid: tid });
   }
 }
+
+
 
 
 function getOwnerColor(pid) {
@@ -270,12 +505,16 @@ function getOwnerColor(pid) {
 }
 
 
+
+
 function getOwnerStroke(pid) {
   if (pid < 0 || pid >= PLAYER_STROKE_COLORS.length) {
     return UNOWNED_STROKE;
   }
   return PLAYER_STROKE_COLORS[pid];
 }
+
+
 
 
 function hexToRgb(hex) {
@@ -295,10 +534,14 @@ function hexToRgb(hex) {
 }
 
 
+
+
 function rgba(hex, alpha) {
   var rgb = hexToRgb(hex);
   return 'rgba(' + rgb.r + ',' + rgb.g + ',' + rgb.b + ',' + alpha + ')';
 }
+
+
 
 
 function lightenHex(hex, amount) {
@@ -310,9 +553,13 @@ function lightenHex(hex, amount) {
 }
 
 
+
+
 function getPlayerByPid(pid) {
   return state.players.find(function (player) { return player.pid === pid; }) || null;
 }
+
+
 
 
 function getPlayerDisplayName(player) {
@@ -323,14 +570,20 @@ function getPlayerDisplayName(player) {
 }
 
 
+
+
 function getTerritoryByTid(tid) {
   return state.territories.find(function (territory) { return territory.tid === tid; }) || null;
 }
 
 
+
+
 function getCastleByTid(tid) {
   return state.castles.find(function (castle) { return castle.tid === tid && castle.active; }) || null;
 }
+
+
 
 
 function getExpansionSelectableTargets(pid) {
@@ -339,6 +592,8 @@ function getExpansionSelectableTargets(pid) {
   if (!owned.length) {
     return { adjacent: [], all: unowned };
   }
+
+
 
 
   var adjacent = [];
@@ -354,12 +609,16 @@ function getExpansionSelectableTargets(pid) {
   });
 
 
+
+
   var reserved = (state.game && state.game.reservedTerritories) || [];
   return {
     adjacent: adjacent.filter(function (tid) { return reserved.indexOf(tid) === -1; }),
     all: unowned.filter(function (tid) { return reserved.indexOf(tid) === -1; }),
   };
 }
+
+
 
 
 function getAttackableTargets(pid) {
@@ -380,6 +639,8 @@ function getAttackableTargets(pid) {
 }
 
 
+
+
 function isSelectableBase(tid) {
   var territory = getTerritoryByTid(tid);
   if (!territory || territory.ownsto !== -1) return false;
@@ -389,6 +650,8 @@ function isSelectableBase(tid) {
     return castleTerritory && castleTerritory.neighbors.indexOf(tid) !== -1;
   });
 }
+
+
 
 
 function isSelectableExpansion(tid) {
@@ -401,10 +664,14 @@ function isSelectableExpansion(tid) {
 }
 
 
+
+
 function isSelectableAttack(tid) {
   if (!USER) return false;
   return getAttackableTargets(USER.pid).indexOf(tid) !== -1;
 }
+
+
 
 
 function buildLayerStyle(tid) {
@@ -412,9 +679,13 @@ function buildLayerStyle(tid) {
   if (!territory) return null;
 
 
+
+
   var castle = getCastleByTid(tid);
   var ownerFill = territory.ownsto >= 0 ? getOwnerColor(territory.ownsto) : UNOWNED_FILL;
   var ownerStroke = territory.ownsto >= 0 ? getOwnerStroke(territory.ownsto) : UNOWNED_STROKE;
+
+
 
 
   var style = {
@@ -427,6 +698,8 @@ function buildLayerStyle(tid) {
   };
 
 
+
+
   if (!gameFinished && state.game && USER && state.game.currentplayer === USER.pid) {
     if (state.game.phase === 'BASE_SELECTION' && isSelectableBase(tid)) {
       style.weight = 4;
@@ -437,6 +710,8 @@ function buildLayerStyle(tid) {
     }
 
 
+
+
     if (state.game.phase === 'EXPANSION_SELECTION' && isSelectableExpansion(tid)) {
       style.weight = 4;
       style.color = '#f4ddab';
@@ -444,6 +719,8 @@ function buildLayerStyle(tid) {
       style.fillOpacity = 0.8;
       style.dashArray = '';
     }
+
+
 
 
     if (state.game.phase === 'BATTLE_SELECTION' && isSelectableAttack(tid)) {
@@ -456,8 +733,12 @@ function buildLayerStyle(tid) {
   }
 
 
+
+
   return style;
 }
+
+
 
 
 function applyLayerStyle(layer, tid) {
@@ -465,12 +746,18 @@ function applyLayerStyle(layer, tid) {
   if (!territory) return;
 
 
+
+
   var castle = getCastleByTid(tid);
   var style = buildLayerStyle(tid);
   if (!style) return;
 
 
+
+
   layer.setStyle(style);
+
+
 
 
   var owner = getPlayerByPid(territory.ownsto);
@@ -487,7 +774,11 @@ function applyLayerStyle(layer, tid) {
   }
 
 
+
+
 }
+
+
 
 
 function renderAllTerritories() {
@@ -495,6 +786,8 @@ function renderAllTerritories() {
     applyLayerStyle(layer, tid);
   });
 }
+
+
 
 
 function getCurrentPhaseGroup() {
@@ -505,6 +798,8 @@ function getCurrentPhaseGroup() {
   if (state.game.phase === 'FINISHED') return 'FINISHED';
   return 'WAIT';
 }
+
+
 
 
 function renderPlayerCards() {
@@ -520,13 +815,19 @@ function renderPlayerCards() {
       if (player.eliminated) classes.push('is-eliminated');
 
 
+
+
       var status = 'aktív';
       if (player.eliminated) status = 'kiesett';
       else if (!player.connected) status = 'offline';
       else if (state.game && state.game.currentplayer === player.pid) status = 'soron van';
 
 
+
+
       var castleTowers = castle ? castle.hp : 0;
+
+
 
 
       return [
@@ -550,8 +851,12 @@ function renderPlayerCards() {
     .join('');
 
 
+
+
   playercards.innerHTML = html;
 }
+
+
 
 
 function renderPhaseBoard() {
@@ -561,9 +866,13 @@ function renderPhaseBoard() {
   }
 
 
+
+
   var phaseGroup = getCurrentPhaseGroup();
   var title = 'Várakozás';
   var subtitle = 'A meccs előkészítése folyamatban.';
+
+
 
 
   if (phaseGroup === 'BASE') {
@@ -581,6 +890,8 @@ function renderPhaseBoard() {
   }
 
 
+
+
   phaseboard.innerHTML = [
     '<div class="phase-compact">',
     '<div class="phase-compact-title">' + escapeHtml(title) + '</div>',
@@ -588,6 +899,8 @@ function renderPhaseBoard() {
     '</div>'
   ].join('');
 }
+
+
 
 
 function getPermutations(arr) {
@@ -606,6 +919,8 @@ function getPermutations(arr) {
 }
 
 
+
+
 function renderOrderBoard() {
   if (!state.game) {
     orderboard.innerHTML = '';
@@ -613,6 +928,8 @@ function renderOrderBoard() {
     ordersummary.innerHTML = '';
     return;
   }
+
+
 
 
   var orderedPlayers = state.players.slice().sort(function (a, b) { return a.pid - b.pid; }).map(function (player) { return player.pid; });
@@ -624,8 +941,12 @@ function renderOrderBoard() {
   var phaseRound = Math.max(1, roundNumber || 1);
 
 
+
+
   ordermeta.textContent = phaseGroup === 'BATTLE' ? ('Csata • ' + phaseRound + '/6') : (phaseGroup === 'EXPANSION' ? ('Foglalás • ' + phaseRound + '/6') : 'Sorrendciklus');
   ordersummary.textContent = currentIndex >= 0 ? ('Aktív sor: ' + (currentIndex + 1) + '/6') : 'Aktív sor: —';
+
+
 
 
   orderboard.innerHTML = '<div class="cycle-board">' + orders.map(function (order, rowIndex) {
@@ -646,11 +967,17 @@ function renderOrderBoard() {
 }
 
 
+
+
 function renderStatus() {
   if (!state.game) return;
 
 
+
+
   var current = getPlayerByPid(state.game.currentplayer);
+
+
 
 
   if (gameFinished) {
@@ -658,10 +985,14 @@ function renderStatus() {
   }
 
 
+
+
   if (!USER) {
     setStatus('A saját játékosprofil szinkronizálása folyamatban.');
     return;
   }
+
+
 
 
   if (state.game.phase === 'WAITING_FOR_PLAYERS') {
@@ -690,6 +1021,8 @@ function renderStatus() {
 }
 
 
+
+
 function renderHUD() {
   renderPlayerCards();
   renderPhaseBoard();
@@ -698,9 +1031,13 @@ function renderHUD() {
 }
 
 
+
+
 function setStatus(text) {
   gamestatus.textContent = text;
 }
+
+
 
 
 function showPhaseSplash(title) {
@@ -712,6 +1049,8 @@ function showPhaseSplash(title) {
     phaseSplash.classList.remove('is-visible');
   }, 1800);
 }
+
+
 
 
 function maybeShowPhaseSplash() {
@@ -726,7 +1065,10 @@ function maybeShowPhaseSplash() {
   if (phaseGroup === 'BASE') showPhaseSplash('BÁZISFOGLALÁS');
   if (phaseGroup === 'EXPANSION') showPhaseSplash('TERÜLETFOGLALÁS');
   if (phaseGroup === 'BATTLE') showPhaseSplash('CSATA');
+  playPopupPhaseVoice(phaseGroup);
 }
+
+
 
 
 function showWinnerModal(winner) {
@@ -739,6 +1081,8 @@ function showWinnerModal(winner) {
 }
 
 
+
+
 function finishGame(winnerPid) {
   gameFinished = true;
   hideQuestion();
@@ -746,20 +1090,29 @@ function finishGame(winnerPid) {
   setStatus(winner && USER && winner.pid === USER.pid ? 'Megnyerted a meccset.' : 'A meccs véget ért. Győztes: ' + (winner ? getPlayerDisplayName(winner) : 'ismeretlen'));
   renderAllTerritories();
   renderHUD();
+  syncBackgroundMusic();
   showWinnerModal(winner);
 }
 
 
+
+
 function onStateSnapshot(payload) {
+  var previousState = state;
   state = payload;
   USER = state.players.find(function (player) { return player.name === username; }) || null;
+  maybePlayTerritoryCaptureSound(soundState.lastSnapshotSeen ? previousState : null, state);
+  soundState.lastSnapshotSeen = true;
   renderAllTerritories();
   renderHUD();
   maybeShowPhaseSplash();
+  syncBackgroundMusic();
   if (state.game && state.game.phase === 'FINISHED' && !gameFinished) {
     finishGame(state.game.winner);
   }
 }
+
+
 
 
 function initializeMap() {
@@ -775,6 +1128,8 @@ function initializeMap() {
   }
 
 
+
+
   if (maplevel === 'medium') {
     countriesLayer = L.geoJson(countries30, { style: baseStyle, onEachFeature: countriesOnEachFeature }).addTo(map);
   } else {
@@ -783,7 +1138,11 @@ function initializeMap() {
 }
 
 
+
+
 initializeMap();
+
+
 
 
 socket.on('stateSnapshot', onStateSnapshot);
@@ -791,6 +1150,16 @@ socket.on('question:start', function (question) {
   showQuestion(question);
 });
 socket.on('question:resolved', function (payload) {
+  var myAnswer = USER && payload && payload.answers ? payload.answers[USER.pid] : null;
+  if (myAnswer && typeof myAnswer.correct === 'boolean') {
+    if (myAnswer.correct) {
+      playOneShot(soundPlayers.correctAction);
+      playAnswerVoice(true);
+    } else {
+      playAnswerVoice(false);
+    }
+  }
+
   if (payload && payload.revealLines && payload.revealLines.length) {
     showQuestionReveal(payload);
   } else {
@@ -839,10 +1208,14 @@ socket.on('outputmsg', function (data) {
 });
 
 
+
+
 socket.on('connect', function () {
   socket.emit('joingame', { username: username });
   socket.emit('getmsgs', { gameid: gameid });
 });
+
+
 
 
 textarea.addEventListener('keydown', function (event) {
@@ -856,6 +1229,8 @@ textarea.addEventListener('keydown', function (event) {
     event.preventDefault();
   }
 });
+
+
 
 
 window.onbeforeunload = function (e) {
