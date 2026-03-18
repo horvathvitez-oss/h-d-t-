@@ -1,7 +1,3 @@
-
-
-
-
 /*//////////////////////////////////////////////////////////////////
 [ FONT ]*/
 
@@ -26,72 +22,72 @@
 [ RESTYLE TAG ]*/
 
 * {
-	margin: 0px; 
-	padding: 0px; 
-	box-sizing: border-box;
+  margin: 0px; 
+  padding: 0px; 
+  box-sizing: border-box;
 }
 
 body, html {
-	height: 100%;
-	font-family: Oswald-Regular, sans-serif;
-}	
+  height: 100%;
+  font-family: Oswald-Regular, sans-serif;
+} 
 
 /*---------------------------------------------*/
 a {
-	font-family: Oswald-Regular;
-	font-size: 14px;
-	line-height: 1.7;
-	color: #666666;
-	margin: 0px;
-	transition: all 0.4s;
-	-webkit-transition: all 0.4s;
+  font-family: Oswald-Regular;
+  font-size: 14px;
+  line-height: 1.7;
+  color: #666666;
+  margin: 0px;
+  transition: all 0.4s;
+  -webkit-transition: all 0.4s;
   -o-transition: all 0.4s;
   -moz-transition: all 0.4s;
 }
 
 a:focus {
-	outline: none !important;
+  outline: none !important;
 }
 
 a:hover {
-	text-decoration: none;
+  text-decoration: none;
   color: #111111;
 }
 
 /*---------------------------------------------*/
 h1,h2,h3,h4,h5,h6 {
-	margin: 0px;
+  margin: 0px;
 }
 
 p {
-	font-family: Oswald-Regular;
-	font-size: 14px;
-	line-height: 1.7;
-	color: #666666;
-	margin: 0px;
+  font-family: Oswald-Regular;
+  font-size: 14px;
+  line-height: 1.7;
+  color: #666666;
+  margin: 0px;
 }
 
 ul, li {
-	margin: 0px;
-	list-style-type: none;
+  margin: 0px;
+  list-style-type: none;
 }
 
 
 /*---------------------------------------------*/
 input {
-	outline: none;
-	border: none;
+  outline: none;
+  border: none;
 }
 
 input[type="number"] {
-    -moz-appearance: textfield;
-    appearance: none;
-    -webkit-appearance: none;
+  -moz-appearance: textfield;
+  appearance: none;
+  -webkit-appearance: none;
 }
 
 input[type="number"]::-webkit-outer-spin-button,
 input[type="number"]::-webkit-inner-spin-button {
-    -webkit-appearance: none;
+  -webkit-appearance: none;
 }
 
 textarea {
@@ -103,30 +99,32 @@ textarea:focus, input:focus {
   border-color: transparent !important;
 }
 
+/* Sötét placeholder szín */
+input::-webkit-input-placeholder { color: #000000; }
+input:-moz-placeholder { color: #000000; }
+input::-moz-placeholder { color: #000000; }
+input:-ms-input-placeholder { color: #000000; }
+input::placeholder { color: #000000; opacity: 1; }
 
-input::-webkit-input-placeholder { color: #43383e;}
-input:-moz-placeholder { color: #43383e;}
-input::-moz-placeholder { color: #43383e;}
-input:-ms-input-placeholder { color: #43383e;}
-
-textarea::-webkit-input-placeholder { color: #43383e;}
-textarea:-moz-placeholder { color: #43383e;}
-textarea::-moz-placeholder { color: #43383e;}
-textarea:-ms-input-placeholder { color: #43383e;}
+textarea::-webkit-input-placeholder { color: #000000; }
+textarea:-moz-placeholder { color: #000000; }
+textarea::-moz-placeholder { color: #000000; }
+textarea:-ms-input-placeholder { color: #000000; }
+textarea::placeholder { color: #000000; opacity: 1; }
 
 /*---------------------------------------------*/
 button {
-	outline: none !important;
-	border: none;
-	background: transparent;
+  outline: none !important;
+  border: none;
+  background: transparent;
 }
 
 button:hover {
-	cursor: pointer;
+  cursor: pointer;
 }
 
 iframe {
-	border: none !important;
+  border: none !important;
 }
 
 /*//////////////////////////////////////////////////////////////////
@@ -172,8 +170,7 @@ iframe {
 }
 
 .container-login100 { 
-	
-  width: 60%;  
+  width: 100%;
   min-height: 100vh;
   display: -webkit-box;
   display: -webkit-flex;
@@ -183,13 +180,14 @@ iframe {
   flex-wrap: wrap;
   justify-content: center;
   align-items: center;
-  padding: 15px;
+  padding: 20px 16px;
   position: relative;
   background-color: #ebebeb;
 }
 
 .wrap-login100 {
-  width: 320px;
+  width: 100%;
+  max-width: 420px;
   background: transparent;
   border-radius: 0px;
 }
@@ -209,7 +207,6 @@ iframe {
   color: #43383e;
   line-height: 1.2;
   text-align: center;
-
   display: block;
 }
 
@@ -356,6 +353,7 @@ iframe {
   justify-content: center;
   align-items: center;
   padding: 0 20px;
+  width: 100%;
   min-width: 160px;
   height: 62px;
   background-color: transparent;
@@ -479,8 +477,81 @@ iframe {
 
 /*//////////////////////////////////////////////////////////////////
 [ Responsive ]*/
+@media (max-width: 768px) {
+  .container-login100 {
+    padding: 20px 16px;
+  }
+
+  .wrap-login100 {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .login100-form-title {
+    font-size: 26px;
+  }
+
+  .input100 {
+    height: 56px;
+    font-size: 15px;
+    padding: 0 20px;
+  }
+
+  .login100-form-btn {
+    height: 56px;
+    font-size: 15px;
+    width: 100%;
+    min-width: unset;
+  }
+
+  .btn-show-pass {
+    right: 18px;
+  }
+}
+
 @media (max-width: 576px) {
   .wrap-login100 {
-    padding-top: 20px
+    padding-top: 20px;
+  }
+
+  .container-login100 {
+    padding: 16px 12px;
+  }
+
+  .login100-form-title {
+    font-size: 24px;
+  }
+
+  .input100 {
+    height: 54px;
+    font-size: 14px;
+    padding: 0 18px;
+  }
+
+  .login100-form-btn {
+    height: 54px;
+    font-size: 14px;
+  }
+
+  .btn-show-pass {
+    right: 14px;
+    font-size: 14px;
+  }
+}
+
+@media (max-width: 400px) {
+  .login100-form-title {
+    font-size: 22px;
+  }
+
+  .input100 {
+    height: 52px;
+    font-size: 14px;
+    padding: 0 16px;
+  }
+
+  .login100-form-btn {
+    height: 52px;
+    font-size: 14px;
   }
 }
