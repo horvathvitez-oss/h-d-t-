@@ -784,8 +784,6 @@ function initializeMap() {
 
 
 initializeMap();
-socket.emit('joingame', { username: username });
-socket.emit('getmsgs', { gameid: gameid });
 
 
 socket.on('stateSnapshot', onStateSnapshot);
@@ -838,6 +836,12 @@ socket.on('outputmsg', function (data) {
     messages.append(chatMessage);
   });
   $('#messages').scrollTop($('#messages')[0].scrollHeight);
+});
+
+
+socket.on('connect', function () {
+  socket.emit('joingame', { username: username });
+  socket.emit('getmsgs', { gameid: gameid });
 });
 
 

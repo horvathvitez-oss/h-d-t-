@@ -5,6 +5,7 @@ const Player = require('./public/models/players');
 const Castle = require('./public/models/castle');
 const { MULTIPLE_CHOICE_QUESTIONS, GUESS_QUESTIONS } = require('./questions');
 
+
 const PHASES = {
   WAITING: 'WAITING_FOR_PLAYERS',
   BASE_SELECTION: 'BASE_SELECTION',
@@ -15,6 +16,7 @@ const PHASES = {
   FINISHED: 'FINISHED',
 };
 
+
 const PLAYER_COLORS = ['Piros', 'Fehér', 'Zöld'];
 const TERRITORY_SCORE = 200;
 const CASTLE_SCORE_BONUS = 800; // 200 (territory) + 800 = 1000
@@ -24,13 +26,17 @@ const MCQ_TIME_LIMIT_MS = 15000;
 const GUESS_TIME_LIMIT_MS = 12000;
 
 
+
+
 const ACTIVE_GAMES = new Map();
+
 
 module.exports = function createGame(io, rawGameId, creatorUsername, howmany, maplevel) {
   const gameid = Number(rawGameId);
   if (ACTIVE_GAMES.has(gameid)) {
     return ACTIVE_GAMES.get(gameid);
   }
+
 
   const namespace = io.of(`/${gameid}`);
   const room = {
@@ -49,14 +55,17 @@ module.exports = function createGame(io, rawGameId, creatorUsername, howmany, ma
     usedGuessIds: new Set(),
   };
 
+
   ACTIVE_GAMES.set(gameid, room);
   setupGame(room).catch((error) => console.error('Game setup failed:', error));
   attachNamespaceHandlers(room);
   return room;
 };
 
+
 async function setupGame(room) {
   await deleteExistingGameData(room.gameid);
+
 
   room.players = createInitialPlayers(room.gameid, room.creatorUsername, room.howmany);
   room.territories = createMapTerritories(room.gameid, room.maplevel);
@@ -84,15 +93,18 @@ async function setupGame(room) {
     activeQuestion: null,
   };
 
+
   await Territory.createTerritories(room.territories);
   await Player.createPlayers(room.players);
   await Gameutils.addGameUtil(room.game);
   emitSnapshot(room);
 }
 
+
 function attachNamespaceHandlers(room) {
   room.namespace.on('connection', (socket) => {
     emitSnapshot(room, socket);
+
 
     socket.on('joingame', async (data = {}) => {
       try {
@@ -102,6 +114,7 @@ function attachNamespaceHandlers(room) {
       }
     });
 
+
     socket.on('selectBase', async (data = {}) => {
       try {
         await handleSelectBase(room, socket, Number(data.tid));
@@ -109,6 +122,7 @@ function attachNamespaceHandlers(room) {
         console.error('selectBase error:', error);
       }
     });
+
 
     socket.on('selectExpansionTarget', async (data = {}) => {
       try {
@@ -118,6 +132,7 @@ function attachNamespaceHandlers(room) {
       }
     });
 
+
     socket.on('selectAttackTarget', async (data = {}) => {
       try {
         await handleSelectAttackTarget(room, socket, Number(data.tid));
@@ -125,6 +140,7 @@ function attachNamespaceHandlers(room) {
         console.error('selectAttackTarget error:', error);
       }
     });
+
 
     socket.on('submitAnswer', async (data = {}) => {
       try {
@@ -134,6 +150,7 @@ function attachNamespaceHandlers(room) {
       }
     });
 
+
     socket.on('getmsgs', async () => {
       try {
         const chats = await Chat.find({ gameid: room.gameid }).sort({ _id: 1 }).lean();
@@ -142,6 +159,7 @@ function attachNamespaceHandlers(room) {
         console.error('getmsgs error:', error);
       }
     });
+
 
     socket.on('newmessage', async (data = {}) => {
       try {
@@ -158,6 +176,7 @@ function attachNamespaceHandlers(room) {
       }
     });
 
+
     socket.on('disconnect', async () => {
       try {
         await handleDisconnect(room, socket);
@@ -168,13 +187,16 @@ function attachNamespaceHandlers(room) {
   });
 }
 
+
 async function handleJoinGame(room, socket, username) {
   if (!username) {
     return;
   }
 
+
   socket.currentUsername = username;
   const existingPlayer = room.players.find((player) => player.name === username);
+
 
   if (existingPlayer) {
     existingPlayer.connected = true;
@@ -184,14 +206,17 @@ async function handleJoinGame(room, socket, username) {
     gameLog(room, `${username} csatlakozott a játékhoz.`);
     await maybeStartGame(room);
     emitSnapshot(room);
+    setTimeout(() => emitSnapshot(room, socket), 50);
     return;
   }
+
 
   const openSlot = room.players.find((player) => player.name === 'x');
   if (!openSlot) {
     socket.emit('serverstatus', ['A szoba megtelt.']);
     return;
   }
+
 
   openSlot.name = username;
   openSlot.connected = true;
@@ -201,7 +226,9 @@ async function handleJoinGame(room, socket, username) {
   sendStatus(room, `${username} csatlakozott.`);
   await maybeStartGame(room);
   emitSnapshot(room);
+  setTimeout(() => emitSnapshot(room, socket), 50);
 }
+
 
 async function handleDisconnect(room, socket) {
   const username = socket.currentUsername;
@@ -209,15 +236,18 @@ async function handleDisconnect(room, socket) {
     return;
   }
 
+
   const player = room.players.find((item) => item.name === username);
   if (!player) {
     return;
   }
 
+
   player.connected = false;
   await persistPlayer(room, player);
   gameLog(room, `${username} lecsatlakozott.`);
   sendStatus(room, `${username} lecsatlakozott.`);
+
 
   if (
     room.game.activeQuestion &&
@@ -232,12 +262,15 @@ async function handleDisconnect(room, socket) {
     await maybeResolveQuestionEarly(room);
   }
 
+
   if (room.game.phase === PHASES.BATTLE_SELECTION || room.game.phase === PHASES.EXPANSION_SELECTION || room.game.phase === PHASES.BASE_SELECTION) {
     await maybeAdvanceWhenCurrentPlayerUnavailable(room);
   }
 
+
   emitSnapshot(room);
 }
+
 
 async function maybeStartGame(room) {
   const filledPlayers = room.players.filter((player) => player.name !== 'x');
@@ -248,6 +281,7 @@ async function maybeStartGame(room) {
     return;
   }
 
+
   room.game.baseOrder = shuffle(room.players.map((player) => player.pid));
   room.game.baseSelectionIndex = 0;
   room.game.phase = PHASES.BASE_SELECTION;
@@ -256,10 +290,12 @@ async function maybeStartGame(room) {
   await refreshGamePlayerNames(room);
   await persistGame(room);
 
+
   const starter = getPlayerByPid(room, room.game.currentplayer);
   gameLog(room, `A játék elindult. Bázisválasztás következik. Kezd: ${starter.name}.`);
   sendStatus(room, `Bázisválasztás: ${starter.name} választ bázist.`);
 }
+
 
 async function handleSelectBase(room, socket, tid) {
   const player = getPlayerByUsername(room, socket.currentUsername);
@@ -270,11 +306,13 @@ async function handleSelectBase(room, socket, tid) {
     return;
   }
 
+
   const territory = getTerritoryByTid(room, tid);
   if (!territory || territory.ownsto !== -1) {
     socket.emit('serverstatus', ['Ez a bázis nem választható.']);
     return;
   }
+
 
   const touchingBase = room.castles.some((castle) => {
     if (!castle.active) return false;
@@ -282,21 +320,26 @@ async function handleSelectBase(room, socket, tid) {
     return castleTerritory && castleTerritory.neighbors.includes(tid);
   });
 
+
   if (touchingBase) {
     socket.emit('serverstatus', ['A bázis nem lehet egy másik bázis mellett.']);
     return;
   }
+
 
   territory.ownsto = player.pid;
   room.castles.push({ gameid: room.gameid, pid: player.pid, tid, hp: 3, active: true });
   rebuildPlayerTerritories(room);
   recalculateScores(room);
 
+
   await persistTerritory(room, territory);
   await persistCastle(room, room.castles[room.castles.length - 1], true);
   await persistAllPlayers(room);
 
+
   gameLog(room, `${player.name} bázist választott: ${territory.tname}.`);
+
 
   room.game.baseSelectionIndex += 1;
   if (room.game.baseSelectionIndex >= room.game.baseOrder.length) {
@@ -308,8 +351,10 @@ async function handleSelectBase(room, socket, tid) {
     sendStatus(room, `Bázisválasztás: ${nextPlayer.name} következik.`);
   }
 
+
   emitSnapshot(room);
 }
+
 
 async function startExpansionRound(room, firstRound = false) {
   if (allTerritoriesClaimed(room)) {
@@ -317,16 +362,19 @@ async function startExpansionRound(room, firstRound = false) {
     return;
   }
 
+
   const eligible = getEligiblePlayers(room);
   if (eligible.length <= 1) {
     await finishMatch(room, eligible[0]?.pid ?? getHighestScorePlayer(room).pid);
     return;
   }
 
+
   if (getUnownedTerritories(room).length <= 2) {
     await startExpansionRemainderGuess(room);
     return;
   }
+
 
   room.game.phase = PHASES.EXPANSION_SELECTION;
   room.game.expansionRound = firstRound ? 1 : room.game.expansionRound + 1;
@@ -338,16 +386,19 @@ async function startExpansionRound(room, firstRound = false) {
   room.game.currentplayer = nextEligiblePidInOrder(room, room.game.currentOrder, -1, true);
   await persistGame(room);
 
+
   if (room.game.currentplayer === -1) {
     await startExpansionRound(room);
     return;
   }
+
 
   const current = getPlayerByPid(room, room.game.currentplayer);
   gameLog(room, `Foglalási kör ${room.game.expansionRound}. Sorrend: ${formatOrder(room, room.game.currentOrder)}.`);
   sendStatus(room, `Foglalási kör ${room.game.expansionRound}: ${current.name} választ.`);
   emitSnapshot(room);
 }
+
 
 async function startExpansionRemainderGuess(room) {
   const eligible = getEligiblePlayers(room);
@@ -356,13 +407,16 @@ async function startExpansionRemainderGuess(room) {
     return;
   }
 
+
   const unownedTerritories = getUnownedTerritories(room).sort((a, b) => a.tid - b.tid);
   if (!unownedTerritories.length) {
     await startBattleRound(room, 1);
     return;
   }
 
+
   const targetTerritory = unownedTerritories[0];
+
 
   room.game.phase = PHASES.EXPANSION_QUESTION;
   room.game.currentplayer = -1;
@@ -370,6 +424,7 @@ async function startExpansionRemainderGuess(room) {
   room.game.reservedTerritories = [targetTerritory.tid];
   room.game.activeQuestion = null;
   await persistGame(room);
+
 
   await createAndBroadcastQuestion(room, {
     type: 'guess',
@@ -383,9 +438,11 @@ async function startExpansionRemainderGuess(room) {
     viewers: room.players.map((player) => player.pid),
   });
 
+
   gameLog(room, `Maradék terület tippelős kiosztása: ${targetTerritory.tname}.`);
   sendStatus(room, `Maradék terület tippelős kiosztása: ${targetTerritory.tname}.`);
 }
+
 
 async function handleSelectExpansionTarget(room, socket, tid) {
   const player = getPlayerByUsername(room, socket.currentUsername);
@@ -395,6 +452,7 @@ async function handleSelectExpansionTarget(room, socket, tid) {
     socket.emit('serverstatus', ['Most nem te választasz területet.']);
     return;
   }
+
 
   const territory = getTerritoryByTid(room, tid);
   if (!territory || territory.ownsto !== -1) {
@@ -406,18 +464,22 @@ async function handleSelectExpansionTarget(room, socket, tid) {
     return;
   }
 
+
   const allowedTargets = getExpansionSelectableTargets(room, player.pid);
   if (!allowedTargets.includes(tid)) {
     socket.emit('serverstatus', ['Csak szomszédos üres mezőt választhatsz, vagy ha nincs ilyen, bármelyik üreset.']);
     return;
   }
 
+
   room.game.pendingSelections[player.pid] = tid;
   room.game.reservedTerritories.push(tid);
   gameLog(room, `${player.name} kinézte ezt a területet: ${territory.tname}.`);
 
+
   const currentIndex = room.game.currentOrder.indexOf(player.pid);
   const nextPid = nextEligiblePidInOrder(room, room.game.currentOrder, currentIndex, false, room.game.pendingSelections);
+
 
   if (nextPid === -1) {
     await startExpansionQuestion(room);
@@ -428,8 +490,10 @@ async function handleSelectExpansionTarget(room, socket, tid) {
     sendStatus(room, `Foglalási kör: ${nextPlayer.name} választ.`);
   }
 
+
   emitSnapshot(room);
 }
+
 
 async function startExpansionQuestion(room) {
   const participants = Object.keys(room.game.pendingSelections).map((value) => Number(value));
@@ -437,6 +501,7 @@ async function startExpansionQuestion(room) {
     await startExpansionRound(room);
     return;
   }
+
 
   room.game.phase = PHASES.EXPANSION_QUESTION;
   room.game.currentplayer = -1;
@@ -453,6 +518,7 @@ async function startExpansionQuestion(room) {
   sendStatus(room, 'Közös foglalási kérdés indul.');
 }
 
+
 async function startBattleRound(room, roundNumber) {
   const alive = getAlivePlayers(room);
   if (alive.length <= 1) {
@@ -460,10 +526,12 @@ async function startBattleRound(room, roundNumber) {
     return;
   }
 
+
   if (roundNumber > MAX_BATTLE_ROUNDS) {
     await finishMatch(room, getHighestScorePlayer(room).pid);
     return;
   }
+
 
   room.game.phase = PHASES.BATTLE_SELECTION;
   room.game.battleRound = roundNumber;
@@ -473,10 +541,12 @@ async function startBattleRound(room, roundNumber) {
   room.game.activeQuestion = null;
   await persistGame(room);
 
+
   gameLog(room, `Csatakör ${roundNumber}. Sorrend: ${formatOrder(room, room.game.currentOrder)}.`);
   emitSnapshot(room);
   await maybeAdvanceWhenCurrentPlayerUnavailable(room);
 }
+
 
 async function maybeAdvanceWhenCurrentPlayerUnavailable(room) {
   if (room.game.phase === PHASES.BASE_SELECTION) {
@@ -494,6 +564,7 @@ async function maybeAdvanceWhenCurrentPlayerUnavailable(room) {
     return;
   }
 
+
   if (room.game.phase === PHASES.EXPANSION_SELECTION) {
     const current = getPlayerByPid(room, room.game.currentplayer);
     if (!current || current.eliminated || !current.connected) {
@@ -509,6 +580,7 @@ async function maybeAdvanceWhenCurrentPlayerUnavailable(room) {
     }
     return;
   }
+
 
   if (room.game.phase === PHASES.BATTLE_SELECTION) {
     const current = getPlayerByPid(room, room.game.currentplayer);
@@ -532,6 +604,7 @@ async function maybeAdvanceWhenCurrentPlayerUnavailable(room) {
   }
 }
 
+
 async function handleSelectAttackTarget(room, socket, tid) {
   const attacker = getPlayerByUsername(room, socket.currentUsername);
   if (!attacker) return;
@@ -541,19 +614,23 @@ async function handleSelectAttackTarget(room, socket, tid) {
     return;
   }
 
+
   const territory = getTerritoryByTid(room, tid);
   if (!territory || territory.ownsto < 0 || territory.ownsto === attacker.pid) {
     socket.emit('serverstatus', ['Csak szomszédos, ellenséges terület támadható.']);
     return;
   }
 
+
   if (!getAttackableTargets(room, attacker.pid).includes(tid)) {
     socket.emit('serverstatus', ['Ez a terület nem támadható.']);
     return;
   }
 
+
   const defender = getPlayerByPid(room, territory.ownsto);
   const castle = getActiveCastleByTid(room, tid);
+
 
   gameLog(room, `${attacker.name} megtámadta ${territory.tname} területét. Védő: ${defender.name}.`);
   await startBattleMcq(room, {
@@ -566,6 +643,7 @@ async function handleSelectAttackTarget(room, socket, tid) {
     castleStage: 1,
   });
 }
+
 
 async function startBattleMcq(room, battleContext) {
   room.game.phase = PHASES.BATTLE_QUESTION;
@@ -580,6 +658,7 @@ async function startBattleMcq(room, battleContext) {
     viewers: room.players.map((player) => player.pid),
   });
 
+
   const attacker = getPlayerByPid(room, battleContext.attackerPid);
   const defender = getPlayerByPid(room, battleContext.defenderPid);
   if (battleContext.isCastle) {
@@ -589,8 +668,10 @@ async function startBattleMcq(room, battleContext) {
   }
 }
 
+
 async function handleSubmitAnswer(room, socket, data) {
   if (!room.game.activeQuestion) return;
+
 
   const player = getPlayerByUsername(room, socket.currentUsername);
   if (!player) return;
@@ -598,11 +679,13 @@ async function handleSubmitAnswer(room, socket, data) {
   if (!question.participants.includes(player.pid)) return;
   if (question.answers[player.pid]) return;
 
+
   const now = Date.now();
   if (now > question.deadline) {
     socket.emit('serverstatus', ['Lejárt az idő.']);
     return;
   }
+
 
   if (question.type === 'mcq') {
     const selectedIndex = Number(data.selectedIndex);
@@ -628,10 +711,12 @@ async function handleSubmitAnswer(room, socket, data) {
     };
   }
 
+
   room.game.activeQuestion = question;
   await persistGame(room);
   await maybeResolveQuestionEarly(room);
 }
+
 
 async function maybeResolveQuestionEarly(room) {
   const question = room.game.activeQuestion;
@@ -643,14 +728,18 @@ async function maybeResolveQuestionEarly(room) {
   }
 }
 
+
 async function createAndBroadcastQuestion(room, config) {
   clearQuestionTimer(room);
+
 
   const baseQuestion = config.type === 'mcq'
     ? drawMultipleChoiceQuestion(room)
     : drawGuessQuestion(room);
 
+
   const deadline = Date.now() + (config.type === 'mcq' ? MCQ_TIME_LIMIT_MS : GUESS_TIME_LIMIT_MS);
+
 
   room.game.activeQuestion = {
     id: `${config.type}_${Date.now()}_${Math.floor(Math.random() * 100000)}`,
@@ -667,7 +756,9 @@ async function createAndBroadcastQuestion(room, config) {
     context: config.context,
   };
 
+
   await persistGame(room);
+
 
   room.namespace.emit('question:start', {
     id: room.game.activeQuestion.id,
@@ -681,6 +772,7 @@ async function createAndBroadcastQuestion(room, config) {
     context: publicQuestionContext(room.game.activeQuestion.context),
   });
 
+
   room.questionTimer = setTimeout(async () => {
     try {
       await resolveActiveQuestion(room);
@@ -690,9 +782,11 @@ async function createAndBroadcastQuestion(room, config) {
   }, Math.max(0, deadline - Date.now()) + 25);
 }
 
+
 async function resolveActiveQuestion(room) {
   const question = room.game.activeQuestion;
   if (!question) return;
+
 
   question.participants.forEach((pid) => {
     if (!question.answers[pid]) {
@@ -706,7 +800,9 @@ async function resolveActiveQuestion(room) {
     }
   });
 
+
   clearQuestionTimer(room);
+
 
   if (question.context.flow === 'EXPANSION') {
     if (question.context.subflow === 'REMAINDER_GUESS') {
@@ -717,6 +813,7 @@ async function resolveActiveQuestion(room) {
     return;
   }
 
+
   if (question.context.flow === 'BATTLE') {
     if (question.type === 'mcq') {
       await resolveBattleMcq(room, question);
@@ -726,8 +823,10 @@ async function resolveActiveQuestion(room) {
   }
 }
 
+
 async function resolveExpansionQuestion(room, question) {
   const resultLines = [];
+
 
   question.participants.forEach((pid) => {
     const player = getPlayerByPid(room, pid);
@@ -737,6 +836,7 @@ async function resolveExpansionQuestion(room, question) {
       return;
     }
 
+
     if (question.answers[pid].correct) {
       territory.ownsto = pid;
       resultLines.push(`${player.name} helyesen válaszolt, megszerezte: ${territory.tname}.`);
@@ -745,10 +845,12 @@ async function resolveExpansionQuestion(room, question) {
     }
   });
 
+
   rebuildPlayerTerritories(room);
   recalculateScores(room);
   await persistAllTerritories(room);
   await persistAllPlayers(room);
+
 
   room.namespace.emit('question:resolved', {
     flow: 'EXPANSION',
@@ -757,13 +859,16 @@ async function resolveExpansionQuestion(room, question) {
     messages: resultLines,
   });
 
+
   room.game.activeQuestion = null;
   room.game.pendingSelections = {};
   room.game.reservedTerritories = [];
   await persistGame(room);
 
+
   resultLines.forEach((line) => gameLog(room, line));
   emitSnapshot(room);
+
 
   if (allTerritoriesClaimed(room)) {
     await startBattleRound(room, 1);
@@ -772,9 +877,11 @@ async function resolveExpansionQuestion(room, question) {
   }
 }
 
+
 async function resolveExpansionRemainderGuess(room, question) {
   const targetTid = question.context.targetTid;
   const territory = getTerritoryByTid(room, targetTid);
+
 
   if (!territory || territory.ownsto !== -1) {
     room.game.activeQuestion = null;
@@ -790,6 +897,7 @@ async function resolveExpansionRemainderGuess(room, question) {
     return;
   }
 
+
   const rankedParticipants = question.participants
     .map((pid) => {
       const answer = question.answers[pid] || {};
@@ -801,9 +909,11 @@ async function resolveExpansionRemainderGuess(room, question) {
     })
     .sort((a, b) => a.distance - b.distance || a.submittedAt - b.submittedAt || a.pid - b.pid);
 
+
   const winnerEntry = rankedParticipants[0];
   const winner = winnerEntry ? getPlayerByPid(room, winnerEntry.pid) : null;
   const resultLines = [];
+
 
   if (winner) {
     territory.ownsto = winner.pid;
@@ -814,6 +924,7 @@ async function resolveExpansionRemainderGuess(room, question) {
     resultLines.push(`${winner.name} szerezte meg a maradék területet: ${territory.tname}.`);
   }
 
+
   room.namespace.emit('question:resolved', {
     flow: 'EXPANSION_REMAINDER_GUESS',
     answers: sanitizeAnswers(question),
@@ -822,13 +933,16 @@ async function resolveExpansionRemainderGuess(room, question) {
     messages: resultLines,
   });
 
+
   room.game.activeQuestion = null;
   room.game.pendingSelections = {};
   room.game.reservedTerritories = [];
   await persistGame(room);
 
+
   resultLines.forEach((line) => gameLog(room, line));
   emitSnapshot(room);
+
 
   if (allTerritoriesClaimed(room)) {
     await startBattleRound(room, 1);
@@ -839,6 +953,7 @@ async function resolveExpansionRemainderGuess(room, question) {
   }
 }
 
+
 async function resolveBattleMcq(room, question) {
   const { attackerPid, defenderPid, targetTid, isCastle, castleTid, castleStage } = question.context;
   const attacker = getPlayerByPid(room, attackerPid);
@@ -846,12 +961,14 @@ async function resolveBattleMcq(room, question) {
   const attackerCorrect = Boolean(question.answers[attackerPid]?.correct);
   const defenderCorrect = Boolean(question.answers[defenderPid]?.correct);
 
+
   room.namespace.emit('question:resolved', {
     flow: 'BATTLE_MC',
     answers: sanitizeAnswers(question),
     correctOptionIndex: question.correctOptionIndex,
     messages: [],
   });
+
 
   if (attackerCorrect && defenderCorrect) {
     await createAndBroadcastQuestion(room, {
@@ -873,6 +990,7 @@ async function resolveBattleMcq(room, question) {
     return;
   }
 
+
   const attackerWins = attackerCorrect && !defenderCorrect;
   if (attackerWins) {
     await resolveSuccessfulAttack(room, { attackerPid, defenderPid, targetTid, isCastle, castleTid, castleStage });
@@ -881,13 +999,16 @@ async function resolveBattleMcq(room, question) {
   }
 }
 
+
 async function resolveBattleGuess(room, question) {
   const { attackerPid, defenderPid, targetTid, isCastle, castleTid, castleStage } = question.context;
   const attackerAnswer = question.answers[attackerPid];
   const defenderAnswer = question.answers[defenderPid];
 
+
   const attackerDistance = Number.isFinite(attackerAnswer.distance) ? attackerAnswer.distance : Number.POSITIVE_INFINITY;
   const defenderDistance = Number.isFinite(defenderAnswer.distance) ? defenderAnswer.distance : Number.POSITIVE_INFINITY;
+
 
   let attackerWins = false;
   if (attackerDistance < defenderDistance) {
@@ -904,6 +1025,7 @@ async function resolveBattleGuess(room, question) {
     }
   }
 
+
   room.namespace.emit('question:resolved', {
     flow: 'BATTLE_GUESS',
     answers: sanitizeAnswers(question),
@@ -911,6 +1033,7 @@ async function resolveBattleGuess(room, question) {
     revealLines: buildGuessRevealLines(room, question),
     messages: [],
   });
+
 
   if (attackerWins) {
     await resolveSuccessfulAttack(room, { attackerPid, defenderPid, targetTid, isCastle, castleTid, castleStage });
@@ -921,9 +1044,11 @@ async function resolveBattleGuess(room, question) {
   }
 }
 
+
 async function resolveSuccessfulAttack(room, context) {
   const attacker = getPlayerByPid(room, context.attackerPid);
   const defender = getPlayerByPid(room, context.defenderPid);
+
 
   if (!context.isCastle) {
     const territory = getTerritoryByTid(room, context.targetTid);
@@ -933,9 +1058,11 @@ async function resolveSuccessfulAttack(room, context) {
     await persistTerritory(room, territory);
     await persistAllPlayers(room);
 
+
     const line = `${attacker.name} elfoglalta ${territory.tname} területét ${defender.name} játékostól.`;
     gameLog(room, line);
     room.namespace.emit('battle:result', { message: line });
+
 
     room.game.activeQuestion = null;
     room.game.phase = PHASES.BATTLE_SELECTION;
@@ -945,14 +1072,17 @@ async function resolveSuccessfulAttack(room, context) {
     return;
   }
 
+
   const castle = room.castles.find((item) => item.tid === context.castleTid && item.active);
   if (!castle) {
     await advanceBattleTurn(room);
     return;
   }
 
+
   castle.hp -= 1;
   await persistCastle(room, castle, false);
+
 
   if (castle.hp <= 0) {
     castle.active = false;
@@ -962,11 +1092,13 @@ async function resolveSuccessfulAttack(room, context) {
     defender.territories = [];
     attacker.castleCaptureBonus = (attacker.castleCaptureBonus || 0) + CASTLE_SCORE_BONUS;
 
+
     room.territories.forEach((territory) => {
       if (territory.ownsto === defender.pid) {
         territory.ownsto = attacker.pid;
       }
     });
+
 
     rebuildPlayerTerritories(room);
     recalculateScores(room);
@@ -974,14 +1106,17 @@ async function resolveSuccessfulAttack(room, context) {
     await persistAllPlayers(room);
     await persistCastle(room, castle, false);
 
+
     const line = `${attacker.name} lerombolta ${defender.name} várát, megszerezte az összes területét, és ${defender.name} kiesett.`;
     gameLog(room, line);
     room.namespace.emit('battle:result', { message: line });
+
 
     room.game.activeQuestion = null;
     room.game.phase = PHASES.BATTLE_SELECTION;
     await persistGame(room);
     emitSnapshot(room);
+
 
     const alive = getAlivePlayers(room);
     if (alive.length <= 1) {
@@ -989,9 +1124,11 @@ async function resolveSuccessfulAttack(room, context) {
       return;
     }
 
+
     await advanceBattleTurn(room);
     return;
   }
+
 
   const line = `${attacker.name} újabb tornyot rombolt le ${defender.name} várából. Maradék életerő: ${castle.hp}.`;
   gameLog(room, line);
@@ -999,6 +1136,7 @@ async function resolveSuccessfulAttack(room, context) {
   room.game.activeQuestion = null;
   await persistGame(room);
   emitSnapshot(room);
+
 
   await startBattleMcq(room, {
     attackerPid: attacker.pid,
@@ -1011,16 +1149,19 @@ async function resolveSuccessfulAttack(room, context) {
   });
 }
 
+
 async function resolveSuccessfulDefense(room, { attacker, defender, isCastle, castleStage }) {
   defender.defenseBonus = (defender.defenseBonus || 0) + DEFENSE_BONUS;
   recalculateScores(room);
   await persistAllPlayers(room);
+
 
   const line = isCastle
     ? `${defender.name} sikeresen megvédte a várát a ${castleStage}. ostromkérdésnél.`
     : `${defender.name} sikeresen megvédte a területét ${attacker.name} ellen.`;
   gameLog(room, line);
   room.namespace.emit('battle:result', { message: line });
+
 
   room.game.activeQuestion = null;
   room.game.phase = PHASES.BATTLE_SELECTION;
@@ -1029,16 +1170,19 @@ async function resolveSuccessfulDefense(room, { attacker, defender, isCastle, ca
   await advanceBattleTurn(room);
 }
 
+
 async function advanceBattleTurn(room) {
   const order = room.game.currentOrder || [];
   const currentIndex = room.game.currentplayer === -1 ? room.game.battleTurnIndex : order.indexOf(room.game.currentplayer);
   const nextPid = nextEligiblePidInOrder(room, order, currentIndex, false);
+
 
   if (nextPid === -1) {
     await startBattleRound(room, room.game.battleRound + 1);
     emitSnapshot(room);
     return;
   }
+
 
   room.game.currentplayer = nextPid;
   room.game.phase = PHASES.BATTLE_SELECTION;
@@ -1048,6 +1192,7 @@ async function advanceBattleTurn(room) {
   await maybeAdvanceWhenCurrentPlayerUnavailable(room);
 }
 
+
 async function finishMatch(room, winnerPid) {
   room.game.phase = PHASES.FINISHED;
   room.game.currentplayer = -1;
@@ -1055,6 +1200,7 @@ async function finishMatch(room, winnerPid) {
   room.game.activeQuestion = null;
   room.game.winner = winnerPid;
   await persistGame(room);
+
 
   clearQuestionTimer(room);
   const winner = getPlayerByPid(room, winnerPid) || getHighestScorePlayer(room);
@@ -1064,12 +1210,14 @@ async function finishMatch(room, winnerPid) {
   room.namespace.emit('gamefinish', [{ winner: winner.pid }]);
 }
 
+
 function getExpansionSelectableTargets(room, pid) {
   const owned = room.territories.filter((territory) => territory.ownsto === pid);
   const unowned = room.territories.filter((territory) => territory.ownsto === -1).map((territory) => territory.tid);
   if (!owned.length) {
     return unowned;
   }
+
 
   const adjacent = new Set();
   owned.forEach((territory) => {
@@ -1081,12 +1229,15 @@ function getExpansionSelectableTargets(room, pid) {
     });
   });
 
+
   if (adjacent.size) {
     return [...adjacent].filter((tid) => !room.game.reservedTerritories.includes(tid));
   }
 
+
   return unowned.filter((tid) => !room.game.reservedTerritories.includes(tid));
 }
+
 
 function getAttackableTargets(room, pid) {
   const targetSet = new Set();
@@ -1102,10 +1253,12 @@ function getAttackableTargets(room, pid) {
   return [...targetSet];
 }
 
+
 function rebuildPlayerTerritories(room) {
   room.players.forEach((player) => {
     player.territories = [];
   });
+
 
   room.territories.forEach((territory) => {
     if (territory.ownsto >= 0) {
@@ -1116,6 +1269,7 @@ function rebuildPlayerTerritories(room) {
     }
   });
 }
+
 
 function recalculateScores(room) {
   room.players.forEach((player) => {
@@ -1128,17 +1282,21 @@ function recalculateScores(room) {
   });
 }
 
+
 function getHighestScorePlayer(room) {
   return [...room.players].sort((a, b) => b.score - a.score || a.pid - b.pid)[0];
 }
+
 
 function getAlivePlayers(room) {
   return room.players.filter((player) => !player.eliminated);
 }
 
+
 function getEligiblePlayers(room) {
   return room.players.filter((player) => !player.eliminated && player.connected);
 }
+
 
 function nextEligiblePidInOrder(room, order, currentIndex, includeCurrent = false, selectionMap = null) {
   const start = includeCurrent ? currentIndex : currentIndex + 1;
@@ -1156,37 +1314,46 @@ function nextEligiblePidInOrder(room, order, currentIndex, includeCurrent = fals
   return -1;
 }
 
+
 function getPlayerByPid(room, pid) {
   return room.players.find((player) => player.pid === pid);
 }
+
 
 function getPlayerByUsername(room, username) {
   return room.players.find((player) => player.name === username);
 }
 
+
 function getTerritoryByTid(room, tid) {
   return room.territories.find((territory) => territory.tid === tid);
 }
+
 
 function getActiveCastleByTid(room, tid) {
   return room.castles.find((castle) => castle.active && castle.tid === tid) || null;
 }
 
+
 function getUnownedTerritories(room) {
   return room.territories.filter((territory) => territory.ownsto === -1);
 }
+
 
 function allTerritoriesClaimed(room) {
   return getUnownedTerritories(room).length === 0;
 }
 
+
 function sendStatus(room, message) {
   room.namespace.emit('serverstatus', [message]);
 }
 
+
 function gameLog(room, message) {
   room.namespace.emit('gamelog', [`${message} [${getTime()}]`]);
 }
+
 
 function emitSnapshot(room, socket = null) {
   if (!room.game) return;
@@ -1225,6 +1392,7 @@ function emitSnapshot(room, socket = null) {
   });
 }
 
+
 function publicQuestionContext(context) {
   if (!context) return null;
   if (context.flow === 'EXPANSION') {
@@ -1238,6 +1406,7 @@ function publicQuestionContext(context) {
     duelType: context.duelType || 'PRIMARY',
   };
 }
+
 
 function sanitizeAnswers(question) {
   const answers = {};
@@ -1256,6 +1425,8 @@ function sanitizeAnswers(question) {
 }
 
 
+
+
 function buildGuessRevealLines(room, question) {
   return question.participants.map((pid) => {
     const player = getPlayerByPid(room, pid);
@@ -1266,6 +1437,7 @@ function buildGuessRevealLines(room, question) {
     return `${player ? player.name : 'Ismeretlen'}: ${answer.guess}${question.unit ? ' ' + question.unit : ''}`;
   });
 }
+
 
 function drawMultipleChoiceQuestion(room) {
   if (room.usedMcqIds.size >= MULTIPLE_CHOICE_QUESTIONS.length) {
@@ -1279,6 +1451,7 @@ function drawMultipleChoiceQuestion(room) {
   return question;
 }
 
+
 function drawGuessQuestion(room) {
   if (room.usedGuessIds.size >= GUESS_QUESTIONS.length) {
     room.usedGuessIds.clear();
@@ -1291,12 +1464,14 @@ function drawGuessQuestion(room) {
   return question;
 }
 
+
 function clearQuestionTimer(room) {
   if (room.questionTimer) {
     clearTimeout(room.questionTimer);
     room.questionTimer = null;
   }
 }
+
 
 function createInitialPlayers(gameid, creatorUsername, howmany) {
   const players = [];
@@ -1317,30 +1492,37 @@ function createInitialPlayers(gameid, creatorUsername, howmany) {
   return players;
 }
 
+
 async function refreshGamePlayerNames(room) {
   room.game.playernames = room.players.map((player) => player.name);
   await persistGame(room);
 }
 
+
 async function persistGame(room) {
   await Gameutils.findOneAndUpdate({ gameid: room.gameid }, room.game, { new: true, upsert: true });
 }
+
 
 async function persistPlayer(room, player) {
   await Player.findOneAndUpdate({ gameid: room.gameid, pid: player.pid }, player, { new: true, upsert: true });
 }
 
+
 async function persistAllPlayers(room) {
   await Promise.all(room.players.map((player) => persistPlayer(room, player)));
 }
+
 
 async function persistTerritory(room, territory) {
   await Territory.findOneAndUpdate({ gameid: room.gameid, tid: territory.tid }, territory, { new: true, upsert: true });
 }
 
+
 async function persistAllTerritories(room) {
   await Promise.all(room.territories.map((territory) => persistTerritory(room, territory)));
 }
+
 
 async function persistCastle(room, castle, isCreate) {
   if (isCreate) {
@@ -1349,6 +1531,7 @@ async function persistCastle(room, castle, isCreate) {
   }
   await Castle.findOneAndUpdate({ gameid: room.gameid, tid: castle.tid }, castle, { new: true, upsert: true });
 }
+
 
 async function deleteExistingGameData(gameid) {
   await Promise.all([
@@ -1360,9 +1543,11 @@ async function deleteExistingGameData(gameid) {
   ]);
 }
 
+
 function formatOrder(room, order) {
   return order.map((pid) => getPlayerByPid(room, pid)?.name || `P${pid}`).join(' → ');
 }
+
 
 function getTime() {
   const date = new Date();
@@ -1371,6 +1556,7 @@ function getTime() {
   const ss = String(date.getSeconds()).padStart(2, '0');
   return `${hh}:${mm}:${ss}`;
 }
+
 
 function shuffle(values) {
   const copy = [...values];
@@ -1381,10 +1567,12 @@ function shuffle(values) {
   return copy;
 }
 
+
 function createOrderCycle(playerIds) {
   const result = [];
   const used = new Array(playerIds.length).fill(false);
   const current = [];
+
 
   function backtrack() {
     if (current.length === playerIds.length) {
@@ -1401,12 +1589,15 @@ function createOrderCycle(playerIds) {
     }
   }
 
+
   backtrack();
   return result;
 }
 
+
 function createMapTerritories(gameid, maplevel) {
   const T = (tid, continent, tname, neighbors) => ({ gameid, tid, continent, tname, neighbors, ownsto: -1 });
+
 
   if (maplevel === 'medium') {
     return [
@@ -1443,6 +1634,7 @@ function createMapTerritories(gameid, maplevel) {
       T(30, 2, 'Western Asia', [24, 12, 15, 20, 22]),
     ];
   }
+
 
   return [
     T(0, 0, 'Venezuela', [4, 1, 2]),
