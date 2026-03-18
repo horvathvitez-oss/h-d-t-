@@ -4,7 +4,8 @@ const express = require('express');
 const app = express();
 
 const session = require('express-session');
-const MongoStore = require('connect-mongo');
+const MongoStore = require('connect-mongo')(session);
+
 const bodyParser = require('body-parser');
 const mongoose = require('mongoose');
 
@@ -20,13 +21,17 @@ const currentTime = date.getHours() + ':' + date.getMinutes() + ':' + date.getSe
 mongoose.connect(MONGODB_URI, {
   useNewUrlParser: true,
   useUnifiedTopology: true
-}).then(() => {
-  console.log('Connected to MongoDB');
-}).catch((err) => {
-  console.error('MongoDB connection error:', err.message);
 });
 
 const db = mongoose.connection;
+
+db.on('error', (err) => {
+  console.error('MongoDB connection error:', err);
+});
+
+db.once('open', () => {
+  console.log('Connected to MongoDB');
+});
 
 const server = app.listen(PORT, '0.0.0.0', () => {
   console.log(`\nServer has started on Port ${PORT}. Time: ${currentTime}`);
@@ -43,8 +48,8 @@ app.use(session({
   cookie: {
     maxAge: 1000 * 60 * 60 * 2
   },
-  store: MongoStore.create({
-    mongoUrl: MONGODB_URI
+  store: new MongoStore({
+    mongooseConnection: db
   })
 }));
 
