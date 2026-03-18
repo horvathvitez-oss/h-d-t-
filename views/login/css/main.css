@@ -100,11 +100,11 @@ textarea:focus, input:focus {
 }
 
 /* Sötét placeholder szín */
-input::-webkit-input-placeholder { color: #000000; }
-input:-moz-placeholder { color: #000000; }
-input::-moz-placeholder { color: #000000; }
-input:-ms-input-placeholder { color: #000000; }
-input::placeholder { color: #000000; opacity: 1; }
+.input100::-webkit-input-placeholder { color: #000000 !important; }
+.input100:-moz-placeholder { color: #000000 !important; }
+.input100::-moz-placeholder { color: #000000 !important; }
+.input100:-ms-input-placeholder { color: #000000 !important; }
+.input100::placeholder { color: #000000 !important; opacity: 1 !important; }
 
 textarea::-webkit-input-placeholder { color: #000000; }
 textarea:-moz-placeholder { color: #000000; }
@@ -554,4 +554,28 @@ iframe {
     height: 52px;
     font-size: 14px;
   }
+}
+.input100 {
+  color: #43383e;
+}
+
+.input100::-webkit-input-placeholder {
+  color: #000000 !important;
+}
+
+.input100:-moz-placeholder {
+  color: #000000 !important;
+}
+
+.input100::-moz-placeholder {
+  color: #000000 !important;
+}
+
+.input100:-ms-input-placeholder {
+  color: #000000 !important;
+}
+
+.input100::placeholder {
+  color: #000000 !important;
+  opacity: 1 !important;
 }
