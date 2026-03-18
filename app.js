@@ -1,40 +1,41 @@
 require('dotenv').config();
 
-var express = require('express');
-var app = express();
+const express = require('express');
+const app = express();
 
-var session = require('express-session');
-var MongoStore = require('connect-mongo')(session);
+const session = require('express-session');
+const MongoStore = require('connect-mongo');
 
-var bodyParser = require('body-parser');
-var mongoose = require('mongoose');
+const bodyParser = require('body-parser');
+const mongoose = require('mongoose');
 
 app.set('view engine', 'ejs');
 
 const PORT = process.env.PORT || 3000;
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost/chatdb';
-const SESSION_SECRET = process.env.SESSION_SECRET || 'work hard';
+const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/chatdb';
+const SESSION_SECRET = process.env.SESSION_SECRET || 'dev-secret';
 
-var date = new Date();
-var currentTime = date.getHours() + ':' + date.getMinutes() + ':' + date.getSeconds();
+const date = new Date();
+const currentTime = date.getHours() + ':' + date.getMinutes() + ':' + date.getSeconds();
 
-mongoose.connect(MONGODB_URI);
-var db = mongoose.connection;
-
-db.on('error', function (err) {
-  console.error('MongoDB connection error:', err);
-});
-
-db.once('open', function () {
+mongoose.connect(MONGODB_URI, {
+  useNewUrlParser: true,
+  useUnifiedTopology: true
+}).then(() => {
   console.log('Connected to MongoDB');
+}).catch((err) => {
+  console.error('MongoDB connection error:', err.message);
 });
 
-var server = app.listen(PORT, '0.0.0.0', function () {
-  console.log('\nServer has started on Port ' + PORT + '. Time: ' + currentTime);
+const db = mongoose.connection;
+
+const server = app.listen(PORT, '0.0.0.0', () => {
+  console.log(`\nServer has started on Port ${PORT}. Time: ${currentTime}`);
 });
 
-var io = require('socket.io').listen(server);
-var router = require('./router')(app, io, db);
+const io = require('socket.io')(server);
+
+const router = require('./router')(app, io, db);
 
 app.use(session({
   secret: SESSION_SECRET,
@@ -43,8 +44,8 @@ app.use(session({
   cookie: {
     maxAge: 1000 * 60 * 60 * 2
   },
-  store: new MongoStore({
-    mongooseConnection: db
+  store: MongoStore.create({
+    mongoUrl: MONGODB_URI
   })
 }));
 
