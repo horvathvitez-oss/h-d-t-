@@ -1,60 +1,99 @@
+<!DOCTYPE html>
 <html>
 <head>
-  <title>RISKBudur / MAP</title>
-  <!--Leaflet-->
+  <title>HÓDÍTÓ / Térkép</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
   <link rel="stylesheet" href="../../../public/map/lib/leaflet/leaflet.css" />
-  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
-  <link rel="stylesheet" href="../../../public/map/style/style.css">
+  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" />
+  <link rel="stylesheet" href="../../../public/map/style/style.css" />
+  <link rel="stylesheet" href="/views/css/custom.css" />
+
   <script src="../../../public/map/lib/leaflet/leaflet.js"></script>
   <script src="../../../public/map/data/countries.geojson"></script>
   <script src="../../../public/map/data/countries30.geojson"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/2.1.0/socket.io.js"></script>
-  <script  src="https://code.jquery.com/jquery-3.3.1.min.js"></script>
+  <script src="https://code.jquery.com/jquery-3.3.1.min.js"></script>
 
   <script type="text/javascript">
-  var userid = '<%=userid%>';
-  var username = '<%=username%>';
-  var maplevel = '<%=maplevel%>';
-  var howmany = '<%=howmany%>';
-  var gameid = '<%=gameid%>';
-  var creater = '<%=creater%>';
+    var userid = '<%=userid%>';
+    var username = '<%=username%>';
+    var maplevel = '<%=maplevel%>';
+    var howmany = '<%=howmany%>';
+    var gameid = '<%=gameid%>';
+    var creater = '<%=creater%>';
   </script>
-
-  <style> #map{height : 100%;width :100%;} </style>
 </head>
-<body>
-  <div id="map">
-    <br><br><div align="left"><img src="../../../views/img/logo.png" width="280" height="100"></div><br>
-    <br><br><div align="right">   <div class="col-md-12"><h1><b><%=username%></b></h1><br><h1><b>creater: <%=creater%></b></h1></div> </div><br>
+<body class="game-screen">
+  <div class="game-top-promo-strip"><div class="game-top-promo-strip-track"><span>NEM MENNEK A KÉRDÉSEK? - KÖZÉPSULINEKED.COM</span><span>NEM MENNEK A KÉRDÉSEK? - KÖZÉPSULINEKED.COM</span><span>NEM MENNEK A KÉRDÉSEK? - KÖZÉPSULINEKED.COM</span></div></div>
+  <div id="game-shell">
+    <div id="map"></div>
+    <div class="map-vignette"></div>
 
-<div class="container-fluid">
-    <div class="row">
-        <div class="col-md-2">
-
-                <div id="messages" class="panel-body">
-                 </div>
-                <input id="textarea" type="text" class="form-control input-sm" placeholder="Type your message here..." />
-        </div>
+    <div id="phase-splash" class="phase-splash" aria-hidden="true">
+      <div class="phase-splash-inner">
+        <div class="phase-splash-overline">HÓDÍTÓ</div>
+        <div id="phase-splash-title" class="phase-splash-title">BÁZISFOGLALÁS</div>
+      </div>
     </div>
-</div>
-<br><br>
-<div class="container-fluid">
-<b>Game Log</b>
-    <div class="row">
-        <div class="col-md-2">
 
-                <div id="gamelog" class="panel-body">
-                 </div>
+    <div id="winner-modal" class="winner-modal" aria-hidden="true">
+      <div class="winner-modal-panel">
+        <div class="winner-modal-kicker">A meccs véget ért</div>
+        <h2 id="winner-title" class="winner-modal-title">Győztes</h2>
+        <p id="winner-subtitle" class="winner-modal-subtitle"></p>
+        <div class="winner-modal-actions">
+          <a href="/lobby" class="btn btn-primary btn-lg parchment-btn-primary">Vissza a lobbiba</a>
         </div>
+      </div>
     </div>
-</div>
 
-<script src="../../../public/map/gamelogic.js"></script>
+    <header class="hud-top">
+      <div class="brand-card">
+        <img src="../../../views/img/logo.png" alt="HÓDÍTÓ" class="hud-logo" />
+        <div class="brand-meta">
+          <div class="room-line">Meccs kód: <strong><%=gameid%></strong></div>
+          <div class="room-line">Játékos: <strong><%=username%></strong></div>
+          <div class="room-line">Host: <strong><%=creater%></strong></div>
+        </div>
+      </div>
+      <div id="playercards" class="player-cards"></div>
+    </header>
 
-<script type="text/javascript">
-  /*
-<h1 class="text-center">Chat</h1><div id="status"></div> <div id="chat"> <input type="hidden" id="username" class="form-control" placeholder="Enter name"> <div class="card"> <div id="messages" class="card-block"> </div> <br> <textarea id="textarea" class="form-control" placeholder="Enter a message..."></textarea></div> </h1> </div></div>
-  */
-</script>
+    <aside class="hud-side hud-left">
+      <section class="hud-card phase-card compact-phase-card">
+        <div class="hud-card-title">Játékszakasz</div>
+        <div id="phaseboard"></div>
+      </section>
+
+      <section class="hud-card order-card compact-order-card">
+        <div class="hud-card-title">Sorrend</div>
+        <div id="ordermeta" class="order-meta"></div>
+        <div id="orderboard"></div>
+      </section>
+    </aside>
+
+    <aside class="hud-side hud-right">
+      <section class="hud-card status-card compact-status-card">
+        <div class="hud-card-title">Státusz</div>
+        <div id="gamestatus" class="status-line">Betöltés...</div>
+        <div id="ordersummary" class="order-summary"></div>
+      </section>
+
+      <section class="hud-card chat-card compact-chat-card">
+        <div class="hud-card-title">Chat</div>
+        <div id="messages" class="hud-scroll panel-body"></div>
+        <input id="textarea" type="text" class="form-control input-sm hud-input" placeholder="Írj üzenetet..." />
+      </section>
+
+      <section class="hud-card log-card compact-log-card">
+        <div class="hud-card-title">Játéknapló</div>
+        <div id="gamelog" class="hud-scroll panel-body"></div>
+      </section>
+    </aside>
+  </div>
+
+  <script src="../../../public/map/gamelogic.js"></script>
 </body>
 </html>
