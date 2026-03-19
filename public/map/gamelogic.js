@@ -16,9 +16,17 @@ var questionRevealTimer = null;
 
 
 
+
+
+
+
 var element = function (id) {
   return document.getElementById(id);
 };
+
+
+
+
 
 
 
@@ -40,9 +48,14 @@ var winnerSubtitle = element('winner-subtitle');
 var lastPhaseGroupShown = null;
 var phaseSplashTimer = null;
 
+
 var currentQuestionData = null;
 var questionUiTimers = [];
 var ownColorBannerTimer = null;
+var ultraSabotageBannerTimer = null;
+var hasSubmittedCurrentQuestion = false;
+
+
 
 
 function queueUiTimer(fn, ms) {
@@ -52,11 +65,15 @@ function queueUiTimer(fn, ms) {
 }
 
 
+
+
 function clearQuestionUiTimers() {
   while (questionUiTimers.length) {
     clearTimeout(questionUiTimers.pop());
   }
 }
+
+
 
 
 function ensureQuestionEnhancementStyles() {
@@ -86,10 +103,14 @@ function ensureQuestionEnhancementStyles() {
 }
 
 
+
+
 function getPlayerColorName(pid) {
   var names = ['PIROS', 'ZÖLD', 'FEHÉR'];
   return names[pid] || 'ISMERETLEN';
 }
+
+
 
 
 function getPendingSelectionPidForTid(tid) {
@@ -104,6 +125,8 @@ function getPendingSelectionPidForTid(tid) {
 }
 
 
+
+
 function getActiveAttackPreview(tid) {
   if (!currentQuestionData || !currentQuestionData.context) return null;
   if (currentQuestionData.context.flow !== 'BATTLE') return null;
@@ -113,6 +136,8 @@ function getActiveAttackPreview(tid) {
 }
 
 
+
+
 function buildTerritoryOverlayHtml(tid) {
   var parts = [];
   var castle = getCastleByTid(tid);
@@ -120,25 +145,31 @@ function buildTerritoryOverlayHtml(tid) {
     parts.push('<div class="castle-pill"><span class="castle-pill-icon">♜</span><span>' + castle.hp + '</span></div>');
   }
 
+
   var pendingPid = getPendingSelectionPidForTid(tid);
   if (pendingPid !== null) {
     parts.push('<div class="pending-selection-badge" style="background:' + getOwnerColor(pendingPid) + '; border-color:' + rgba(getOwnerStroke(pendingPid), 0.82) + ';">' + escapeHtml(getPlayerColorName(pendingPid).charAt(0)) + '</div>');
   }
+
 
   var attackerPid = getActiveAttackPreview(tid);
   if (attackerPid !== null) {
     parts.push('<div class="attack-selection-badge" style="background:' + rgba(getOwnerColor(attackerPid), 0.92) + '; border-color:' + rgba(getOwnerStroke(attackerPid), 0.86) + ';">⚔</div>');
   }
 
+
   if (!parts.length) return '';
   return '<div class="territory-overlay-stack">' + parts.join('') + '</div>';
 }
+
+
 
 
 function buildOptionVoteGradient(selectedPids) {
   if (!selectedPids || !selectedPids.length) {
     return 'linear-gradient(135deg, rgba(182,159,121,0.92), rgba(140,116,83,0.92))';
   }
+
 
   var parts = [];
   var step = 100 / selectedPids.length;
@@ -151,8 +182,11 @@ function buildOptionVoteGradient(selectedPids) {
     parts.push(edge + ' ' + end + '%');
   });
 
+
   return 'linear-gradient(90deg, ' + parts.join(', ') + ')';
 }
+
+
 
 
 function describeSelectedPlayers(selectedPids) {
@@ -163,14 +197,18 @@ function describeSelectedPlayers(selectedPids) {
 }
 
 
+
+
 function showOwnColorBanner() {
   if (!USER) return;
   ensureQuestionEnhancementStyles();
+
 
   var existing = document.getElementById('own-color-banner');
   if (existing) {
     existing.remove();
   }
+
 
   var banner = document.createElement('div');
   banner.id = 'own-color-banner';
@@ -179,13 +217,16 @@ function showOwnColorBanner() {
   banner.innerHTML = 'A TE SZÍNED: ' + escapeHtml(getPlayerColorName(USER.pid)) + '<small>ezzel a színnel játszol ebben a meccsben</small>';
   document.body.appendChild(banner);
 
+
   requestAnimationFrame(function () {
     banner.classList.add('is-visible');
   });
 
+
   if (ownColorBannerTimer) {
     clearTimeout(ownColorBannerTimer);
   }
+
 
   ownColorBannerTimer = setTimeout(function () {
     banner.classList.remove('is-visible');
@@ -196,20 +237,25 @@ function showOwnColorBanner() {
 }
 
 
+
+
 function renderMcqAnswers(payload) {
   if (!currentQuestionData || currentQuestionData.type !== 'mcq') {
     hideQuestion();
     return;
   }
 
+
   ensureQuestionEnhancementStyles();
   clearQuestionCountdown();
   clearQuestionUiTimers();
+
 
   var body = element('question-body');
   var note = element('question-note');
   var timer = element('question-timer');
   if (!body) return;
+
 
   var answers = payload && payload.answers ? payload.answers : {};
   var voteMap = {};
@@ -220,6 +266,7 @@ function renderMcqAnswers(payload) {
       voteMap[answer.selectedIndex].push(Number(pidKey));
     }
   });
+
 
   body.classList.add('is-resolving');
   body.innerHTML = (currentQuestionData.options || []).map(function (option, index) {
@@ -232,11 +279,13 @@ function renderMcqAnswers(payload) {
     ].join('');
   }).join('');
 
+
   Array.prototype.slice.call(body.querySelectorAll('.question-option')).forEach(function (button) {
     var optionIndex = Number(button.getAttribute('data-option'));
     var selectedPids = (voteMap[optionIndex] || []).slice().sort(function (a, b) { return a - b; });
     var overlay = button.querySelector('.question-option-overlay');
     var voters = button.querySelector('.question-option-voters');
+
 
     if (overlay) {
       overlay.style.background = buildOptionVoteGradient(selectedPids);
@@ -245,13 +294,16 @@ function renderMcqAnswers(payload) {
       voters.textContent = describeSelectedPlayers(selectedPids);
     }
 
+
     queueUiTimer(function () {
       button.classList.add('question-option-revealed');
     }, 80 + optionIndex * 120);
   });
 
+
   timer.textContent = 'Válaszok felfedése';
   note.textContent = 'Mindenki látja, ki mire szavazott.';
+
 
   queueUiTimer(function () {
     Array.prototype.slice.call(body.querySelectorAll('.question-option')).forEach(function (button) {
@@ -265,10 +317,13 @@ function renderMcqAnswers(payload) {
     note.textContent = 'A helyes válasz marad fent.';
   }, 2100);
 
+
   queueUiTimer(function () {
     hideQuestion();
   }, 3900);
 }
+
+
 
 
 var PLAYER_FILL_COLORS = ['#a95f4f', '#6d8660', '#d7cfbd'];
@@ -276,6 +331,7 @@ var PLAYER_STROKE_COLORS = ['#5e2f20', '#334b31', '#7c7464'];
 var PLAYER_NAMES_FALLBACK = ['Piros', 'Zöld', 'Fehér'];
 var UNOWNED_FILL = '#b69f79';
 var UNOWNED_STROKE = '#5a442d';
+
 
 var SOUND_BASE = document.body.getAttribute('data-sound-base') || '/sounds';
 var soundState = {
@@ -286,7 +342,10 @@ currentBg: null,
 lastSnapshotSeen: false
 };
 
+
 var soundPlayers = {
+
+
 
 
 lobbyBg: new Audio(SOUND_BASE + '/lobby_bg.mp3'),
@@ -299,13 +358,16 @@ popupBattle: new Audio(SOUND_BASE + '/popup_battle.mp3'),
 actionClick: new Audio(SOUND_BASE + '/action_click.mp3'),
 correctAction: new Audio(SOUND_BASE + '/correct_action.mp3'),
 territoryCapture: new Audio(SOUND_BASE + '/territory_capture.mp3'),
-attackEnemyAction: new Audio(SOUND_BASE + '/attack_enemy_action.mp3')
+attackEnemyAction: new Audio(SOUND_BASE + '/attack_enemy_action.mp3'),
+ultraSabotage: new Audio(SOUND_BASE + '/ultra_sabotage_hahaha.mp3')
 };
+
 
 soundPlayers.lobbyBg.loop = true;
 soundPlayers.gameBg.loop = true;
 soundPlayers.battleBg.loop = true;
 soundPlayers.questionTimer.loop = true;
+
 
 function safePlay(audio) {
 if (!audio) return;
@@ -316,6 +378,8 @@ playPromise.catch(function () {});
 }
 } catch (e) {}
 }
+
+
 
 
 function playOneShot(audio) {
@@ -332,6 +396,7 @@ safePlay(audio);
 }
 }
 
+
 function stopAudio(audio) {
 if (!audio) return;
 try {
@@ -340,6 +405,7 @@ audio.currentTime = 0;
 } catch (e) {}
 }
 
+
 function unlockSound() {
 if (soundState.unlocked) return;
 soundState.unlocked = true;
@@ -347,13 +413,17 @@ syncBackgroundMusic();
 }
 
 
+
+
 document.addEventListener('click', unlockSound, { once: true, capture: true });
 document.addEventListener('keydown', unlockSound, { once: true, capture: true });
+
 
 function syncBackgroundMusic() {
 if (!soundState.unlocked) return;
 var phaseGroup = getCurrentPhaseGroup();
 var wanted = null;
+
 
 if (gameFinished || phaseGroup === 'FINISHED' || phaseGroup === 'WAIT') {
 wanted = null;
@@ -363,23 +433,30 @@ wanted = 'battleBg';
 wanted = 'gameBg';
 }
 
+
 if (soundState.currentBg === wanted) return;
+
 
 stopAudio(soundPlayers.gameBg);
 stopAudio(soundPlayers.battleBg);
 
+
 soundState.currentBg = wanted;
 if (wanted) safePlay(soundPlayers[wanted]);
 }
+
 
 function playPopupPhaseVoice(phaseGroup) {
 if (!soundState.unlocked) return;
 if (phaseGroup === 'BASE') playOneShot(soundPlayers.popupBase);
 
 
+
+
 if (phaseGroup === 'EXPANSION') playOneShot(soundPlayers.popupExpansion);
 if (phaseGroup === 'BATTLE') playOneShot(soundPlayers.popupBattle);
 }
+
 
 function maybePlayActionClick(event) {
 if (!soundState.unlocked) return;
@@ -389,16 +466,20 @@ if (target.closest('button, a, input, textarea, select, label')) return;
 playOneShot(soundPlayers.actionClick);
 }
 
+
 document.addEventListener('click', maybePlayActionClick, true);
+
 
 function startQuestionTimerSound() {
 if (!soundState.unlocked) return;
 safePlay(soundPlayers.questionTimer);
 }
 
+
 function stopQuestionTimerSound() {
 stopAudio(soundPlayers.questionTimer);
 }
+
 
 function pickRandom(list) {
 if (!list || !list.length) return null;
@@ -406,8 +487,11 @@ return list[Math.floor(Math.random() * list.length)];
 }
 
 
+
+
 function playAnswerVoice(isCorrect) {
 var audio = null;
+
 
 if (isCorrect) {
 soundState.goodVoiceCount += 1;
@@ -436,29 +520,41 @@ new Audio(SOUND_BASE + '/answer_bad_common_2.mp3')
 ]);
 
 
+
+
 }
 }
+
 
 playOneShot(audio);
 }
 
+
 function maybePlayTerritoryCaptureSound(previousState, nextState) {
 if (!soundState.unlocked || !previousState || !previousState.territories || !USER) return;
+
 
 var before = {};
 previousState.territories.forEach(function (territory) {
 before[territory.tid] = territory.ownsto;
 });
 
+
 var gained = (nextState.territories || []).some(function (territory) {
 return before.hasOwnProperty(territory.tid) && before[territory.tid] !== USER.pid &&
 territory.ownsto === USER.pid;
 });
 
+
 if (gained) {
 playOneShot(soundPlayers.territoryCapture);
 }
 }
+
+
+
+
+
 
 
 
@@ -473,7 +569,15 @@ L.control.zoom({ position: 'bottomright' }).addTo(map);
 
 
 
+
+
+
+
 var questionModal = buildQuestionModal();
+
+
+
+
 
 
 
@@ -488,6 +592,7 @@ function buildQuestionModal() {
     '<div id="question-timer" class="question-timer"></div>',
     '<div id="question-body"></div>',
     '<div id="question-note" class="question-note"></div>',
+    '<div id="question-extra-actions" class="question-extra-actions"></div>',
     '</div>'
   ].join('');
   document.body.appendChild(modal);
@@ -497,13 +602,129 @@ function buildQuestionModal() {
 
 
 
+
+
+
+
+
+function getQuestionPanel() {
+  return questionModal ? questionModal.querySelector('.question-panel') : null;
+}
+
+function getQuestionActionsHost() {
+  return element('question-extra-actions');
+}
+
+function clearQuestionActions() {
+  var host = getQuestionActionsHost();
+  if (host) {
+    host.innerHTML = '';
+  }
+}
+
+function canUseUltraSabotage(question) {
+  return Boolean(
+    question &&
+    question.type === 'mcq' &&
+    question.context &&
+    question.context.flow === 'BATTLE' &&
+    question.context.canUseUltraSabotage &&
+    USER &&
+    question.participants &&
+    question.participants.indexOf(USER.pid) !== -1 &&
+    !question.isUltra &&
+    !hasSubmittedCurrentQuestion
+  );
+}
+
+function applyQuestionVisualMode(question) {
+  var panel = getQuestionPanel();
+  if (!panel) return;
+  panel.classList.toggle('is-ultra-hard', Boolean(question && question.isUltra));
+}
+
+function renderQuestionActions(question) {
+  var host = getQuestionActionsHost();
+  if (!host) return;
+  host.innerHTML = '';
+
+  if (!canUseUltraSabotage(question)) {
+    return;
+  }
+
+  var button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'question-sabotage-button';
+  button.textContent = 'SZABOTÁZS';
+  button.addEventListener('click', function () {
+    button.disabled = true;
+    socket.emit('activateUltraSabotage');
+    var note = element('question-note');
+    if (note) {
+      note.textContent = 'Szabotázs aktiválva...';
+    }
+  });
+
+  var counter = document.createElement('div');
+  counter.className = 'question-sabotage-counter';
+  counter.textContent = 'MARADÉK: ' + Number(question.context.ultraSabotageRemaining || 0);
+
+  host.appendChild(button);
+  host.appendChild(counter);
+}
+
+function getPidDisplayName(pid) {
+  var player = getPlayerByPid(pid);
+  return player ? getPlayerDisplayName(player) : getPlayerColorName(pid);
+}
+
+function showUltraSabotageBanner(payload) {
+  var existing = document.getElementById('ultra-sabotage-banner');
+  if (existing && existing.parentNode) {
+    existing.parentNode.removeChild(existing);
+  }
+
+  var banner = document.createElement('div');
+  banner.id = 'ultra-sabotage-banner';
+  banner.className = 'ultra-sabotage-banner';
+  var byName = payload && payload.byName ? payload.byName : getPidDisplayName(payload && payload.byPid);
+  var targetName = payload && payload.targetName ? payload.targetName : getPidDisplayName(payload && payload.targetPid);
+
+  if (USER && payload && payload.targetPid === USER.pid) {
+    banner.innerHTML = '<strong>ULTRA HARD KÉRDÉST KAPSZ!</strong><span>' + escapeHtml(byName || 'Valaki') + ' megszabotált.</span>';
+  } else {
+    banner.innerHTML = '<strong>ULTRA HARD KÉRDÉS!</strong><span>' + escapeHtml(targetName || 'Valaki') + ' most ultra nehéz kérdést kapott.</span>';
+  }
+
+  document.body.appendChild(banner);
+  requestAnimationFrame(function () {
+    banner.classList.add('is-visible');
+  });
+
+  if (ultraSabotageBannerTimer) {
+    clearTimeout(ultraSabotageBannerTimer);
+  }
+  ultraSabotageBannerTimer = setTimeout(function () {
+    banner.classList.remove('is-visible');
+    setTimeout(function () {
+      if (banner.parentNode) banner.parentNode.removeChild(banner);
+    }, 320);
+  }, 2600);
+}
+
 function showQuestion(question) {
   clearQuestionCountdown();
   clearQuestionUiTimers();
   currentQuestionData = question;
+  hasSubmittedCurrentQuestion = false;
   ensureQuestionEnhancementStyles();
   activeQuestionId = question.id;
   questionModal.classList.add('is-open');
+  applyQuestionVisualMode(question);
+
+
+
+
 
 
 
@@ -513,6 +734,10 @@ function showQuestion(question) {
   var note = element('question-note');
   var context = element('question-context');
   element('question-prompt').textContent = question.prompt;
+
+
+
+
 
 
 
@@ -528,7 +753,19 @@ function showQuestion(question) {
 
 
 
+
+
+
+
   note.textContent = canAnswer ? 'Válaszolj időben. A szerver értékel.' : 'Néző vagy ennél a kérdésnél.';
+  if (question.isUltra) {
+    note.textContent = canAnswer ? 'ULTRA HARD kérdés aktív. Koncentrálj.' : 'Az egyik játékos ULTRA HARD kérdést kapott.';
+  }
+  renderQuestionActions(question);
+
+
+
+
 
 
 
@@ -537,6 +774,10 @@ function showQuestion(question) {
     body.innerHTML = question.options.map(function (option, index) {
       return '<button class="question-option" data-option="' + index + '">' + escapeHtml(option) + '</button>';
     }).join('');
+
+
+
+
 
 
 
@@ -552,6 +793,8 @@ function showQuestion(question) {
           button.style.opacity = '1';
           button.style.borderColor = '#8d5a29';
           button.style.boxShadow = '0 12px 20px rgba(0,0,0,0.08)';
+          hasSubmittedCurrentQuestion = true;
+          clearQuestionActions();
           socket.emit('submitAnswer', { questionId: activeQuestionId, selectedIndex: Number(button.getAttribute('data-option')) });
           note.textContent = 'Válasz elküldve. Várjuk a kiértékelést.';
         });
@@ -569,6 +812,10 @@ function showQuestion(question) {
 
 
 
+
+
+
+
     if (canAnswer) {
       element('guess-submit').addEventListener('click', function () {
         var value = Number(element('guess-input').value);
@@ -578,6 +825,8 @@ function showQuestion(question) {
         }
         element('guess-input').disabled = true;
         element('guess-submit').disabled = true;
+        hasSubmittedCurrentQuestion = true;
+        clearQuestionActions();
         socket.emit('submitAnswer', { questionId: activeQuestionId, guess: value });
         note.textContent = 'Tipp elküldve. Várjuk a kiértékelést.';
       });
@@ -587,9 +836,17 @@ function showQuestion(question) {
 
 
 
+
+
+
+
   startQuestionCountdown(question.deadline);
   startQuestionTimerSound();
 }
+
+
+
+
 
 
 
@@ -603,12 +860,19 @@ function hideQuestion() {
   }
   activeQuestionId = null;
   currentQuestionData = null;
+  hasSubmittedCurrentQuestion = false;
+  clearQuestionActions();
+  applyQuestionVisualMode(null);
   var body = element('question-body');
   if (body) body.classList.remove('is-resolving');
   questionModal.classList.remove('is-open');
   stopQuestionTimerSound();
   renderAllTerritories();
 }
+
+
+
+
 
 
 
@@ -636,6 +900,10 @@ function showQuestionReveal(payload) {
 
 
 
+
+
+
+
 function startQuestionCountdown(deadline) {
   function render() {
     var remaining = Math.max(0, deadline - Date.now());
@@ -644,6 +912,10 @@ function startQuestionCountdown(deadline) {
   render();
   questionCountdownInterval = setInterval(render, 100);
 }
+
+
+
+
 
 
 
@@ -658,6 +930,10 @@ function clearQuestionCountdown() {
 
 
 
+
+
+
+
 function escapeHtml(value) {
   return String(value)
     .replace(/&/g, '&amp;')
@@ -666,6 +942,10 @@ function escapeHtml(value) {
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#039;');
 }
+
+
+
+
 
 
 
@@ -691,10 +971,18 @@ function countriesOnEachFeature(feature, layer) {
 
 
 
+
+
+
+
 function whenClicked(e) {
   if (gameFinished || !state.game || !USER) {
     return;
   }
+
+
+
+
 
 
 
@@ -707,10 +995,18 @@ function whenClicked(e) {
 
 
 
+
+
+
+
   if (state.game.currentplayer !== USER.pid) {
     setStatus('Most nem te jössz.');
     return;
   }
+
+
+
+
 
 
 
@@ -724,6 +1020,10 @@ function whenClicked(e) {
 
 
 
+
+
+
+
   if (state.game.phase === 'EXPANSION_SELECTION') {
     playOneShot(soundPlayers.actionClick);
     socket.emit('selectExpansionTarget', { tid: tid });
@@ -733,11 +1033,19 @@ function whenClicked(e) {
 
 
 
+
+
+
+
   if (state.game.phase === 'BATTLE_SELECTION') {
     playOneShot(soundPlayers.attackEnemyAction);
     socket.emit('selectAttackTarget', { tid: tid });
   }
 }
+
+
+
+
 
 
 
@@ -752,12 +1060,20 @@ function getOwnerColor(pid) {
 
 
 
+
+
+
+
 function getOwnerStroke(pid) {
   if (pid < 0 || pid >= PLAYER_STROKE_COLORS.length) {
     return UNOWNED_STROKE;
   }
   return PLAYER_STROKE_COLORS[pid];
 }
+
+
+
+
 
 
 
@@ -781,10 +1097,18 @@ function hexToRgb(hex) {
 
 
 
+
+
+
+
 function rgba(hex, alpha) {
   var rgb = hexToRgb(hex);
   return 'rgba(' + rgb.r + ',' + rgb.g + ',' + rgb.b + ',' + alpha + ')';
 }
+
+
+
+
 
 
 
@@ -800,9 +1124,17 @@ function lightenHex(hex, amount) {
 
 
 
+
+
+
+
 function getPlayerByPid(pid) {
   return state.players.find(function (player) { return player.pid === pid; }) || null;
 }
+
+
+
+
 
 
 
@@ -817,9 +1149,17 @@ function getPlayerDisplayName(player) {
 
 
 
+
+
+
+
 function getTerritoryByTid(tid) {
   return state.territories.find(function (territory) { return territory.tid === tid; }) || null;
 }
+
+
+
+
 
 
 
@@ -831,12 +1171,20 @@ function getCastleByTid(tid) {
 
 
 
+
+
+
+
 function getExpansionSelectableTargets(pid) {
   var owned = state.territories.filter(function (territory) { return territory.ownsto === pid; });
   var unowned = state.territories.filter(function (territory) { return territory.ownsto === -1; }).map(function (territory) { return territory.tid; });
   if (!owned.length) {
     return { adjacent: [], all: unowned };
   }
+
+
+
+
 
 
 
@@ -856,12 +1204,20 @@ function getExpansionSelectableTargets(pid) {
 
 
 
+
+
+
+
   var reserved = (state.game && state.game.reservedTerritories) || [];
   return {
     adjacent: adjacent.filter(function (tid) { return reserved.indexOf(tid) === -1; }),
     all: unowned.filter(function (tid) { return reserved.indexOf(tid) === -1; }),
   };
 }
+
+
+
+
 
 
 
@@ -886,6 +1242,10 @@ function getAttackableTargets(pid) {
 
 
 
+
+
+
+
 function isSelectableBase(tid) {
   var territory = getTerritoryByTid(tid);
   if (!territory || territory.ownsto !== -1) return false;
@@ -895,6 +1255,10 @@ function isSelectableBase(tid) {
     return castleTerritory && castleTerritory.neighbors.indexOf(tid) !== -1;
   });
 }
+
+
+
+
 
 
 
@@ -911,10 +1275,18 @@ function isSelectableExpansion(tid) {
 
 
 
+
+
+
+
 function isSelectableAttack(tid) {
   if (!USER) return false;
   return getAttackableTargets(USER.pid).indexOf(tid) !== -1;
 }
+
+
+
+
 
 
 
@@ -926,9 +1298,17 @@ function buildLayerStyle(tid) {
 
 
 
+
+
+
+
   var castle = getCastleByTid(tid);
   var ownerFill = territory.ownsto >= 0 ? getOwnerColor(territory.ownsto) : UNOWNED_FILL;
   var ownerStroke = territory.ownsto >= 0 ? getOwnerStroke(territory.ownsto) : UNOWNED_STROKE;
+
+
+
+
 
 
 
@@ -945,6 +1325,10 @@ function buildLayerStyle(tid) {
 
 
 
+
+
+
+
   if (!gameFinished && state.game && USER && state.game.currentplayer === USER.pid) {
     if (state.game.phase === 'BASE_SELECTION' && isSelectableBase(tid)) {
       style.weight = 4;
@@ -957,6 +1341,10 @@ function buildLayerStyle(tid) {
 
 
 
+
+
+
+
     if (state.game.phase === 'EXPANSION_SELECTION' && isSelectableExpansion(tid)) {
       style.weight = 4;
       style.color = '#f4ddab';
@@ -964,6 +1352,10 @@ function buildLayerStyle(tid) {
       style.fillOpacity = 0.8;
       style.dashArray = '';
     }
+
+
+
+
 
 
 
@@ -980,8 +1372,16 @@ function buildLayerStyle(tid) {
 
 
 
+
+
+
+
   return style;
 }
+
+
+
+
 
 
 
@@ -993,6 +1393,10 @@ function applyLayerStyle(layer, tid) {
 
 
 
+
+
+
+
   var castle = getCastleByTid(tid);
   var style = buildLayerStyle(tid);
   if (!style) return;
@@ -1000,7 +1404,15 @@ function applyLayerStyle(layer, tid) {
 
 
 
+
+
+
+
   layer.setStyle(style);
+
+
+
+
 
 
 
@@ -1021,7 +1433,15 @@ function applyLayerStyle(layer, tid) {
 
 
 
+
+
+
+
 }
+
+
+
+
 
 
 
@@ -1035,6 +1455,10 @@ function renderAllTerritories() {
 
 
 
+
+
+
+
 function getCurrentPhaseGroup() {
   if (!state.game || !state.game.phase) return 'WAIT';
   if (state.game.phase === 'BASE_SELECTION') return 'BASE';
@@ -1043,6 +1467,10 @@ function getCurrentPhaseGroup() {
   if (state.game.phase === 'FINISHED') return 'FINISHED';
   return 'WAIT';
 }
+
+
+
+
 
 
 
@@ -1062,6 +1490,10 @@ function renderPlayerCards() {
 
 
 
+
+
+
+
       var status = 'aktív';
       if (player.eliminated) status = 'kiesett';
       else if (!player.connected) status = 'offline';
@@ -1070,7 +1502,15 @@ function renderPlayerCards() {
 
 
 
+
+
+
+
       var castleTowers = castle ? castle.hp : 0;
+
+
+
+
 
 
 
@@ -1098,8 +1538,16 @@ function renderPlayerCards() {
 
 
 
+
+
+
+
   playercards.innerHTML = html;
 }
+
+
+
+
 
 
 
@@ -1113,9 +1561,17 @@ function renderPhaseBoard() {
 
 
 
+
+
+
+
   var phaseGroup = getCurrentPhaseGroup();
   var title = 'Várakozás';
   var subtitle = 'A meccs előkészítése folyamatban.';
+
+
+
+
 
 
 
@@ -1137,6 +1593,10 @@ function renderPhaseBoard() {
 
 
 
+
+
+
+
   phaseboard.innerHTML = [
     '<div class="phase-compact">',
     '<div class="phase-compact-title">' + escapeHtml(title) + '</div>',
@@ -1144,6 +1604,10 @@ function renderPhaseBoard() {
     '</div>'
   ].join('');
 }
+
+
+
+
 
 
 
@@ -1166,6 +1630,10 @@ function getPermutations(arr) {
 
 
 
+
+
+
+
 function renderOrderBoard() {
   if (!state.game) {
     orderboard.innerHTML = '';
@@ -1173,6 +1641,10 @@ function renderOrderBoard() {
     ordersummary.innerHTML = '';
     return;
   }
+
+
+
+
 
 
 
@@ -1188,8 +1660,16 @@ function renderOrderBoard() {
 
 
 
+
+
+
+
   ordermeta.textContent = phaseGroup === 'BATTLE' ? ('Csata • ' + phaseRound + '/6') : (phaseGroup === 'EXPANSION' ? ('Foglalás • ' + phaseRound + '/6') : 'Sorrendciklus');
   ordersummary.textContent = currentIndex >= 0 ? ('Aktív sor: ' + (currentIndex + 1) + '/6') : 'Aktív sor: —';
+
+
+
+
 
 
 
@@ -1214,13 +1694,25 @@ function renderOrderBoard() {
 
 
 
+
+
+
+
 function renderStatus() {
   if (!state.game) return;
 
 
 
 
+
+
+
+
   var current = getPlayerByPid(state.game.currentplayer);
+
+
+
+
 
 
 
@@ -1232,10 +1724,18 @@ function renderStatus() {
 
 
 
+
+
+
+
   if (!USER) {
     setStatus('A saját játékosprofil szinkronizálása folyamatban.');
     return;
   }
+
+
+
+
 
 
 
@@ -1268,6 +1768,10 @@ function renderStatus() {
 
 
 
+
+
+
+
 function renderHUD() {
   renderPlayerCards();
   renderPhaseBoard();
@@ -1278,9 +1782,17 @@ function renderHUD() {
 
 
 
+
+
+
+
 function setStatus(text) {
   gamestatus.textContent = text;
 }
+
+
+
+
 
 
 
@@ -1294,6 +1806,10 @@ function showPhaseSplash(title) {
     phaseSplash.classList.remove('is-visible');
   }, 1800);
 }
+
+
+
+
 
 
 
@@ -1321,6 +1837,10 @@ function maybeShowPhaseSplash() {
 
 
 
+
+
+
+
 function showWinnerModal(winner) {
   if (!winnerModal || !winnerTitle || !winnerSubtitle) return;
   winnerTitle.textContent = winner ? (getPlayerDisplayName(winner) + ' nyert!') : 'A meccs véget ért';
@@ -1329,6 +1849,10 @@ function showWinnerModal(winner) {
     : (winner ? ('Győztes: ' + getPlayerDisplayName(winner)) : 'A győztes nem ismert.');
   winnerModal.classList.add('is-visible');
 }
+
+
+
+
 
 
 
@@ -1343,6 +1867,10 @@ function finishGame(winnerPid) {
   syncBackgroundMusic();
   showWinnerModal(winner);
 }
+
+
+
+
 
 
 
@@ -1365,6 +1893,10 @@ function onStateSnapshot(payload) {
 
 
 
+
+
+
+
 function initializeMap() {
   function baseStyle() {
     return {
@@ -1380,6 +1912,10 @@ function initializeMap() {
 
 
 
+
+
+
+
   if (maplevel === 'medium') {
     countriesLayer = L.geoJson(countries30, { style: baseStyle, onEachFeature: countriesOnEachFeature }).addTo(map);
   } else {
@@ -1390,7 +1926,15 @@ function initializeMap() {
 
 
 
+
+
+
+
 initializeMap();
+
+
+
+
 
 
 
@@ -1400,6 +1944,21 @@ socket.on('question:start', function (question) {
   showQuestion(question);
   renderAllTerritories();
 });
+
+socket.on('ultraSabotageActivated', function (payload) {
+  playOneShot(soundPlayers.ultraSabotage);
+  showUltraSabotageBanner(payload);
+  if (currentQuestionData) {
+    currentQuestionData.context = currentQuestionData.context || {};
+    currentQuestionData.context.ultraSabotageUsed = true;
+    currentQuestionData.context.ultraSabotageTargetPid = payload && typeof payload.targetPid === 'number' ? payload.targetPid : null;
+    currentQuestionData.context.ultraSabotageByPid = payload && typeof payload.byPid === 'number' ? payload.byPid : null;
+    currentQuestionData.context.ultraSabotageRemaining = payload && typeof payload.remaining === 'number' ? payload.remaining : currentQuestionData.context.ultraSabotageRemaining;
+    currentQuestionData.context.canUseUltraSabotage = false;
+    renderQuestionActions(currentQuestionData);
+  }
+});
+
 socket.on('question:resolved', function (payload) {
   var myAnswer = USER && payload && payload.answers ? payload.answers[USER.pid] : null;
   if (myAnswer && typeof myAnswer.correct === 'boolean') {
@@ -1463,10 +2022,18 @@ socket.on('outputmsg', function (data) {
 
 
 
+
+
+
+
 socket.on('connect', function () {
   socket.emit('joingame', { username: username });
   socket.emit('getmsgs', { gameid: gameid });
 });
+
+
+
+
 
 
 
@@ -1482,6 +2049,10 @@ textarea.addEventListener('keydown', function (event) {
     event.preventDefault();
   }
 });
+
+
+
+
 
 
 
