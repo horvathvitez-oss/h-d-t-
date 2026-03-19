@@ -1326,7 +1326,146 @@ const GUESS_QUESTIONS = [
   { id: "guess_268", prompt: "Melyik évben jelent meg Babits Mihály utolsó verseskötete Jónás könyve címmel?", exactAnswer: 1940, unit: "év" },
 ];
 
+const ULTRAHARD_QUESTIONS = [
+  {
+    id: "uhq_1",
+    prompt: "Egy 2,5 tonnás autó 4 m/s² gyorsulással indul el. Mekkora erő szükséges ehhez?",
+    options: ["2500 N", "4000 N", "10 000 N", "625 N"],
+    correctOptionIndex: 2
+  },
+  {
+    id: "uhq_2",
+    prompt: "Egy 10 kg tömegű testet vízszintes felületen húznak 50 N nagyságú erővel. A súrlódási erő 20 N, és a mozgással ellentétes irányba hat. Mekkora lesz a test gyorsulása?",
+    options: ["3 m/s²", "5 m/s²", "2 m/s²", "7 m/s²"],
+    correctOptionIndex: 0
+  },
+  {
+    id: "uhq_3",
+    prompt: "Egy autó egy kör alakú úton halad 12 m/s sebességgel. A körpálya sugara 18 m. Mekkora az autó centripetális gyorsulása?",
+    options: ["6 m/s²", "12 m/s²", "18 m/s²", "8 m/s²"],
+    correctOptionIndex: 3
+  },
+  {
+    id: "uhq_4",
+    prompt: "Egy 80 kg tömegű ember az Egyenlítőn áll. Tekintsük a Föld sugarát 6,4 · 10⁶ m-nek, a Föld forgási idejét pedig 24 órának. Mekkora centrifugális erő hat az emberre?",
+    options: ["8 N", "2,7 N", "0,27 N", "27 N"],
+    correctOptionIndex: 1
+  },
+  {
+    id: "uhq_5",
+    prompt: "Egy kerékpáros nyugalomból indul, és 6 másodperc alatt egyenletesen gyorsulva eléri a 12 m/s sebességet. Mekkora a gyorsulása, és mekkora utat tesz meg ezalatt?",
+    options: ["3 m/s² és 18 m", "2 m/s² és 24 m", "2 m/s² és 36 m", "12 m/s² és 6 m"],
+    correctOptionIndex: 2
+  },
+  {
+    id: "uhq_6",
+    prompt: "300 g 18,0 tömeg%-os réz(II)-szulfát-oldatból lehűtéskor 40,0 g CuSO₄·5H₂O kristály válik ki. Mekkora lesz a visszamaradó oldat réz(II)-szulfát-tömegszázaléka?",
+    options: ["9,8%", "10,9%", "12,5%", "14,2%"],
+    correctOptionIndex: 1
+  },
+  {
+    id: "uhq_7",
+    prompt: "Hány darab ion keletkezik összesen 13,68 g Al₂(SO₄)₃ teljes disszociációja során? (Avogadro-állandó: 6,02 · 10²³ mol⁻¹)",
+    options: ["2,41 · 10²²", "6,02 · 10²²", "9,63 · 10²²", "1,20 · 10²³"],
+    correctOptionIndex: 3
+  },
+  {
+    id: "uhq_8",
+    prompt: "Azonos hőmérsékleten és nyomáson 11,2 dm³ térfogatú CO–CH₄ gázelegyet teljesen elégetünk. Az égéshez 16,8 dm³ oxigén szükséges. Mennyi a metán térfogatszázaléka az elegyben?",
+    options: ["66,7%", "50,0%", "33,3%", "75,0%"],
+    correctOptionIndex: 0
+  },
+  {
+    id: "uhq_9",
+    prompt: "Rendezd a következő reakcióegyenletet, majd válaszd ki a helyes együtthatósort: K₂Cr₂O₇ + HCl → KCl + CrCl₃ + Cl₂ + H₂O",
+    options: [
+      "1 : 12 : 2 : 2 : 3 : 6",
+      "2 : 14 : 2 : 2 : 3 : 7",
+      "1 : 14 : 2 : 2 : 3 : 7",
+      "1 : 14 : 1 : 2 : 3 : 7"
+    ],
+    correctOptionIndex: 2
+  },
+  {
+    id: "uhq_10",
+    prompt: "Mi a KAl(SO₄)₂·12H₂O vegyület szabályos neve?",
+    options: [
+      "kálium-alumínium-diszulfát-dodekahidrát",
+      "kálium-alumínium-szulfát-dodekahidrát",
+      "alumínium-kálium-szulfit-dodekahidrát",
+      "kálium-aluminát-szulfát-dodekahidrát"
+    ],
+    correctOptionIndex: 1
+  },
+  {
+    id: "uhq_11",
+    prompt: "Hányféleképpen választható ki 3 ember 8 ember közül?",
+    options: ["24", "28", "56", "64"],
+    correctOptionIndex: 2
+  },
+  {
+    id: "uhq_12",
+    prompt: "Egy szabályos dobókockával kétszer dobunk. Mennyi annak a valószínűsége, hogy legalább egyszer 6-ost dobunk?",
+    options: ["11/36", "1/6", "5/12", "25/36"],
+    correctOptionIndex: 0
+  },
+  {
+    id: "uhq_13",
+    prompt: "Az lg(x − 2) + lg(5 − x) = 0 egyenletnél melyik szám NEM lehet megoldás a kikötés miatt?",
+    options: ["3", "4", "4,5", "1"],
+    correctOptionIndex: 3
+  },
+  {
+    id: "uhq_14",
+    prompt: "Mennyi az ∫ e^(2x) dx határozatlan integrál?",
+    options: ["2e^(2x) + C", "1/2 · e^(2x) + C", "e^x + C", "e^(2x) + C"],
+    correctOptionIndex: 1
+  },
+  {
+    id: "uhq_15",
+    prompt: "Egy gömb sugara 3 cm. Mennyi a térfogata?",
+    options: ["9π cm³", "27π cm³", "36π cm³", "54π cm³"],
+    correctOptionIndex: 2
+  },
+  {
+    id: "uhq_16",
+    prompt: "Melyik sejtszervecske feladata elsődlegesen az ATP-termelés az eukarióta sejtekben?",
+    options: ["lizoszóma", "Golgi-készülék", "mitokondrium", "sejtközpont"],
+    correctOptionIndex: 2
+  },
+  {
+    id: "uhq_17",
+    prompt: "Melyik mirigy választja ki az emberi szervezetben az inzulint?",
+    options: ["pajzsmirigy", "hasnyálmirigy", "mellékvese", "agyalapi mirigy"],
+    correctOptionIndex: 1
+  },
+  {
+    id: "uhq_18",
+    prompt: "Egy heterozigóta barna szemű anya (Bb) és egy kék szemű apa (bb) gyermekei esetén mekkora a valószínűsége a kék szemű utódnak, ha a barna domináns?",
+    options: ["25%", "100%", "75%", "50%"],
+    correctOptionIndex: 3
+  },
+  {
+    id: "uhq_19",
+    prompt: "Mi történik legnagyobb valószínűséggel, ha egy táplálékhálózatból eltűnik egy csúcsragadozó?",
+    options: [
+      "minden populáció egyedszáma egyszerre csökken",
+      "a termelők azonnal kipusztulnak",
+      "a zsákmányállatok állománya megnőhet",
+      "megszűnik az energiaáramlás az ökoszisztémában"
+    ],
+    correctOptionIndex: 2
+  },
+  {
+    id: "uhq_20",
+    prompt: "Hol zajlik az emberi szervezetben a gázcsere döntő része?",
+    options: ["a hörgőkben", "a légcsőben", "a gége üregében", "a léghólyagocskák falánál"],
+    correctOptionIndex: 3
+  }
+];
+
 module.exports = {
   MULTIPLE_CHOICE_QUESTIONS,
-  GUESS_QUESTIONS
+  GUESS_QUESTIONS,
+  ULTRAHARD_QUESTIONS
 };
