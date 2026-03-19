@@ -11,6 +11,7 @@ var state = {
 var USER = null;
 var activeQuestionId = null;
 var questionCountdownInterval = null;
+var questionRevealTimer = null;
 
 
 
@@ -276,227 +277,191 @@ var PLAYER_NAMES_FALLBACK = ['Piros', 'Zöld', 'Fehér'];
 var UNOWNED_FILL = '#b69f79';
 var UNOWNED_STROKE = '#5a442d';
 
-
 var SOUND_BASE = document.body.getAttribute('data-sound-base') || '/sounds';
 var soundState = {
-  unlocked: false,
-  goodVoiceCount: 0,
-  badVoiceCount: 0,
-  currentBg: null
+unlocked: false,
+goodVoiceCount: 0,
+badVoiceCount: 0,
+currentBg: null,
+lastSnapshotSeen: false
 };
-
-function createAudio(src, loop) {
-  var audio = new Audio(src);
-  audio.preload = 'auto';
-  audio.loop = Boolean(loop);
-  return audio;
-}
 
 var soundPlayers = {
-  lobbyBg: createAudio(SOUND_BASE + '/lobby_bg.mp3', true),
-  gameBg: createAudio(SOUND_BASE + '/game_bg.mp3', true),
-  battleBg: createAudio(SOUND_BASE + '/battle_bg.mp3', true),
-  questionTimer: createAudio(SOUND_BASE + '/question_timer.mp3', true),
-  popupBase: createAudio(SOUND_BASE + '/popup_base.mp3'),
-  popupExpansion: createAudio(SOUND_BASE + '/popup_expansion.mp3'),
-  popupBattle: createAudio(SOUND_BASE + '/popup_battle.mp3'),
-  actionClick: createAudio(SOUND_BASE + '/action_click.mp3'),
-  correctAction: createAudio(SOUND_BASE + '/correct_action.mp3'),
-  territoryCapture: createAudio(SOUND_BASE + '/territory_capture.mp3'),
-  attackEnemyAction: createAudio(SOUND_BASE + '/attack_enemy_action.mp3')
+
+
+lobbyBg: new Audio(SOUND_BASE + '/lobby_bg.mp3'),
+gameBg: new Audio(SOUND_BASE + '/game_bg.mp3'),
+battleBg: new Audio(SOUND_BASE + '/battle_bg.mp3'),
+questionTimer: new Audio(SOUND_BASE + '/question_timer.mp3'),
+popupBase: new Audio(SOUND_BASE + '/popup_base.mp3'),
+popupExpansion: new Audio(SOUND_BASE + '/popup_expansion.mp3'),
+popupBattle: new Audio(SOUND_BASE + '/popup_battle.mp3'),
+actionClick: new Audio(SOUND_BASE + '/action_click.mp3'),
+correctAction: new Audio(SOUND_BASE + '/correct_action.mp3'),
+territoryCapture: new Audio(SOUND_BASE + '/territory_capture.mp3'),
+attackEnemyAction: new Audio(SOUND_BASE + '/attack_enemy_action.mp3')
 };
 
-var answerVoiceBanks = {
-  goodCommon: [
-    createAudio(SOUND_BASE + '/answer_good_common_1.mp3'),
-    createAudio(SOUND_BASE + '/answer_good_common_2.mp3')
-  ],
-  goodRare: [
-    createAudio(SOUND_BASE + '/answer_good_rare_1.mp3')
-  ],
-  badCommon: [
-    createAudio(SOUND_BASE + '/answer_bad_common_1.mp3'),
-    createAudio(SOUND_BASE + '/answer_bad_common_2.mp3')
-  ],
-  badRare: [
-    createAudio(SOUND_BASE + '/answer_bad_rare_1.mp3'),
-    createAudio(SOUND_BASE + '/answer_bad_rare_2.mp3'),
-    createAudio(SOUND_BASE + '/answer_bad_rare_3.mp3')
-  ]
-};
+soundPlayers.lobbyBg.loop = true;
+soundPlayers.gameBg.loop = true;
+soundPlayers.battleBg.loop = true;
+soundPlayers.questionTimer.loop = true;
 
 function safePlay(audio) {
-  if (!audio) return;
-  try {
-    var playPromise = audio.play();
-    if (playPromise && typeof playPromise.catch === 'function') {
-      playPromise.catch(function () {});
-    }
-  } catch (error) {}
+if (!audio) return;
+try {
+var playPromise = audio.play();
+if (playPromise && typeof playPromise.catch === 'function') {
+playPromise.catch(function () {});
+}
+} catch (e) {}
+}
+
+
+function playOneShot(audio) {
+if (!audio) return;
+try {
+var clone = audio.cloneNode();
+clone.volume = audio.volume;
+safePlay(clone);
+} catch (e) {
+try {
+audio.currentTime = 0;
+safePlay(audio);
+} catch (err) {}
+}
 }
 
 function stopAudio(audio) {
-  if (!audio) return;
-  try {
-    audio.pause();
-    audio.currentTime = 0;
-  } catch (error) {}
-}
-
-function playOneShot(audio) {
-  if (!audio) return;
-  try {
-    var clone = audio.cloneNode(true);
-    clone.preload = 'auto';
-    clone.volume = audio.volume;
-    safePlay(clone);
-  } catch (error) {
-    try {
-      audio.currentTime = 0;
-      safePlay(audio);
-    } catch (innerError) {}
-  }
-}
-
-function pickRandom(list) {
-  if (!list || !list.length) return null;
-  return list[Math.floor(Math.random() * list.length)];
-}
-
-function getWantedBackgroundTrack() {
-  var phaseGroup = getCurrentPhaseGroup();
-  if (!soundState.unlocked || gameFinished || !state.game || phaseGroup === 'WAIT' || phaseGroup === 'FINISHED') {
-    return null;
-  }
-  if (phaseGroup === 'BATTLE') {
-    return 'battleBg';
-  }
-  return 'gameBg';
-}
-
-function syncBackgroundMusic(force) {
-  var wanted = getWantedBackgroundTrack();
-  var wantedAudio = wanted ? soundPlayers[wanted] : null;
-  var currentAudio = soundState.currentBg ? soundPlayers[soundState.currentBg] : null;
-
-  if (!force && soundState.currentBg === wanted && (!wantedAudio || !wantedAudio.paused)) {
-    return;
-  }
-
-  if (currentAudio && currentAudio !== wantedAudio) {
-    stopAudio(currentAudio);
-  }
-
-  if (!wantedAudio) {
-    soundState.currentBg = null;
-    return;
-  }
-
-  if (wantedAudio.paused || force || soundState.currentBg !== wanted) {
-    safePlay(wantedAudio);
-  }
-
-  soundState.currentBg = wanted;
+if (!audio) return;
+try {
+audio.pause();
+audio.currentTime = 0;
+} catch (e) {}
 }
 
 function unlockSound() {
-  if (soundState.unlocked) return;
-  soundState.unlocked = true;
-  syncBackgroundMusic(true);
+if (soundState.unlocked) return;
+soundState.unlocked = true;
+syncBackgroundMusic();
 }
+
 
 document.addEventListener('click', unlockSound, { once: true, capture: true });
 document.addEventListener('keydown', unlockSound, { once: true, capture: true });
-window.addEventListener('focus', function () {
-  syncBackgroundMusic(true);
-});
-document.addEventListener('visibilitychange', function () {
-  if (!document.hidden) {
-    syncBackgroundMusic(true);
-  }
-});
+
+function syncBackgroundMusic() {
+if (!soundState.unlocked) return;
+var phaseGroup = getCurrentPhaseGroup();
+var wanted = null;
+
+if (gameFinished || phaseGroup === 'FINISHED' || phaseGroup === 'WAIT') {
+wanted = null;
+} else if (phaseGroup === 'BATTLE') {
+wanted = 'battleBg';
+} else if (state.game) {
+wanted = 'gameBg';
+}
+
+if (soundState.currentBg === wanted) return;
+
+stopAudio(soundPlayers.gameBg);
+stopAudio(soundPlayers.battleBg);
+
+soundState.currentBg = wanted;
+if (wanted) safePlay(soundPlayers[wanted]);
+}
+
+function playPopupPhaseVoice(phaseGroup) {
+if (!soundState.unlocked) return;
+if (phaseGroup === 'BASE') playOneShot(soundPlayers.popupBase);
+
+
+if (phaseGroup === 'EXPANSION') playOneShot(soundPlayers.popupExpansion);
+if (phaseGroup === 'BATTLE') playOneShot(soundPlayers.popupBattle);
+}
 
 function maybePlayActionClick(event) {
-  if (!soundState.unlocked) return;
-  var target = event && event.target;
-  if (!target || !target.closest) return;
-  if (target.closest('button, a, input, textarea, select, label')) return;
-  if (target.closest('#map')) return;
-  playOneShot(soundPlayers.actionClick);
+if (!soundState.unlocked) return;
+var target = event && event.target;
+if (!target || !target.closest) return;
+if (target.closest('button, a, input, textarea, select, label')) return;
+playOneShot(soundPlayers.actionClick);
 }
 
 document.addEventListener('click', maybePlayActionClick, true);
 
-function playPopupPhaseVoice(phaseGroup) {
-  if (!soundState.unlocked) return;
-  if (phaseGroup === 'BASE') playOneShot(soundPlayers.popupBase);
-  if (phaseGroup === 'EXPANSION') playOneShot(soundPlayers.popupExpansion);
-  if (phaseGroup === 'BATTLE') playOneShot(soundPlayers.popupBattle);
-}
-
 function startQuestionTimerSound() {
-  if (!soundState.unlocked) return;
-  safePlay(soundPlayers.questionTimer);
+if (!soundState.unlocked) return;
+safePlay(soundPlayers.questionTimer);
 }
 
 function stopQuestionTimerSound() {
-  stopAudio(soundPlayers.questionTimer);
+stopAudio(soundPlayers.questionTimer);
 }
+
+function pickRandom(list) {
+if (!list || !list.length) return null;
+return list[Math.floor(Math.random() * list.length)];
+}
+
 
 function playAnswerVoice(isCorrect) {
-  var bank = null;
+var audio = null;
 
-  if (isCorrect) {
-    soundState.goodVoiceCount += 1;
-    bank = (soundState.goodVoiceCount % 4 === 0) ? answerVoiceBanks.goodRare : answerVoiceBanks.goodCommon;
-  } else {
-    soundState.badVoiceCount += 1;
-    bank = (soundState.badVoiceCount % 4 === 0) ? answerVoiceBanks.badRare : answerVoiceBanks.badCommon;
-  }
+if (isCorrect) {
+soundState.goodVoiceCount += 1;
+if (soundState.goodVoiceCount % 4 === 0) {
+audio = pickRandom([
+new Audio(SOUND_BASE + '/answer_good_rare_1.mp3')
+]);
+} else {
+audio = pickRandom([
+new Audio(SOUND_BASE + '/answer_good_common_1.mp3'),
+new Audio(SOUND_BASE + '/answer_good_common_2.mp3')
+]);
+}
+} else {
+soundState.badVoiceCount += 1;
+if (soundState.badVoiceCount % 4 === 0) {
+audio = pickRandom([
+new Audio(SOUND_BASE + '/answer_bad_rare_1.mp3'),
+new Audio(SOUND_BASE + '/answer_bad_rare_2.mp3'),
+new Audio(SOUND_BASE + '/answer_bad_rare_3.mp3')
+]);
+} else {
+audio = pickRandom([
+new Audio(SOUND_BASE + '/answer_bad_common_1.mp3'),
+new Audio(SOUND_BASE + '/answer_bad_common_2.mp3')
+]);
 
-  playOneShot(pickRandom(bank));
+
+}
 }
 
-function getMyResolvedAnswer(payload) {
-  if (!USER || !payload || !payload.answers) return null;
-  var answers = payload.answers;
-  var answer = answers[USER.pid];
-
-  if (answer == null && answers[String(USER.pid)] != null) {
-    answer = answers[String(USER.pid)];
-  }
-
-  if (!answer) return null;
-
-  if (typeof answer.correct === 'boolean') {
-    return answer.correct;
-  }
-
-  if (typeof payload.correctOptionIndex === 'number' && typeof answer.selectedIndex === 'number') {
-    return answer.selectedIndex === payload.correctOptionIndex;
-  }
-
-  return null;
+playOneShot(audio);
 }
 
 function maybePlayTerritoryCaptureSound(previousState, nextState) {
-  if (!soundState.unlocked || !previousState || !previousState.territories || !nextState || !nextState.territories || !USER) return;
+if (!soundState.unlocked || !previousState || !previousState.territories || !USER) return;
 
-  var before = {};
-  previousState.territories.forEach(function (territory) {
-    before[territory.tid] = territory.ownsto;
-  });
+var before = {};
+previousState.territories.forEach(function (territory) {
+before[territory.tid] = territory.ownsto;
+});
 
-  var gained = nextState.territories.some(function (territory) {
-    return Object.prototype.hasOwnProperty.call(before, territory.tid) &&
-      before[territory.tid] !== USER.pid &&
-      territory.ownsto === USER.pid;
-  });
+var gained = (nextState.territories || []).some(function (territory) {
+return before.hasOwnProperty(territory.tid) && before[territory.tid] !== USER.pid &&
+territory.ownsto === USER.pid;
+});
 
-  if (gained) {
-    playOneShot(soundPlayers.territoryCapture);
-  }
+if (gained) {
+playOneShot(soundPlayers.territoryCapture);
 }
+}
+
+
+
 
 
 var map = L.map('map', {
@@ -1351,7 +1316,6 @@ function maybeShowPhaseSplash() {
   if (phaseGroup === 'EXPANSION') showPhaseSplash('TERÜLETFOGLALÁS');
   if (phaseGroup === 'BATTLE') showPhaseSplash('CSATA');
   playPopupPhaseVoice(phaseGroup);
-  syncBackgroundMusic(true);
 }
 
 
@@ -1376,7 +1340,7 @@ function finishGame(winnerPid) {
   setStatus(winner && USER && winner.pid === USER.pid ? 'Megnyerted a meccset.' : 'A meccs véget ért. Győztes: ' + (winner ? getPlayerDisplayName(winner) : 'ismeretlen'));
   renderAllTerritories();
   renderHUD();
-  syncBackgroundMusic(true);
+  syncBackgroundMusic();
   showWinnerModal(winner);
 }
 
@@ -1388,10 +1352,11 @@ function onStateSnapshot(payload) {
   state = payload;
   USER = state.players.find(function (player) { return player.name === username; }) || null;
   maybePlayTerritoryCaptureSound(previousState, state);
+  soundState.lastSnapshotSeen = true;
   renderAllTerritories();
   renderHUD();
   maybeShowPhaseSplash();
-  syncBackgroundMusic(true);
+  syncBackgroundMusic();
   if (state.game && state.game.phase === 'FINISHED' && !gameFinished) {
     finishGame(state.game.winner);
   }
@@ -1434,18 +1399,17 @@ socket.on('stateSnapshot', onStateSnapshot);
 socket.on('question:start', function (question) {
   showQuestion(question);
   renderAllTerritories();
-  syncBackgroundMusic(true);
 });
 socket.on('question:resolved', function (payload) {
-  var myAnswerCorrect = getMyResolvedAnswer(payload);
-
-  if (myAnswerCorrect === true) {
-    playOneShot(soundPlayers.correctAction);
-    playAnswerVoice(true);
-  } else if (myAnswerCorrect === false) {
-    playAnswerVoice(false);
+  var myAnswer = USER && payload && payload.answers ? payload.answers[USER.pid] : null;
+  if (myAnswer && typeof myAnswer.correct === 'boolean') {
+    if (myAnswer.correct) {
+      playOneShot(soundPlayers.correctAction);
+      playAnswerVoice(true);
+    } else {
+      playAnswerVoice(false);
+    }
   }
-
   if (currentQuestionData && currentQuestionData.type === 'mcq' && payload && payload.answers && typeof payload.correctOptionIndex === 'number') {
     renderMcqAnswers(payload);
   } else if (payload && payload.revealLines && payload.revealLines.length) {
@@ -1453,17 +1417,15 @@ socket.on('question:resolved', function (payload) {
   } else {
     hideQuestion();
   }
-  if (payload && payload.messages && payload.messages.length) {
+  if (payload.messages && payload.messages.length) {
     setStatus(payload.messages.join(' '));
   }
   renderAllTerritories();
-  syncBackgroundMusic(true);
 });
 socket.on('battle:result', function (payload) {
   if (payload && payload.message) {
     setStatus(payload.message);
   }
-  syncBackgroundMusic(true);
 });
 socket.on('gamefinish', function (data) {
   if (data && data.length) {
