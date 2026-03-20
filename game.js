@@ -26,6 +26,7 @@ const TERRITORY_SCORE = 200;
 const CASTLE_SCORE_BONUS = 800; // 200 (territory) + 800 = 1000
 const DEFENSE_BONUS = 100;
 const MAX_BATTLE_ROUNDS = 6;
+const EXPANSION_SELECTIONS_PER_TURN = 2;
 const MCQ_TIME_LIMIT_MS = 18000;
 const GUESS_TIME_LIMIT_MS = 18000;
 
@@ -575,9 +576,6 @@ async function handleSelectExpansionTarget(room, socket, tid) {
     return;
   }
 
-
-
-
   const territory = getTerritoryByTid(room, tid);
   if (!territory || territory.ownsto !== -1) {
     socket.emit('serverstatus', ['Ez a terület most nem választható.']);
@@ -588,30 +586,37 @@ async function handleSelectExpansionTarget(room, socket, tid) {
     return;
   }
 
-
-
-
   const allowedTargets = getExpansionSelectableTargets(room, player.pid);
   if (!allowedTargets.includes(tid)) {
     socket.emit('serverstatus', ['Csak szomszédos üres mezőt választhatsz, vagy ha nincs ilyen, bármelyik üreset.']);
     return;
   }
 
+  const requiredSelections = getExpansionSelectionsRequired(room, player.pid);
+  const currentSelections = Array.isArray(room.game.pendingSelections[player.pid])
+    ? room.game.pendingSelections[player.pid].slice()
+    : (room.game.pendingSelections[player.pid] != null ? [room.game.pendingSelections[player.pid]] : []);
 
+  if (currentSelections.includes(tid)) {
+    socket.emit('serverstatus', ['Ezt a területet már kiválasztottad ebben a körben.']);
+    return;
+  }
 
-
-  room.game.pendingSelections[player.pid] = tid;
+  currentSelections.push(tid);
+  room.game.pendingSelections[player.pid] = currentSelections;
   room.game.reservedTerritories.push(tid);
   gameLog(room, `${player.name} kinézte ezt a területet: ${territory.tname}.`);
 
-
-
+  if (currentSelections.length < requiredSelections) {
+    await persistGame(room);
+    sendStatus(room, `Foglalási kör: ${player.name} még választ ${requiredSelections - currentSelections.length} területet.`);
+    emitSnapshot(room);
+    return;
+  }
 
   const currentIndex = room.game.currentOrder.indexOf(player.pid);
-  const nextPid = nextEligiblePidInOrder(room, room.game.currentOrder, currentIndex, false, room.game.pendingSelections);
-
-
-
+  const completedSelections = getCompletedExpansionSelectionMap(room);
+  const nextPid = nextEligiblePidInOrder(room, room.game.currentOrder, currentIndex, false, completedSelections);
 
   if (nextPid === -1) {
     await startExpansionQuestion(room);
@@ -622,9 +627,6 @@ async function handleSelectExpansionTarget(room, socket, tid) {
     sendStatus(room, `Foglalási kör: ${nextPlayer.name} választ.`);
   }
 
-
-
-
   emitSnapshot(room);
 }
 
@@ -632,15 +634,13 @@ async function handleSelectExpansionTarget(room, socket, tid) {
 
 
 async function startExpansionQuestion(room) {
-  const participants = Object.keys(room.game.pendingSelections).map((value) => Number(value));
+  const participants = Object.keys(getCompletedExpansionSelectionMap(room)).map((value) => Number(value));
   if (!participants.length) {
     await startExpansionRound(room);
     return;
   }
 
-
-
-
+  room.game.pendingSelections = getCompletedExpansionSelectionMap(room);
   room.game.phase = PHASES.EXPANSION_QUESTION;
   room.game.currentplayer = -1;
   await createAndBroadcastQuestion(room, {
@@ -1046,25 +1046,44 @@ async function resolveActiveQuestion(room) {
 async function resolveExpansionQuestion(room, question) {
   const resultLines = [];
 
-
-
-
   question.participants.forEach((pid) => {
     const player = getPlayerByPid(room, pid);
-    const tid = question.context.pendingSelections[pid];
-    const territory = getTerritoryByTid(room, tid);
-    if (!territory || territory.ownsto !== -1) {
+    const selectedTidsRaw = question.context.pendingSelections[pid];
+    const selectedTids = Array.isArray(selectedTidsRaw)
+      ? selectedTidsRaw
+      : (selectedTidsRaw != null ? [selectedTidsRaw] : []);
+
+    if (!selectedTids.length) {
       return;
     }
 
-
-
-
     if (question.answers[pid].correct) {
-      territory.ownsto = pid;
-      resultLines.push(`${player.name} helyesen válaszolt, megszerezte: ${territory.tname}.`);
+      const capturedNames = [];
+      selectedTids.forEach((tid) => {
+        const territory = getTerritoryByTid(room, tid);
+        if (!territory || territory.ownsto !== -1) {
+          return;
+        }
+        territory.ownsto = pid;
+        capturedNames.push(territory.tname);
+      });
+
+      if (capturedNames.length === 1) {
+        resultLines.push(`${player.name} helyesen válaszolt, megszerezte: ${capturedNames[0]}.`);
+      } else if (capturedNames.length > 1) {
+        resultLines.push(`${player.name} helyesen válaszolt, megszerezte: ${capturedNames.join(', ')}.`);
+      }
     } else {
-      resultLines.push(`${player.name} nem szerezte meg: ${territory.tname}.`);
+      const missedNames = selectedTids.map((tid) => {
+        const territory = getTerritoryByTid(room, tid);
+        return territory ? territory.tname : null;
+      }).filter(Boolean);
+
+      if (missedNames.length === 1) {
+        resultLines.push(`${player.name} nem szerezte meg: ${missedNames[0]}.`);
+      } else if (missedNames.length > 1) {
+        resultLines.push(`${player.name} nem szerezte meg: ${missedNames.join(', ')}.`);
+      }
     }
   });
 
@@ -1564,6 +1583,24 @@ function getExpansionSelectableTargets(room, pid) {
 
 
 
+
+function getExpansionSelectionsRequired(room, pid) {
+  const selectableCount = getExpansionSelectableTargets(room, pid).length;
+  return Math.max(1, Math.min(EXPANSION_SELECTIONS_PER_TURN, selectableCount));
+}
+
+function getCompletedExpansionSelectionMap(room) {
+  const completed = {};
+  Object.keys(room.game.pendingSelections || {}).forEach((pidKey) => {
+    const pid = Number(pidKey);
+    const selections = room.game.pendingSelections[pid];
+    if (Array.isArray(selections) && selections.length >= getExpansionSelectionsRequired(room, pid)) {
+      completed[pid] = selections.slice();
+    }
+  });
+  return completed;
+}
+
 function getAttackableTargets(room, pid) {
   const targetSet = new Set();
   room.territories.forEach((territory) => {
@@ -1726,6 +1763,7 @@ function emitSnapshot(room, socket = null) {
       expansionRound: room.game.expansionRound,
       battleRound: room.game.battleRound,
       pendingSelections: room.game.pendingSelections || {},
+      expansionSelectionsPerTurn: EXPANSION_SELECTIONS_PER_TURN,
       reservedTerritories: room.game.reservedTerritories,
       ultraSabotageRemaining: room.game.ultraSabotageRemaining || 0,
       gamefinish: room.game.gamefinish,

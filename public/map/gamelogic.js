@@ -117,7 +117,14 @@ function getPendingSelectionPidForTid(tid) {
   if (!state.game || !state.game.pendingSelections) return null;
   var foundPid = null;
   Object.keys(state.game.pendingSelections).forEach(function (pidKey) {
-    if (Number(state.game.pendingSelections[pidKey]) === tid) {
+    var selection = state.game.pendingSelections[pidKey];
+    if (Array.isArray(selection)) {
+      if (selection.indexOf(tid) !== -1) {
+        foundPid = Number(pidKey);
+      }
+      return;
+    }
+    if (Number(selection) === tid) {
       foundPid = Number(pidKey);
     }
   });
@@ -1747,10 +1754,21 @@ function renderStatus() {
   } else if (state.game.phase === 'EXPANSION_SELECTION') {
     var selectable = getExpansionSelectableTargets(USER.pid);
     var canChooseAny = selectable.adjacent.length === 0;
+    var pendingSelection = state.game && state.game.pendingSelections ? state.game.pendingSelections[USER.pid] : null;
+    var alreadyChosen = Array.isArray(pendingSelection)
+      ? pendingSelection.length
+      : (pendingSelection != null ? 1 : 0);
+    var requiredSelections = state.game && state.game.expansionSelectionsPerTurn ? state.game.expansionSelectionsPerTurn : 2;
     if (state.game.currentplayer === USER.pid) {
-      setStatus(canChooseAny
-        ? 'Te jössz. Nincs szomszédos üres meződ, ezért bármelyik szabad mezőt választhatod.'
-        : 'Te jössz. Válassz egy szomszédos üres mezőt a területszerzéshez.');
+      if (requiredSelections > 1) {
+        setStatus(canChooseAny
+          ? 'Te jössz. Válassz KETTŐ területet. Nincs szomszédos üres meződ, ezért bármelyik szabad mezőt választhatod.'
+          : ('Te jössz. Válassz KETTŐ területet a területszerzéshez.' + (alreadyChosen > 0 ? ' Már kijelöltél ' + alreadyChosen + '/2 területet.' : '')));
+      } else {
+        setStatus(canChooseAny
+          ? 'Te jössz. Nincs szomszédos üres meződ, ezért bármelyik szabad mezőt választhatod.'
+          : 'Te jössz. Válassz egy szomszédos üres mezőt a területszerzéshez.');
+      }
     } else {
       setStatus('Most más választ foglalási célpontot.');
     }
