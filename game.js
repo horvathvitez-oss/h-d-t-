@@ -110,10 +110,8 @@ async function setupGame(room) {
     currentOrder: [],
     pendingSelections: {},
     reservedTerritories: [],
-    expansionSelectionsPerTurn: 1,
     activeQuestion: null,
     ultraSabotageRemaining: 4,
-    ultraSabotageRemainingByPid: Object.fromEntries(room.players.map((player) => [player.pid, 4])),
   };
 
 
@@ -348,78 +346,6 @@ async function handleDisconnect(room, socket) {
 
 
 
-
-function getExpansionSelectionCap(room) {
-  const eligiblePlayers = getEligiblePlayers(room);
-  if (!eligiblePlayers.length) return 1;
-  const unownedCount = getUnownedTerritories(room).length;
-  return Math.min(2, Math.max(1, Math.floor(unownedCount / eligiblePlayers.length)));
-}
-
-function getUltraSabotageRemainingForPid(room, pid) {
-  if (!room || !room.game) return 0;
-  const byPid = room.game.ultraSabotageRemainingByPid || {};
-  const remaining = byPid[pid];
-  if (Number.isFinite(remaining)) return Math.max(0, remaining);
-  if (Number.isInteger(pid) && Number.isFinite(room.game.ultraSabotageRemaining)) {
-    return Math.max(0, room.game.ultraSabotageRemaining);
-  }
-  return 0;
-}
-
-function getPendingSelectionsForPid(room, pid) {
-  const raw = room.game && room.game.pendingSelections ? room.game.pendingSelections[pid] : null;
-  if (Array.isArray(raw)) return raw.slice();
-  if (Number.isInteger(raw)) return [raw];
-  return [];
-}
-
-async function maybeAdvanceExpansionSelection(room, player) {
-  const selectionCap = room.game.expansionSelectionsPerTurn || 1;
-  const currentSelections = getPendingSelectionsForPid(room, player.pid);
-  const currentIndex = room.game.currentOrder.indexOf(player.pid);
-
-  if (currentSelections.length < selectionCap) {
-    const remainingTargets = getExpansionSelectableTargets(room, player.pid);
-    if (remainingTargets.length) {
-      room.game.currentplayer = player.pid;
-      await persistGame(room);
-      sendStatus(
-        room,
-        selectionCap === 2 && currentSelections.length === 1
-          ? `Foglalási kör: ${player.name}, válassz MÉG EGY területet.`
-          : `Foglalási kör: ${player.name} választ.`
-      );
-      return;
-    }
-  }
-
-  const nextPid = nextEligiblePidInOrder(room, room.game.currentOrder, currentIndex, false, room.game.pendingSelections);
-  if (nextPid === -1) {
-    await startExpansionQuestion(room);
-  } else {
-    room.game.currentplayer = nextPid;
-    await persistGame(room);
-    const nextPlayer = getPlayerByPid(room, nextPid);
-    sendStatus(room, `Foglalási kör: ${nextPlayer.name} választ.`);
-  }
-}
-
-async function maybeAdvanceExpansionSelectionWhenUnavailable(room) {
-  const current = getPlayerByPid(room, room.game.currentplayer);
-  if (!current || current.eliminated || !current.connected) {
-    const currentIndex = room.game.currentOrder.indexOf(room.game.currentplayer);
-    const nextPid = nextEligiblePidInOrder(room, room.game.currentOrder, currentIndex, false, room.game.pendingSelections);
-    if (nextPid === -1) {
-      await startExpansionQuestion(room);
-    } else {
-      room.game.currentplayer = nextPid;
-      await persistGame(room);
-      emitSnapshot(room);
-    }
-  }
-}
-
 async function maybeStartGame(room) {
   const filledPlayers = room.players.filter((player) => player.name !== 'x');
   if (filledPlayers.length !== room.howmany) {
@@ -546,7 +472,7 @@ async function startExpansionRound(room, firstRound = false) {
 
 
 
-  if (getUnownedTerritories(room).length < 5) {
+  if (getUnownedTerritories(room).length < 6) {
     await startExpansionRemainderGuess(room);
     return;
   }
@@ -560,7 +486,6 @@ async function startExpansionRound(room, firstRound = false) {
   room.game.expansionCycleIndex = (room.game.expansionCycleIndex + 1) % room.game.orderCycle.length;
   room.game.pendingSelections = {};
   room.game.reservedTerritories = [];
-  room.game.expansionSelectionsPerTurn = getExpansionSelectionCap(room);
   room.game.activeQuestion = null;
   room.game.currentplayer = nextEligiblePidInOrder(room, room.game.currentOrder, -1, true);
   await persistGame(room);
@@ -578,12 +503,7 @@ async function startExpansionRound(room, firstRound = false) {
 
   const current = getPlayerByPid(room, room.game.currentplayer);
   gameLog(room, `Foglalási kör ${room.game.expansionRound}. Sorrend: ${formatOrder(room, room.game.currentOrder)}.`);
-  sendStatus(
-    room,
-    room.game.expansionSelectionsPerTurn === 2
-      ? `Foglalási kör ${room.game.expansionRound}: ${current.name} választhat, összesen KÉT területet.`
-      : `Foglalási kör ${room.game.expansionRound}: ${current.name} választ.`
-  );
+  sendStatus(room, `Foglalási kör ${room.game.expansionRound}: ${current.name} választ.`);
   emitSnapshot(room);
 }
 
@@ -603,10 +523,13 @@ async function startExpansionRemainderGuess(room) {
     return;
   }
 
+  const remainingTids = unownedTerritories.map((territory) => territory.tid);
+  const remainingNames = unownedTerritories.map((territory) => territory.tname);
+
   room.game.phase = PHASES.EXPANSION_QUESTION;
   room.game.currentplayer = -1;
   room.game.pendingSelections = {};
-  room.game.reservedTerritories = unownedTerritories.map((territory) => territory.tid);
+  room.game.reservedTerritories = remainingTids.slice();
   room.game.activeQuestion = null;
   await persistGame(room);
 
@@ -615,17 +538,16 @@ async function startExpansionRemainderGuess(room) {
     context: {
       flow: 'EXPANSION',
       subflow: 'REMAINDER_GUESS',
-      remainingTids: unownedTerritories.map((territory) => territory.tid),
-      remainingNames: unownedTerritories.map((territory) => territory.tname),
-      targetTid: unownedTerritories[0].tid,
-      targetName: unownedTerritories[0].tname,
+      remainingTids,
+      remainingNames,
+      rewardPattern: [2, 2, 1],
     },
     participants: eligible.map((player) => player.pid),
     viewers: room.players.map((player) => player.pid),
   });
 
-  gameLog(room, `Maradék területek tippelős kiosztása: ${unownedTerritories.map((territory) => territory.tname).join(', ')}.`);
-  sendStatus(room, `Maradék területek tippelős kiosztása következik.`);
+  gameLog(room, `Maradék területek tippelős kiosztása (${remainingNames.length} mező): ${remainingNames.join(', ')}.`);
+  sendStatus(room, 'Maradék területek tippelős kiosztása: 1. hely 2 mező, 2. hely 2 mező, 3. hely 1 mező.');
 }
 
 
@@ -640,6 +562,9 @@ async function handleSelectExpansionTarget(room, socket, tid) {
     return;
   }
 
+
+
+
   const territory = getTerritoryByTid(room, tid);
   if (!territory || territory.ownsto !== -1) {
     socket.emit('serverstatus', ['Ez a terület most nem választható.']);
@@ -650,37 +575,58 @@ async function handleSelectExpansionTarget(room, socket, tid) {
     return;
   }
 
+
+
+
   const allowedTargets = getExpansionSelectableTargets(room, player.pid);
   if (!allowedTargets.includes(tid)) {
     socket.emit('serverstatus', ['Csak szomszédos üres mezőt választhatsz, vagy ha nincs ilyen, bármelyik üreset.']);
     return;
   }
 
-  const selectionCap = room.game.expansionSelectionsPerTurn || 1;
-  const selections = getPendingSelectionsForPid(room, player.pid);
-  if (selections.length >= selectionCap) {
-    socket.emit('serverstatus', ['Ebben a körben már kiválasztottad az összes foglalható területedet.']);
-    return;
-  }
 
-  selections.push(tid);
-  room.game.pendingSelections[player.pid] = selections;
+
+
+  room.game.pendingSelections[player.pid] = tid;
   room.game.reservedTerritories.push(tid);
   gameLog(room, `${player.name} kinézte ezt a területet: ${territory.tname}.`);
 
-  await maybeAdvanceExpansionSelection(room, player);
+
+
+
+  const currentIndex = room.game.currentOrder.indexOf(player.pid);
+  const nextPid = nextEligiblePidInOrder(room, room.game.currentOrder, currentIndex, false, room.game.pendingSelections);
+
+
+
+
+  if (nextPid === -1) {
+    await startExpansionQuestion(room);
+  } else {
+    room.game.currentplayer = nextPid;
+    await persistGame(room);
+    const nextPlayer = getPlayerByPid(room, nextPid);
+    sendStatus(room, `Foglalási kör: ${nextPlayer.name} választ.`);
+  }
+
+
+
+
   emitSnapshot(room);
 }
 
 
+
+
 async function startExpansionQuestion(room) {
-  const participants = Object.keys(room.game.pendingSelections)
-    .map((value) => Number(value))
-    .filter((pid) => getPendingSelectionsForPid(room, pid).length > 0);
+  const participants = Object.keys(room.game.pendingSelections).map((value) => Number(value));
   if (!participants.length) {
     await startExpansionRound(room);
     return;
   }
+
+
+
 
   room.game.phase = PHASES.EXPANSION_QUESTION;
   room.game.currentplayer = -1;
@@ -690,7 +636,6 @@ async function startExpansionQuestion(room) {
       flow: 'EXPANSION',
       participants,
       pendingSelections: { ...room.game.pendingSelections },
-      selectionsPerTurn: room.game.expansionSelectionsPerTurn || 1,
     },
     participants,
     viewers: room.players.map((player) => player.pid),
@@ -758,7 +703,18 @@ async function maybeAdvanceWhenCurrentPlayerUnavailable(room) {
 
 
   if (room.game.phase === PHASES.EXPANSION_SELECTION) {
-    await maybeAdvanceExpansionSelectionWhenUnavailable(room);
+    const current = getPlayerByPid(room, room.game.currentplayer);
+    if (!current || current.eliminated || !current.connected) {
+      const currentIndex = room.game.currentOrder.indexOf(room.game.currentplayer);
+      const nextPid = nextEligiblePidInOrder(room, room.game.currentOrder, currentIndex, false, room.game.pendingSelections);
+      if (nextPid === -1) {
+        await startExpansionQuestion(room);
+      } else {
+        room.game.currentplayer = nextPid;
+        await persistGame(room);
+        emitSnapshot(room);
+      }
+    }
     return;
   }
 
@@ -1077,45 +1033,38 @@ async function resolveActiveQuestion(room) {
 async function resolveExpansionQuestion(room, question) {
   const resultLines = [];
 
+
+
+
   question.participants.forEach((pid) => {
     const player = getPlayerByPid(room, pid);
-    const selectedTids = Array.isArray(question.context.pendingSelections[pid])
-      ? question.context.pendingSelections[pid]
-      : (Number.isInteger(question.context.pendingSelections[pid]) ? [question.context.pendingSelections[pid]] : []);
+    const tid = question.context.pendingSelections[pid];
+    const territory = getTerritoryByTid(room, tid);
+    if (!territory || territory.ownsto !== -1) {
+      return;
+    }
+
+
+
 
     if (question.answers[pid].correct) {
-      const capturedNames = [];
-      selectedTids.forEach((tid) => {
-        const territory = getTerritoryByTid(room, tid);
-        if (!territory || territory.ownsto !== -1) {
-          return;
-        }
-        territory.ownsto = pid;
-        capturedNames.push(territory.tname);
-      });
-
-      if (capturedNames.length) {
-        resultLines.push(`${player.name} helyesen válaszolt, megszerezte: ${capturedNames.join(', ')}.`);
-      } else {
-        resultLines.push(`${player.name} helyesen válaszolt, de már nem maradt megszerezhető kijelölt területe.`);
-      }
+      territory.ownsto = pid;
+      resultLines.push(`${player.name} helyesen válaszolt, megszerezte: ${territory.tname}.`);
     } else {
-      const missedNames = selectedTids
-        .map((tid) => getTerritoryByTid(room, tid))
-        .filter(Boolean)
-        .map((territory) => territory.tname);
-      resultLines.push(
-        missedNames.length
-          ? `${player.name} nem szerezte meg: ${missedNames.join(', ')}.`
-          : `${player.name} nem szerzett területet.`
-      );
+      resultLines.push(`${player.name} nem szerezte meg: ${territory.tname}.`);
     }
   });
+
+
+
 
   rebuildPlayerTerritories(room);
   recalculateScores(room);
   await persistAllTerritories(room);
   await persistAllPlayers(room);
+
+
+
 
   room.namespace.emit('question:resolved', {
     flow: 'EXPANSION',
@@ -1124,14 +1073,23 @@ async function resolveExpansionQuestion(room, question) {
     messages: resultLines,
   });
 
+
+
+
   room.game.activeQuestion = null;
   room.questionRuntime = null;
   room.game.pendingSelections = {};
   room.game.reservedTerritories = [];
   await persistGame(room);
 
+
+
+
   resultLines.forEach((line) => gameLog(room, line));
   emitSnapshot(room);
+
+
+
 
   if (allTerritoriesClaimed(room)) {
     await startBattleRound(room, 1);
@@ -1141,14 +1099,10 @@ async function resolveExpansionQuestion(room, question) {
 }
 
 
+
+
 async function resolveExpansionRemainderGuess(room, question) {
-  const remainingTids = Array.isArray(question.context.remainingTids)
-    ? question.context.remainingTids.slice()
-    : (Number.isInteger(question.context.targetTid) ? [question.context.targetTid] : []);
-  const availableTerritories = remainingTids
-    .map((tid) => getTerritoryByTid(room, tid))
-    .filter((territory) => territory && territory.ownsto === -1)
-    .sort((a, b) => a.tid - b.tid);
+  const availableTerritories = getUnownedTerritories(room).sort((a, b) => a.tid - b.tid);
 
   if (!availableTerritories.length) {
     room.game.activeQuestion = null;
@@ -1177,37 +1131,54 @@ async function resolveExpansionRemainderGuess(room, question) {
     .sort((a, b) => a.distance - b.distance || a.submittedAt - b.submittedAt || a.pid - b.pid);
 
   const resultLines = [];
-  const winnerEntry = rankedParticipants[0];
-  const secondEntry = rankedParticipants[1];
+  const rewardPattern = [2, 2, 1];
+  const allocations = [];
 
-  if (winnerEntry) {
-    const winner = getPlayerByPid(room, winnerEntry.pid);
-    const winnerTerritories = availableTerritories.slice(0, Math.min(2, availableTerritories.length));
-    winnerTerritories.forEach((territory) => {
-      territory.ownsto = winner.pid;
+  rankedParticipants.forEach((entry, index) => {
+    if (!availableTerritories.length) {
+      return;
+    }
+
+    const player = getPlayerByPid(room, entry.pid);
+    if (!player) {
+      return;
+    }
+
+    let takeCount = rewardPattern[index] || 0;
+    if (index === rankedParticipants.length - 1) {
+      takeCount = availableTerritories.length;
+    } else {
+      takeCount = Math.min(takeCount, availableTerritories.length);
+    }
+
+    if (takeCount <= 0) {
+      return;
+    }
+
+    const wonTerritories = availableTerritories.splice(0, takeCount);
+    wonTerritories.forEach((territory) => {
+      territory.ownsto = player.pid;
     });
 
-    if (winner && winnerTerritories.length) {
-      resultLines.push(`${winner.name} szerezte meg a maradék területek közül: ${winnerTerritories.map((territory) => territory.tname).join(', ')}.`);
-    }
-  }
-
-  const secondTerritories = availableTerritories.slice(Math.min(2, availableTerritories.length));
-  if (secondEntry && secondTerritories.length) {
-    const second = getPlayerByPid(room, secondEntry.pid);
-    secondTerritories.forEach((territory) => {
-      territory.ownsto = second.pid;
+    allocations.push({
+      pid: player.pid,
+      territoryNames: wonTerritories.map((territory) => territory.tname),
     });
-
-    if (second) {
-      resultLines.push(`${second.name} kapta a maradék területeket: ${secondTerritories.map((territory) => territory.tname).join(', ')}.`);
-    }
-  }
+  });
 
   rebuildPlayerTerritories(room);
   recalculateScores(room);
   await persistAllTerritories(room);
   await persistAllPlayers(room);
+
+  allocations.forEach((allocation, index) => {
+    const player = getPlayerByPid(room, allocation.pid);
+    const positionLabel = index === 0 ? 'első' : (index === 1 ? 'második' : 'harmadik');
+    if (!player || !allocation.territoryNames.length) {
+      return;
+    }
+    resultLines.push(`${player.name} lett a(z) ${positionLabel}, és megszerezte: ${allocation.territoryNames.join(', ')}.`);
+  });
 
   room.namespace.emit('question:resolved', {
     flow: 'EXPANSION_REMAINDER_GUESS',
@@ -1228,7 +1199,7 @@ async function resolveExpansionRemainderGuess(room, question) {
 
   if (allTerritoriesClaimed(room)) {
     await startBattleRound(room, 1);
-  } else if (getUnownedTerritories(room).length < 5) {
+  } else if (getUnownedTerritories(room).length < 6) {
     await startExpansionRemainderGuess(room);
   } else {
     await startExpansionRound(room);
@@ -1753,11 +1724,9 @@ function emitSnapshot(room, socket = null) {
       currentOrder: room.game.currentOrder,
       expansionRound: room.game.expansionRound,
       battleRound: room.game.battleRound,
-      expansionSelectionsPerTurn: room.game.expansionSelectionsPerTurn || 1,
       pendingSelections: room.game.pendingSelections || {},
       reservedTerritories: room.game.reservedTerritories,
-      ultraSabotageRemaining: getUltraSabotageRemainingForPid(room, pid),
-      ultraSabotageRemainingByPid: room.game.ultraSabotageRemainingByPid || {},
+      ultraSabotageRemaining: room.game.ultraSabotageRemaining || 0,
       gamefinish: room.game.gamefinish,
       winner: room.game.winner ?? null,
     },
@@ -1787,10 +1756,7 @@ function emitSnapshot(room, socket = null) {
 function publicQuestionContext(room, context, pid = null) {
   if (!context) return null;
   if (context.flow === 'EXPANSION') {
-    return {
-      flow: 'EXPANSION',
-      selectionsPerTurn: context.selectionsPerTurn || 1,
-    };
+    return { flow: 'EXPANSION' };
   }
 
   const runtime = room.questionRuntime || {};
@@ -1801,7 +1767,7 @@ function publicQuestionContext(room, context, pid = null) {
     context.flow === 'BATTLE' &&
     Array.isArray(question.participants) &&
     question.participants.includes(pid) &&
-    getUltraSabotageRemainingForPid(room, pid) > 0 &&
+    (room.game.ultraSabotageRemaining || 0) > 0 &&
     !runtime.ultraSabotageUsed &&
     Object.keys(question.answers || {}).length === 0
   );
@@ -1971,8 +1937,8 @@ async function handleActivateUltraSabotage(room, socket) {
     socket.emit('serverstatus', ['Csak az aktuális párbaj résztvevői használhatnak szabotázst.']);
     return;
   }
-  if (getUltraSabotageRemainingForPid(room, player.pid) <= 0) {
-    socket.emit('serverstatus', ['Elfogyott a szabotázsod ebben a meccsben.']);
+  if ((room.game.ultraSabotageRemaining || 0) <= 0) {
+    socket.emit('serverstatus', ['Elfogyott a szabotázs ebben a meccsben.']);
     return;
   }
   if (runtime.ultraSabotageUsed) {
@@ -2007,8 +1973,7 @@ async function handleActivateUltraSabotage(room, socket) {
     isUltra: true,
   };
 
-  room.game.ultraSabotageRemainingByPid = room.game.ultraSabotageRemainingByPid || {};
-  room.game.ultraSabotageRemainingByPid[player.pid] = Math.max(0, getUltraSabotageRemainingForPid(room, player.pid) - 1);
+  room.game.ultraSabotageRemaining = Math.max(0, (room.game.ultraSabotageRemaining || 0) - 1);
   await persistGame(room);
 
   emitQuestionStart(room);
@@ -2020,7 +1985,7 @@ async function handleActivateUltraSabotage(room, socket) {
     targetPid,
     byName: sourcePlayer ? sourcePlayer.name : 'Ismeretlen',
     targetName: targetPlayer ? targetPlayer.name : 'Ismeretlen',
-    remaining: getUltraSabotageRemainingForPid(room, player.pid),
+    remaining: room.game.ultraSabotageRemaining || 0,
   });
 
   sendStatus(room, `${sourcePlayer ? sourcePlayer.name : 'Valaki'} szabotázst aktivált. ${targetPlayer ? targetPlayer.name : 'Az ellenfél'} ULTRA HARD kérdést kapott.`);
