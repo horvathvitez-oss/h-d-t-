@@ -3477,3 +3477,136 @@ body.game-screen .phase-compact-sub {
     padding: 11px 14px;
   }
 }
+
+/* =========================
+   TARGETED PATCH: question card responsiveness + requested color changes
+   ========================= */
+
+#question-modal .question-panel:not(.is-ultra-hard) {
+  width: min(92vw, 760px);
+  max-width: 760px;
+  max-height: min(86vh, 820px);
+  overflow: auto;
+  padding: clamp(16px, 2.3vw, 22px);
+  border-radius: clamp(16px, 2vw, 22px);
+  background: linear-gradient(180deg, rgba(78, 52, 31, 0.97), rgba(50, 32, 20, 0.98)) !important;
+  border-color: rgba(181, 142, 96, 0.34) !important;
+}
+
+#question-modal .question-panel:not(.is-ultra-hard) .question-context {
+  background: rgba(255, 244, 225, 0.12);
+  color: #f2dfc7;
+}
+
+#question-modal .question-panel:not(.is-ultra-hard) .question-prompt {
+  font-size: clamp(22px, 3.1vw, 30px);
+  color: #fff2df;
+}
+
+#question-modal .question-panel:not(.is-ultra-hard) .question-timer {
+  font-size: clamp(15px, 2vw, 16px);
+  color: #ffd4a5;
+}
+
+#question-modal .question-panel:not(.is-ultra-hard) .question-note,
+#question-modal .question-panel:not(.is-ultra-hard) .question-unit {
+  color: rgba(249, 232, 209, 0.82);
+}
+
+#question-modal .question-panel:not(.is-ultra-hard) .question-option {
+  background: rgba(255, 250, 243, 0.94);
+  color: #26170d;
+  border-color: rgba(177, 142, 103, 0.24);
+}
+
+#question-modal .question-panel:not(.is-ultra-hard) .question-guess-row input {
+  background: #fffaf2;
+  color: #1f140d;
+  border-color: rgba(177, 142, 103, 0.24);
+}
+
+#question-modal .question-panel:not(.is-ultra-hard) .question-guess-row input::placeholder {
+  color: rgba(49, 31, 20, 0.45);
+}
+
+#question-modal .question-panel:not(.is-ultra-hard) .question-guess-row button {
+  background: #724324;
+  color: #fff7e5;
+}
+
+#chatmsgs,
+#gamelogs,
+body.game-screen #chatmsgs,
+body.game-screen #gamelogs {
+  background: #000 !important;
+}
+
+body.game-screen .compact-phase-card,
+body.game-screen .phase-compact,
+.phase-splash-inner {
+  background: #000 !important;
+}
+
+.auth-screen .input100,
+.lobby-screen-modern .parchment-input,
+.lobby-screen-modern .lobby-code-input {
+  background: rgba(255, 249, 241, 0.94) !important;
+  color: #000 !important;
+  caret-color: #000 !important;
+  border-color: rgba(110, 74, 42, 0.22) !important;
+}
+
+.auth-screen .input100::placeholder,
+.lobby-screen-modern .parchment-input::placeholder,
+.lobby-screen-modern .lobby-code-input::placeholder {
+  color: rgba(0, 0, 0, 0.42) !important;
+}
+
+.auth-screen .input100:-webkit-autofill,
+.auth-screen .input100:-webkit-autofill:hover,
+.auth-screen .input100:-webkit-autofill:focus,
+.lobby-screen-modern .parchment-input:-webkit-autofill,
+.lobby-screen-modern .parchment-input:-webkit-autofill:hover,
+.lobby-screen-modern .parchment-input:-webkit-autofill:focus,
+.lobby-screen-modern .lobby-code-input:-webkit-autofill,
+.lobby-screen-modern .lobby-code-input:-webkit-autofill:hover,
+.lobby-screen-modern .lobby-code-input:-webkit-autofill:focus {
+  -webkit-text-fill-color: #000 !important;
+  box-shadow: 0 0 0 1000px rgba(255, 249, 241, 0.94) inset !important;
+}
+
+@media (max-width: 767px) {
+  #question-modal {
+    padding: 12px;
+  }
+
+  #question-modal .question-panel:not(.is-ultra-hard) {
+    width: min(96vw, 760px);
+    max-height: min(90vh, 880px);
+    padding: 16px 16px 128px;
+  }
+
+  #question-modal .question-panel:not(.is-ultra-hard) .question-guess-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  #question-modal .question-panel:not(.is-ultra-hard) .question-guess-row button {
+    width: 100%;
+  }
+}
+
+@media (max-width: 480px) {
+  #question-modal .question-panel:not(.is-ultra-hard) {
+    padding: 14px 14px 124px;
+  }
+
+  #question-modal .question-panel:not(.is-ultra-hard) .question-option {
+    padding: 13px 14px;
+    font-size: 15px;
+  }
+
+  #question-modal .question-panel:not(.is-ultra-hard) .question-prompt {
+    line-height: 1.22;
+  }
+}
