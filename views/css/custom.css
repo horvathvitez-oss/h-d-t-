@@ -3690,7 +3690,7 @@ body.auth-screen-video {
    ========================= */
 
 body.lobby-screen-modern {
-  --lobby-ad-width: clamp(120px, 11vw, 186px);
+  --lobby-ad-width: clamp(170px, 14vw, 260px);
   --lobby-ad-gap: clamp(12px, 1.8vw, 28px);
   padding-left: calc(var(--lobby-ad-width) + var(--lobby-ad-gap));
   padding-right: calc(var(--lobby-ad-width) + var(--lobby-ad-gap));
