@@ -3690,7 +3690,7 @@ body.auth-screen-video {
    ========================= */
 
 body.lobby-screen-modern {
-  --lobby-ad-width: clamp(170px, 14vw, 260px);
+  --lobby-ad-width: clamp(120px, 11vw, 186px);
   --lobby-ad-gap: clamp(12px, 1.8vw, 28px);
   padding-left: calc(var(--lobby-ad-width) + var(--lobby-ad-gap));
   padding-right: calc(var(--lobby-ad-width) + var(--lobby-ad-gap));
@@ -4063,5 +4063,160 @@ body.lobby-screen-modern .lobby-app-container {
   .lobby-screen-modern .lobby-code-input {
     font-size: 20px !important;
     letter-spacing: 0.12em;
+  }
+}
+
+/* Mobile-only lobby layout refinements: one ad card, flatter hero/join cards */
+@media (max-width: 767px) {
+  .lobby-screen-modern .lobby-content-modern {
+    padding-top: 2px;
+  }
+
+  .lobby-screen-modern .lobby-hero-card {
+    padding: 18px 18px 16px !important;
+    border-radius: 20px !important;
+  }
+
+  .lobby-screen-modern .lobby-hero-kicker {
+    min-height: 28px;
+    padding: 5px 10px;
+    font-size: 10px;
+    letter-spacing: 0.12em;
+  }
+
+  .lobby-screen-modern .lobby-hero-card h1 {
+    margin: 12px 0 8px;
+    font-size: clamp(26px, 8vw, 34px);
+    line-height: 1.04;
+  }
+
+  .lobby-screen-modern .lobby-hero-card p {
+    max-width: none;
+    font-size: 14px;
+    line-height: 1.45;
+  }
+
+  .lobby-screen-modern .lobby-card-row-modern {
+    gap: 14px 0;
+  }
+
+  .lobby-screen-modern .lobby-choice-card {
+    padding: 18px 18px 16px !important;
+    border-radius: 20px !important;
+  }
+
+  .lobby-screen-modern .lobby-card-head {
+    gap: 8px;
+    margin-bottom: 10px;
+  }
+
+  .lobby-screen-modern .lobby-card-head h2 {
+    font-size: clamp(24px, 6.6vw, 30px);
+    line-height: 1.08;
+  }
+
+  .lobby-screen-modern .lobby-card-copy {
+    margin: 0 0 12px;
+    font-size: 14px;
+    line-height: 1.5;
+  }
+
+  .lobby-screen-modern .lobby-feature-list {
+    gap: 8px;
+    margin-bottom: 16px;
+  }
+
+  .lobby-screen-modern .lobby-feature-list li {
+    font-size: 13px;
+    line-height: 1.4;
+  }
+
+  .lobby-screen-modern .lobby-action-btn-spark {
+    min-height: 54px;
+    padding: 14px 18px !important;
+    border-radius: 16px !important;
+    font-size: 13px !important;
+  }
+
+  .lobby-screen-modern .lobby-join-shell {
+    gap: 10px;
+  }
+
+  .lobby-screen-modern .lobby-join-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 10px;
+    align-items: stretch;
+  }
+
+  .lobby-screen-modern .lobby-code-input {
+    min-width: 0;
+    min-height: 54px;
+    padding-left: 14px;
+    padding-right: 14px;
+    font-size: 18px !important;
+    letter-spacing: 0.1em;
+  }
+
+  #joinButton.lobby-action-btn-spark,
+  .lobby-screen-modern #joinButton.lobby-action-btn-spark {
+    min-width: 132px;
+    width: auto;
+    white-space: nowrap;
+    align-self: stretch;
+  }
+
+  .lobby-side-ads {
+    grid-template-columns: 1fr;
+    gap: 10px;
+    padding: 10px 12px 0;
+  }
+
+  .lobby-side-ad-right {
+    display: none;
+  }
+
+  .lobby-side-ad-left,
+  .lobby-side-ad {
+    width: 100%;
+    min-height: 156px;
+    border-radius: 20px;
+  }
+
+  .lobby-side-ad-caption {
+    min-height: 44px;
+    padding: 8px 12px;
+    font-size: 10px;
+    letter-spacing: 0.12em;
+  }
+}
+
+@media (max-width: 420px) {
+  .lobby-screen-modern .lobby-hero-card,
+  .lobby-screen-modern .lobby-choice-card {
+    padding: 16px 14px 14px !important;
+  }
+
+  .lobby-screen-modern .lobby-join-row {
+    grid-template-columns: minmax(0, 1fr) 118px;
+    gap: 8px;
+  }
+
+  .lobby-screen-modern .lobby-code-input {
+    min-height: 50px;
+    font-size: 16px !important;
+    letter-spacing: 0.08em;
+  }
+
+  #joinButton.lobby-action-btn-spark,
+  .lobby-screen-modern #joinButton.lobby-action-btn-spark {
+    min-width: 118px;
+    padding-left: 12px !important;
+    padding-right: 12px !important;
+    font-size: 12px !important;
+  }
+
+  .lobby-side-ad-left,
+  .lobby-side-ad {
+    min-height: 138px;
   }
 }
