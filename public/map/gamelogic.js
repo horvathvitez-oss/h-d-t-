@@ -376,11 +376,6 @@ soundPlayers.gameBg.loop = true;
 soundPlayers.battleBg.loop = true;
 soundPlayers.questionTimer.loop = true;
 
-var GAME_CORNER_PROMO_LINK = 'https://kozepsulineked.com/products/30-napos-elofizetes-kozepsulineked';
-var GAME_CORNER_PROMO_VIDEO = '/videos/game-corner-promo.mp4';
-var QUESTION_HELP_ART_SRC = '/images/question-help-king.png';
-var QUESTION_SABOTAGE_ART_SRC = '/images/question-sabotage-clown.png';
-
 
 function safePlay(audio) {
 if (!audio) return;
@@ -573,31 +568,6 @@ playOneShot(soundPlayers.territoryCapture);
 
 
 
-
-function createGameCornerPromo() {
-  if (!document.body || !document.body.classList.contains('game-screen')) return null;
-  if (document.getElementById('game-corner-promo')) return document.getElementById('game-corner-promo');
-
-  var shell = document.getElementById('game-shell') || document.body;
-  var promo = document.createElement('a');
-  promo.id = 'game-corner-promo';
-  promo.className = 'game-corner-promo game-corner-promo--left';
-  promo.href = GAME_CORNER_PROMO_LINK;
-  promo.target = '_blank';
-  promo.rel = 'noopener noreferrer';
-  promo.setAttribute('aria-label', 'Középsuli Neked ajánlat megnyitása');
-
-  promo.innerHTML = [
-    '<span class="game-corner-promo-frame"></span>',
-    '<video class="game-corner-promo-video" autoplay muted loop playsinline preload="auto">',
-    '<source src="' + GAME_CORNER_PROMO_VIDEO + '" type="video/mp4">',
-    '</video>'
-  ].join('');
-
-  shell.appendChild(promo);
-  return promo;
-}
-
 var map = L.map('map', {
   zoomControl: false,
   attributionControl: false,
@@ -612,7 +582,6 @@ L.control.zoom({ position: 'bottomright' }).addTo(map);
 
 
 var questionModal = buildQuestionModal();
-var gameCornerPromo = createGameCornerPromo();
 
 
 
@@ -692,6 +661,9 @@ function triggerQuestionActionEffect(kind, payload) {
   var panel = getQuestionPanel();
   if (!panel) return;
 
+  var groupSelector = kind === 'help' ? '.question-action-group--help' : '.question-action-group--sabotage';
+  var targetContainer = panel.querySelector(groupSelector) || panel;
+
   var burst = document.createElement('div');
   burst.className = 'question-action-burst question-action-burst--' + kind;
   burst.innerHTML = [
@@ -701,7 +673,7 @@ function triggerQuestionActionEffect(kind, payload) {
     '<span class="question-action-smoke smoke-3"></span>',
     '<span class="question-action-smoke smoke-4"></span>'
   ].join('');
-  panel.appendChild(burst);
+  targetContainer.appendChild(burst);
   requestAnimationFrame(function () {
     burst.classList.add('is-active');
   });
@@ -813,21 +785,16 @@ function renderQuestionActions(question) {
     helpCounter.className = 'question-action-counter question-help-counter';
     helpCounter.textContent = 'MARADÉK: ' + Number(question.context.kozepsuliHelpRemaining || 0);
 
-    var helpArtWrap = document.createElement('div');
-    helpArtWrap.className = 'question-action-art question-action-art--help';
-    var helpArt = document.createElement('img');
-    helpArt.className = 'question-action-art-image';
-    helpArt.src = QUESTION_HELP_ART_SRC;
-    helpArt.alt = 'KÖZÉPSULINEKED HELP király';
-    helpArt.loading = 'lazy';
-    helpArt.addEventListener('error', function () {
-      helpArtWrap.style.display = 'none';
-    });
-    helpArtWrap.appendChild(helpArt);
+    var helpIllustration = document.createElement('img');
+    helpIllustration.className = 'question-action-illustration question-action-illustration--help';
+    helpIllustration.src = '/images/question-help-king.png';
+    helpIllustration.alt = 'KÖZÉPSULINEKED HELP';
+    helpIllustration.loading = 'lazy';
+    helpIllustration.decoding = 'async';
 
     helpGroup.appendChild(helpButton);
     helpGroup.appendChild(helpCounter);
-    helpGroup.appendChild(helpArtWrap);
+    helpGroup.appendChild(helpIllustration);
     host.appendChild(helpGroup);
   }
 
@@ -855,21 +822,16 @@ function renderQuestionActions(question) {
     sabotageCounter.className = 'question-action-counter question-sabotage-counter';
     sabotageCounter.textContent = 'MARADÉK: ' + Number(question.context.ultraSabotageRemaining || 0);
 
-    var sabotageArtWrap = document.createElement('div');
-    sabotageArtWrap.className = 'question-action-art question-action-art--sabotage';
-    var sabotageArt = document.createElement('img');
-    sabotageArt.className = 'question-action-art-image';
-    sabotageArt.src = QUESTION_SABOTAGE_ART_SRC;
-    sabotageArt.alt = 'Szabotázs bohóc';
-    sabotageArt.loading = 'lazy';
-    sabotageArt.addEventListener('error', function () {
-      sabotageArtWrap.style.display = 'none';
-    });
-    sabotageArtWrap.appendChild(sabotageArt);
+    var sabotageIllustration = document.createElement('img');
+    sabotageIllustration.className = 'question-action-illustration question-action-illustration--sabotage';
+    sabotageIllustration.src = '/images/question-sabotage-clown.png';
+    sabotageIllustration.alt = 'Szabotázs';
+    sabotageIllustration.loading = 'lazy';
+    sabotageIllustration.decoding = 'async';
 
     sabotageGroup.appendChild(sabotageButton);
     sabotageGroup.appendChild(sabotageCounter);
-    sabotageGroup.appendChild(sabotageArtWrap);
+    sabotageGroup.appendChild(sabotageIllustration);
     host.appendChild(sabotageGroup);
   }
 
