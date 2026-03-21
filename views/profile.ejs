@@ -1,128 +1,435 @@
 <!DOCTYPE html>
-<html>
-	<head>
-		<title>RiskBUDUR</title>
+<html lang="hu">
+<head>
+  <title>Hódító.com – Profil</title>
 
-		<!-- meta -->
-		<meta charset="UTF-8">
-	    <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
 
-	    <!-- css -->
-		<link rel="stylesheet" href="/views/css/bootstrap.min.css">
-		<link rel="stylesheet" href="/views/css/ionicons.min.css">
-		<link rel="stylesheet" href="/views/css/pace.css">
-	    <link rel="stylesheet" href="/views/css/custom.css">
+  <link rel="stylesheet" href="/views/css/bootstrap.min.css">
+  <link rel="stylesheet" href="/views/css/ionicons.min.css">
+  <link rel="stylesheet" href="/views/css/pace.css">
+  <link rel="stylesheet" href="/views/css/custom.css">
 
-	    <!-- js -->
-	    <script src="/views/js/jquery-2.1.3.min.js"></script>
-	    <script src="/views/js/bootstrap.min.js"></script>
-	    <script src="/views/js/pace.min.js"></script>
-	    <script src="/views/js/modernizr.custom.js"></script><meta http-equiv="Content-Type" content="text/html; charset=utf-8"><style type="text/css">
-		
-		<script>
-		var username = '<%=username%>';
-		var email = '<%=username%>';
-		
-		</script>
-<!--
-body {
-	background-color: #f4f4f4;
-	opacity:0.9;
-}
-.container {
-	background-color: #fff;
-}
--->
-</style></head>
+  <script src="/views/js/jquery-2.1.3.min.js"></script>
+  <script src="/views/js/bootstrap.min.js"></script>
+  <script src="/views/js/pace.min.js"></script>
+  <script src="/views/js/modernizr.custom.js"></script>
 
-	<body>
-		<br>
-		
-		<div class="container">	
-			<header id="site-header">
-				<div class="row">
-					<div class="col-md-4 col-sm-5 col-xs-8">
-						<div class="logo">
-							<h1><a href="/"><img src="views/img/logo.png" width="232" height="89"></a></h1>
-					  </div>
-					</div><!-- col-md-4 -->
-					<div class="col-md-8 col-sm-7 col-xs-4">
-						<nav class="main-nav" role="navigation">
-							<div class="navbar-header">
-  								<button type="button" id="trigger-overlay" class="navbar-toggle">
-    								<span class="ion-navicon"></span>
-  								</button>
-							</div>
+  <script>
+    var username = '<%= username %>';
+    var email = '<%= email %>';
+  </script>
 
-							<div class="collapse navbar-collapse" id="bs-example-navbar-collapse-1">
-  								<ul class="nav navbar-nav navbar-right">
-								<br><br>
-    								<li class="cl-effect-11"><a href="/lobby" data-hover="Home">Home</a></li>
-    								<li class="cl-effect-11"><a href="/profile" data-hover="Profile">Profile</a></li>
-    								<li class="cl-effect-11"><a href="/newgame" data-hover="Create Game">Create Game</a></li>
-    								<li class="cl-effect-11"><a href="/logout" data-hover="Logout">Logout</a></li>
-  								</ul>
-							</div><!-- /.navbar-collapse -->
-						</nav>
-						<!--
-						<div id="header-search-box">
-							<a id="search-menu" href="#"><span id="search-icon" class="ion-ios-search-strong"></span></a>
-							<div id="search-form" class="search-form">
-								<form role="search" method="get" id="searchform" action="#">
-									<input type="search" placeholder="Search" required>
-									<button type="submit"><span class="ion-ios-search-strong"></span></button>
-								</form>				
-							</div>
-						</div>
-						-->
-					</div><!-- col-md-8 -->
-				</div>
-			</header>
-			
-		<div class="content-body">
-				<div class="row">
-					<main class="col-md-10">
-					
-					<div class="col-sm-5 col-md-6 col-md-offset-3">
-							<header class="entry-header">
-								<h1 class="entry-title">Profile Page</h1>
-							</header>
-						<center>
-						
-						
-            <div class="well well-sm">
-                <div class="row">
-                    <div class="col-sm-6 col-md-4">
-                        <img src="http://placehold.it/380x500" alt="" class="img-rounded img-responsive" />
-                    </div>
-                    <div class="col-sm-6 col-md-8"><br><br>
-                        <h4><%=username%></h4>
-                        
-                        <p>
-                            <i class="glyphicon glyphicon-envelope"></i><%=email%>
-                            <br />
-							
-                    </div>
-                </div>
+  <style>
+    :root {
+      --hodito-bg: #0d0805;
+      --hodito-surface: rgba(35, 20, 11, 0.94);
+      --hodito-surface-soft: rgba(56, 32, 18, 0.92);
+      --hodito-border: rgba(197, 147, 97, 0.28);
+      --hodito-accent: #c59361;
+      --hodito-accent-strong: #e5bc8d;
+      --hodito-text: #f6eadc;
+      --hodito-text-soft: #d7c1ab;
+      --hodito-shadow: 0 20px 45px rgba(0, 0, 0, 0.35);
+    }
+
+    html, body {
+      min-height: 100%;
+      background:
+        radial-gradient(circle at top, rgba(120, 72, 32, 0.22), transparent 38%),
+        linear-gradient(180deg, #1b0f08 0%, #0d0805 100%);
+      color: var(--hodito-text);
+      font-family: "Helvetica Neue", Arial, sans-serif;
+    }
+
+    body {
+      margin: 0;
+    }
+
+    .profile-shell {
+      width: min(1120px, calc(100% - 28px));
+      margin: 22px auto;
+      background: rgba(17, 10, 6, 0.72);
+      border: 1px solid rgba(197, 147, 97, 0.12);
+      border-radius: 28px;
+      box-shadow: var(--hodito-shadow);
+      overflow: hidden;
+      backdrop-filter: blur(6px);
+    }
+
+    #site-header {
+      padding: 24px 28px 10px;
+      background: linear-gradient(180deg, rgba(70, 41, 21, 0.75), rgba(24, 14, 8, 0.2));
+      border-bottom: 1px solid rgba(197, 147, 97, 0.12);
+    }
+
+    .logo img {
+      max-width: 100%;
+      height: auto;
+      filter: drop-shadow(0 8px 18px rgba(0,0,0,0.22));
+    }
+
+    .main-nav .navbar-nav {
+      margin-top: 8px;
+    }
+
+    .main-nav .navbar-nav > li > a {
+      color: var(--hodito-text-soft) !important;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      transition: color .2s ease, transform .2s ease;
+    }
+
+    .main-nav .navbar-nav > li > a:hover,
+    .main-nav .navbar-nav > li > a:focus {
+      color: var(--hodito-accent-strong) !important;
+      background: transparent;
+      transform: translateY(-1px);
+    }
+
+    .content-body {
+      padding: 18px 28px 36px;
+    }
+
+    .profile-stage {
+      max-width: 940px;
+      margin: 0 auto;
+    }
+
+    .entry-header {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+
+    .entry-title {
+      margin: 0;
+      color: var(--hodito-text);
+      font-size: clamp(32px, 4vw, 48px);
+      font-weight: 900;
+      letter-spacing: 0.02em;
+    }
+
+    .entry-subtitle {
+      margin: 12px auto 0;
+      max-width: 620px;
+      color: var(--hodito-text-soft);
+      font-size: 16px;
+      line-height: 1.55;
+    }
+
+    .profile-card {
+      margin-top: 28px;
+      padding: 28px;
+      border-radius: 24px;
+      background: linear-gradient(180deg, var(--hodito-surface), rgba(27, 15, 8, 0.98));
+      border: 1px solid var(--hodito-border);
+      box-shadow: var(--hodito-shadow);
+    }
+
+    .profile-layout {
+      display: grid;
+      grid-template-columns: 260px minmax(0, 1fr);
+      gap: 26px;
+      align-items: stretch;
+    }
+
+    .profile-avatar-panel {
+      background: linear-gradient(180deg, rgba(77, 46, 25, 0.92), rgba(39, 22, 13, 0.96));
+      border: 1px solid rgba(197, 147, 97, 0.22);
+      border-radius: 22px;
+      padding: 18px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .profile-avatar {
+      width: 100%;
+      aspect-ratio: 4 / 5;
+      border-radius: 18px;
+      object-fit: cover;
+      border: 2px solid rgba(229, 188, 141, 0.4);
+      background: linear-gradient(180deg, rgba(89, 54, 31, 0.9), rgba(33, 19, 11, 0.95));
+    }
+
+    .profile-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 14px;
+      border-radius: 999px;
+      background: rgba(229, 188, 141, 0.12);
+      border: 1px solid rgba(229, 188, 141, 0.18);
+      color: var(--hodito-accent-strong);
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .profile-main {
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+
+    .profile-headline {
+      padding: 18px 20px;
+      border-radius: 20px;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(197, 147, 97, 0.16);
+    }
+
+    .profile-name {
+      margin: 0;
+      font-size: clamp(28px, 3vw, 38px);
+      font-weight: 900;
+      color: var(--hodito-text);
+    }
+
+    .profile-email {
+      margin-top: 10px;
+      color: var(--hodito-text-soft);
+      font-size: 16px;
+      word-break: break-word;
+    }
+
+    .profile-email i {
+      margin-right: 10px;
+      color: var(--hodito-accent);
+    }
+
+    .profile-section-title {
+      margin: 0 0 12px;
+      color: var(--hodito-accent-strong);
+      font-size: 14px;
+      font-weight: 800;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+
+    .profile-stats {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 16px;
+    }
+
+    .profile-stat-card {
+      padding: 20px 18px;
+      border-radius: 20px;
+      background: linear-gradient(180deg, rgba(80, 47, 24, 0.35), rgba(32, 18, 10, 0.78));
+      border: 1px solid rgba(197, 147, 97, 0.18);
+      min-height: 132px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+
+    .profile-stat-label {
+      color: var(--hodito-text-soft);
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      line-height: 1.45;
+    }
+
+    .profile-stat-value {
+      margin-top: 18px;
+      color: var(--hodito-text);
+      font-size: clamp(28px, 3vw, 40px);
+      font-weight: 900;
+      line-height: 1;
+    }
+
+    .profile-stat-note {
+      margin-top: 10px;
+      color: rgba(215, 193, 171, 0.78);
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
+    .profile-info-box {
+      padding: 18px 20px;
+      border-radius: 20px;
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(197, 147, 97, 0.16);
+      color: var(--hodito-text-soft);
+      line-height: 1.65;
+      font-size: 15px;
+    }
+
+    #site-footer {
+      padding: 14px 28px 24px;
+      color: rgba(215, 193, 171, 0.76);
+      text-align: center;
+      border-top: 1px solid rgba(197, 147, 97, 0.08);
+    }
+
+    .copyright {
+      margin: 0;
+      font-size: 13px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    @media (max-width: 991px) {
+      #site-header,
+      .content-body,
+      #site-footer {
+        padding-left: 20px;
+        padding-right: 20px;
+      }
+
+      .profile-layout {
+        grid-template-columns: 1fr;
+      }
+
+      .profile-avatar-panel {
+        max-width: 320px;
+        margin: 0 auto;
+      }
+
+      .profile-stats {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 767px) {
+      .profile-shell {
+        width: calc(100% - 16px);
+        margin: 8px auto;
+        border-radius: 20px;
+      }
+
+      #site-header,
+      .content-body,
+      #site-footer {
+        padding-left: 14px;
+        padding-right: 14px;
+      }
+
+      .profile-card {
+        padding: 18px;
+      }
+
+      .entry-title {
+        font-size: 30px;
+      }
+
+      .entry-subtitle,
+      .profile-info-box,
+      .profile-email {
+        font-size: 14px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="profile-shell">
+    <header id="site-header">
+      <div class="row">
+        <div class="col-md-4 col-sm-5 col-xs-8">
+          <div class="logo">
+            <h1><a href="/"><img src="views/img/logo.png" width="232" height="89" alt="Hódító.com"></a></h1>
+          </div>
+        </div>
+        <div class="col-md-8 col-sm-7 col-xs-4">
+          <nav class="main-nav" role="navigation">
+            <div class="navbar-header">
+              <button type="button" id="trigger-overlay" class="navbar-toggle">
+                <span class="ion-navicon"></span>
+              </button>
             </div>
-			
-						</center>
-					</main>
-					</div>
-				</div>
-			
-		</div>
-		<footer id="site-footer">
-			
-				<div class="row">
-					<div class="col-md-12">
-						<p class="copyright">&copy; 2018 RiskBudur</p>
-					</div>
-				</div>
-		</footer>
-		</div>
-		
-		<script src="/views/js/script.js"></script>
 
-	</body>
+            <div class="collapse navbar-collapse" id="bs-example-navbar-collapse-1">
+              <ul class="nav navbar-nav navbar-right">
+                <li class="cl-effect-11"><a href="/lobby" data-hover="Lobby">Lobby</a></li>
+                <li class="cl-effect-11"><a href="/profile" data-hover="Profil">Profil</a></li>
+                <li class="cl-effect-11"><a href="/newgame" data-hover="Új meccs">Új meccs</a></li>
+                <li class="cl-effect-11"><a href="/logout" data-hover="Kilépés">Kilépés</a></li>
+              </ul>
+            </div>
+          </nav>
+        </div>
+      </div>
+    </header>
+
+    <div class="content-body">
+      <div class="profile-stage">
+        <header class="entry-header">
+          <h1 class="entry-title">Profil</h1>
+          <p class="entry-subtitle">
+            Saját Hódító.com profiloldalad. Itt később helyet kaphatnak a statisztikáid,
+            eredményeid és a játékbeli előrehaladásod.
+          </p>
+        </header>
+
+        <section class="profile-card">
+          <div class="profile-layout">
+            <aside class="profile-avatar-panel">
+              <img src="http://placehold.it/380x500" alt="Profilkép" class="profile-avatar">
+              <div class="profile-badge">
+                <i class="ion-trophy"></i>
+                Hódító játékos
+              </div>
+            </aside>
+
+            <div class="profile-main">
+              <div class="profile-headline">
+                <h2 class="profile-name"><%= username %></h2>
+                <div class="profile-email">
+                  <i class="glyphicon glyphicon-envelope"></i><%= email %>
+                </div>
+              </div>
+
+              <div>
+                <h3 class="profile-section-title">Játékstatisztikák</h3>
+                <div class="profile-stats">
+                  <div class="profile-stat-card">
+                    <div class="profile-stat-label">Lejátszott meccsek</div>
+                    <div class="profile-stat-value">--</div>
+                    <div class="profile-stat-note">A számláló helye előkészítve.</div>
+                  </div>
+
+                  <div class="profile-stat-card">
+                    <div class="profile-stat-label">Nyert meccsek</div>
+                    <div class="profile-stat-value">--</div>
+                    <div class="profile-stat-note">A számláló helye előkészítve.</div>
+                  </div>
+
+                  <div class="profile-stat-card">
+                    <div class="profile-stat-label">Fiók állapota</div>
+                    <div class="profile-stat-value">Aktív</div>
+                    <div class="profile-stat-note">Később ide kerülhet további profilinformáció is.</div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="profile-info-box">
+                Ez az oldal most már a Hódító.com sötétbarna vizuális világához igazodik.
+                A két új statisztikai blokkot direkt előkészítettem úgy, hogy később könnyen
+                rá lehessen kötni a valódi adatokat backendről.
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+    </div>
+
+    <footer id="site-footer">
+      <div class="row">
+        <div class="col-md-12">
+          <p class="copyright">&copy; Hódító.com</p>
+        </div>
+      </div>
+    </footer>
+  </div>
+
+  <script src="/views/js/script.js"></script>
+</body>
 </html>
