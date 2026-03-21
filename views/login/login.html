@@ -17,7 +17,13 @@
   <link rel="stylesheet" type="text/css" href="views/login/css/main.css">
   <link rel="stylesheet" type="text/css" href="/views/css/custom.css">
 </head>
-<body class="parchment-screen auth-screen auth-screen-modern">
+<body class="parchment-screen auth-screen auth-screen-modern auth-screen-video">
+  <div class="auth-video-background" aria-hidden="true">
+    <video class="auth-video-background__media" autoplay muted loop playsinline preload="auto" tabindex="-1">
+      <source src="/public/videos/login-background.mov" type="video/quicktime">
+    </video>
+  </div>
+  <div class="auth-video-background__scrim" aria-hidden="true"></div>
   <div class="parchment-overlay"></div>
   <div class="auth-page-shell auth-page-shell-modern">
     <div class="limiter">
