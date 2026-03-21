@@ -490,7 +490,7 @@ async function startExpansionRound(room, firstRound = false) {
   room.game.pendingSelections = {};
   room.game.reservedTerritories = [];
   room.game.activeQuestion = null;
-  room.game.currentplayer = nextEligiblePidInOrder(room, room.game.currentOrder, -1, true);
+  room.game.currentplayer = getNextExpansionSelectionPid(room, -1);
   await persistGame(room);
 
 
@@ -621,8 +621,7 @@ async function handleSelectExpansionTarget(room, socket, tid) {
   }
 
   const currentIndex = room.game.currentOrder.indexOf(player.pid);
-  const completedSelections = getCompletedExpansionSelectionMap(room);
-  const nextPid = nextEligiblePidInOrder(room, room.game.currentOrder, currentIndex, false, completedSelections);
+  const nextPid = getNextExpansionSelectionPid(room, currentIndex);
 
   if (nextPid === -1) {
     await startExpansionQuestion(room);
@@ -687,7 +686,7 @@ async function startBattleRound(room, roundNumber) {
   room.game.battleRound = roundNumber;
   room.game.battleTurnIndex = 0;
   room.game.currentOrder = room.game.orderCycle[(roundNumber - 1) % room.game.orderCycle.length] || [];
-  room.game.currentplayer = nextEligiblePidInOrder(room, room.game.currentOrder, -1, true);
+  room.game.currentplayer = getNextExpansionSelectionPid(room, -1);
   room.game.activeQuestion = null;
   await persistGame(room);
 
@@ -723,9 +722,13 @@ async function maybeAdvanceWhenCurrentPlayerUnavailable(room) {
 
   if (room.game.phase === PHASES.EXPANSION_SELECTION) {
     const current = getPlayerByPid(room, room.game.currentplayer);
-    if (!current || current.eliminated || !current.connected) {
+    const currentRequiredSelections = current ? getExpansionSelectionsRequired(room, current.pid) : 0;
+    if (!current || current.eliminated || !current.connected || currentRequiredSelections <= 0) {
+      if (current && !current.eliminated && current.connected && currentRequiredSelections <= 0) {
+        gameLog(room, `${current.name} kimarad a foglalási körből, mert nem maradt választható területe.`);
+      }
       const currentIndex = room.game.currentOrder.indexOf(room.game.currentplayer);
-      const nextPid = nextEligiblePidInOrder(room, room.game.currentOrder, currentIndex, false, room.game.pendingSelections);
+      const nextPid = getNextExpansionSelectionPid(room, currentIndex);
       if (nextPid === -1) {
         await startExpansionQuestion(room);
       } else {
@@ -1566,8 +1569,11 @@ async function finishMatch(room, winnerPid) {
 
 
 function getExpansionSelectableTargets(room, pid) {
+  const reserved = new Set((room.game && room.game.reservedTerritories) || []);
   const owned = room.territories.filter((territory) => territory.ownsto === pid);
-  const unowned = room.territories.filter((territory) => territory.ownsto === -1).map((territory) => territory.tid);
+  const unowned = room.territories
+    .filter((territory) => territory.ownsto === -1 && !reserved.has(territory.tid))
+    .map((territory) => territory.tid);
   if (!owned.length) {
     return unowned;
   }
@@ -1579,7 +1585,7 @@ function getExpansionSelectableTargets(room, pid) {
   owned.forEach((territory) => {
     territory.neighbors.forEach((neighborTid) => {
       const neighbor = getTerritoryByTid(room, neighborTid);
-      if (neighbor && neighbor.ownsto === -1) {
+      if (neighbor && neighbor.ownsto === -1 && !reserved.has(neighborTid)) {
         adjacent.add(neighborTid);
       }
     });
@@ -1588,14 +1594,15 @@ function getExpansionSelectableTargets(room, pid) {
 
 
 
-  if (adjacent.size) {
-    return [...adjacent].filter((tid) => !room.game.reservedTerritories.includes(tid));
+  const adjacentTargets = [...adjacent];
+  if (adjacentTargets.length) {
+    return adjacentTargets;
   }
 
 
 
 
-  return unowned.filter((tid) => !room.game.reservedTerritories.includes(tid));
+  return unowned;
 }
 
 
@@ -1604,7 +1611,7 @@ function getExpansionSelectableTargets(room, pid) {
 
 function getExpansionSelectionsRequired(room, pid) {
   const selectableCount = getExpansionSelectableTargets(room, pid).length;
-  return Math.max(1, Math.min(EXPANSION_SELECTIONS_PER_TURN, selectableCount));
+  return Math.max(0, Math.min(EXPANSION_SELECTIONS_PER_TURN, selectableCount));
 }
 
 function getCompletedExpansionSelectionMap(room) {
@@ -1617,6 +1624,31 @@ function getCompletedExpansionSelectionMap(room) {
     }
   });
   return completed;
+}
+
+function getNextExpansionSelectionPid(room, currentIndex) {
+  const completedSelections = getCompletedExpansionSelectionMap(room);
+
+  for (let i = Math.max(currentIndex + 1, 0); i < room.game.currentOrder.length; i += 1) {
+    const pid = room.game.currentOrder[i];
+    const player = getPlayerByPid(room, pid);
+    if (!player || player.eliminated || !player.connected) {
+      continue;
+    }
+    if (Object.prototype.hasOwnProperty.call(completedSelections, pid)) {
+      continue;
+    }
+
+    const requiredSelections = getExpansionSelectionsRequired(room, pid);
+    if (requiredSelections <= 0) {
+      gameLog(room, `${player.name} kimarad a foglalási körből, mert nem maradt választható területe.`);
+      continue;
+    }
+
+    return pid;
+  }
+
+  return -1;
 }
 
 function getAttackableTargets(room, pid) {
