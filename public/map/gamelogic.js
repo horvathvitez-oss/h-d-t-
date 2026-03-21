@@ -366,7 +366,8 @@ actionClick: new Audio(SOUND_BASE + '/action_click.mp3'),
 correctAction: new Audio(SOUND_BASE + '/correct_action.mp3'),
 territoryCapture: new Audio(SOUND_BASE + '/territory_capture.mp3'),
 attackEnemyAction: new Audio(SOUND_BASE + '/attack_enemy_action.mp3'),
-ultraSabotage: new Audio(SOUND_BASE + '/ultra_sabotage_hahaha.mp3')
+ultraSabotage: new Audio(SOUND_BASE + '/ultra_sabotage_hahaha.mp3'),
+kozepsuliHelp: new Audio(SOUND_BASE + '/kozepsulineked_help.mp3')
 };
 
 
@@ -644,6 +645,106 @@ function canUseUltraSabotage(question) {
   );
 }
 
+function canUseKozepsuliHelp(question) {
+  return Boolean(
+    question &&
+    question.context &&
+    question.context.canUseKozepsuliHelp &&
+    USER &&
+    question.participants &&
+    question.participants.indexOf(USER.pid) !== -1 &&
+    !hasSubmittedCurrentQuestion
+  );
+}
+
+function triggerQuestionActionEffect(kind, payload) {
+  var panel = getQuestionPanel();
+  if (!panel) return;
+
+  var burst = document.createElement('div');
+  burst.className = 'question-action-burst question-action-burst--' + kind;
+  burst.innerHTML = [
+    '<span class="question-action-burst-glow"></span>',
+    '<span class="question-action-smoke smoke-1"></span>',
+    '<span class="question-action-smoke smoke-2"></span>',
+    '<span class="question-action-smoke smoke-3"></span>',
+    '<span class="question-action-smoke smoke-4"></span>'
+  ].join('');
+  panel.appendChild(burst);
+  requestAnimationFrame(function () {
+    burst.classList.add('is-active');
+  });
+  setTimeout(function () {
+    if (burst.parentNode) {
+      burst.parentNode.removeChild(burst);
+    }
+  }, 1800);
+
+  var buttonClass = kind === 'help' ? '.question-help-button' : '.question-sabotage-button';
+  var button = panel.querySelector(buttonClass);
+  if (button) {
+    button.classList.add('is-triggered');
+    setTimeout(function () {
+      button.classList.remove('is-triggered');
+    }, 1600);
+  }
+}
+
+function applyKozepsuliHelpGranted(payload) {
+  if (!currentQuestionData || !payload || payload.questionId !== currentQuestionData.id) return;
+
+  currentQuestionData.context = currentQuestionData.context || {};
+  currentQuestionData.context.kozepsuliHelpRemaining = typeof payload.remaining === 'number'
+    ? payload.remaining
+    : currentQuestionData.context.kozepsuliHelpRemaining;
+  currentQuestionData.context.canUseKozepsuliHelp = false;
+  renderQuestionActions(currentQuestionData);
+
+  var note = element('question-note');
+  var body = element('question-body');
+  if (!body) return;
+
+  if (currentQuestionData.type === 'mcq' && typeof payload.correctOptionIndex === 'number') {
+    Array.prototype.slice.call(body.querySelectorAll('.question-option')).forEach(function (button) {
+      var optionIndex = Number(button.getAttribute('data-option'));
+      button.classList.remove('question-option-help-correct');
+      if (optionIndex === payload.correctOptionIndex) {
+        button.classList.add('question-option-help-correct');
+      }
+    });
+    if (note) {
+      note.textContent = 'KÖZÉPSULINEKED HELP aktív: a helyes válasz zölddel kiemelve.';
+      note.classList.add('question-note-help');
+    }
+    return;
+  }
+
+  if (currentQuestionData.type === 'guess') {
+    var row = body.querySelector('.question-guess-row');
+    var input = element('guess-input');
+    if (row) {
+      row.classList.add('question-guess-row-help');
+    }
+    if (input && typeof payload.exactAnswer !== 'undefined') {
+      input.value = payload.exactAnswer;
+      input.classList.add('question-guess-input-help');
+    }
+
+    var existing = body.querySelector('.question-help-answer');
+    if (existing && existing.parentNode) {
+      existing.parentNode.removeChild(existing);
+    }
+    var reveal = document.createElement('div');
+    reveal.className = 'question-help-answer';
+    reveal.textContent = 'Pontos válasz: ' + payload.exactAnswer + (payload.unit ? ' ' + payload.unit : '');
+    body.appendChild(reveal);
+    if (note) {
+      note.textContent = 'KÖZÉPSULINEKED HELP aktív: a pontos válasz megjelent zölddel.';
+      note.classList.add('question-note-help');
+    }
+  }
+}
+
 function applyQuestionVisualMode(question) {
   var panel = getQuestionPanel();
   if (!panel) return;
@@ -655,29 +756,69 @@ function renderQuestionActions(question) {
   if (!host) return;
   host.innerHTML = '';
 
-  if (!canUseUltraSabotage(question)) {
-    return;
+  var hasAnyAction = false;
+
+  if (canUseKozepsuliHelp(question)) {
+    hasAnyAction = true;
+    var helpGroup = document.createElement('div');
+    helpGroup.className = 'question-action-group question-action-group--help';
+
+    var helpButton = document.createElement('button');
+    helpButton.type = 'button';
+    helpButton.className = 'question-action-button question-help-button';
+    helpButton.textContent = 'KÖZÉPSULINEKED HELP';
+    helpButton.addEventListener('click', function () {
+      helpButton.disabled = true;
+      triggerQuestionActionEffect('help');
+      socket.emit('activateKozepsuliHelp');
+      var note = element('question-note');
+      if (note) {
+        note.textContent = 'KÖZÉPSULINEKED HELP aktiválva...';
+        note.classList.add('question-note-help');
+      }
+    });
+
+    var helpCounter = document.createElement('div');
+    helpCounter.className = 'question-action-counter question-help-counter';
+    helpCounter.textContent = 'MARADÉK: ' + Number(question.context.kozepsuliHelpRemaining || 0);
+
+    helpGroup.appendChild(helpButton);
+    helpGroup.appendChild(helpCounter);
+    host.appendChild(helpGroup);
   }
 
-  var button = document.createElement('button');
-  button.type = 'button';
-  button.className = 'question-sabotage-button';
-  button.textContent = 'SZABOTÁZS';
-  button.addEventListener('click', function () {
-    button.disabled = true;
-    socket.emit('activateUltraSabotage');
-    var note = element('question-note');
-    if (note) {
-      note.textContent = 'Szabotázs aktiválva...';
-    }
-  });
+  if (canUseUltraSabotage(question)) {
+    hasAnyAction = true;
+    var sabotageGroup = document.createElement('div');
+    sabotageGroup.className = 'question-action-group question-action-group--sabotage';
 
-  var counter = document.createElement('div');
-  counter.className = 'question-sabotage-counter';
-  counter.textContent = 'MARADÉK: ' + Number(question.context.ultraSabotageRemaining || 0);
+    var sabotageButton = document.createElement('button');
+    sabotageButton.type = 'button';
+    sabotageButton.className = 'question-action-button question-sabotage-button';
+    sabotageButton.textContent = 'SZABOTÁZS';
+    sabotageButton.addEventListener('click', function () {
+      sabotageButton.disabled = true;
+      triggerQuestionActionEffect('sabotage');
+      socket.emit('activateUltraSabotage');
+      var note = element('question-note');
+      if (note) {
+        note.textContent = 'Szabotázs aktiválva...';
+        note.classList.remove('question-note-help');
+      }
+    });
 
-  host.appendChild(button);
-  host.appendChild(counter);
+    var sabotageCounter = document.createElement('div');
+    sabotageCounter.className = 'question-action-counter question-sabotage-counter';
+    sabotageCounter.textContent = 'MARADÉK: ' + Number(question.context.ultraSabotageRemaining || 0);
+
+    sabotageGroup.appendChild(sabotageButton);
+    sabotageGroup.appendChild(sabotageCounter);
+    host.appendChild(sabotageGroup);
+  }
+
+  if (!hasAnyAction) {
+    host.innerHTML = '';
+  }
 }
 
 function getPidDisplayName(pid) {
@@ -764,6 +905,7 @@ function showQuestion(question) {
 
 
 
+  note.classList.remove('question-note-help');
   note.textContent = canAnswer ? 'Válaszolj időben. A szerver értékel.' : 'Néző vagy ennél a kérdésnél.';
   if (question.isUltra) {
     note.textContent = canAnswer ? 'ULTRA HARD kérdés aktív. Koncentrálj.' : 'Az egyik játékos ULTRA HARD kérdést kapott.';
@@ -872,6 +1014,8 @@ function hideQuestion() {
   applyQuestionVisualMode(null);
   var body = element('question-body');
   if (body) body.classList.remove('is-resolving');
+  var note = element('question-note');
+  if (note) note.classList.remove('question-note-help');
   questionModal.classList.remove('is-open');
   stopQuestionTimerSound();
   renderAllTerritories();
@@ -897,6 +1041,7 @@ function showQuestionReveal(payload) {
   body.innerHTML = '<div class="question-reveal-list">' + payload.revealLines.map(function(line) {
     return '<div class="question-reveal-item">' + escapeHtml(line) + '</div>';
   }).join('') + '</div>';
+  note.classList.remove('question-note-help');
   note.textContent = 'Lejárt az idő. Eredmények megjelenítése...';
   if (questionRevealTimer) clearTimeout(questionRevealTimer);
   questionRevealTimer = setTimeout(function() {
@@ -1966,15 +2111,37 @@ socket.on('question:start', function (question) {
 socket.on('ultraSabotageActivated', function (payload) {
   playOneShot(soundPlayers.ultraSabotage);
   showUltraSabotageBanner(payload);
-  if (currentQuestionData) {
+  if (currentQuestionData && payload && payload.questionId === currentQuestionData.id) {
+    triggerQuestionActionEffect('sabotage', payload);
     currentQuestionData.context = currentQuestionData.context || {};
     currentQuestionData.context.ultraSabotageUsed = true;
     currentQuestionData.context.ultraSabotageTargetPid = payload && typeof payload.targetPid === 'number' ? payload.targetPid : null;
     currentQuestionData.context.ultraSabotageByPid = payload && typeof payload.byPid === 'number' ? payload.byPid : null;
     currentQuestionData.context.ultraSabotageRemaining = payload && typeof payload.remaining === 'number' ? payload.remaining : currentQuestionData.context.ultraSabotageRemaining;
-    currentQuestionData.context.canUseUltraSabotage = false;
+    if (USER && payload && typeof payload.byPid === 'number' && USER.pid === payload.byPid) {
+      currentQuestionData.context.canUseUltraSabotage = false;
+    }
     renderQuestionActions(currentQuestionData);
   }
+});
+
+socket.on('questionHelpActivated', function (payload) {
+  playOneShot(soundPlayers.kozepsuliHelp);
+  if (currentQuestionData && payload && payload.questionId === currentQuestionData.id) {
+    triggerQuestionActionEffect('help', payload);
+    if (USER && typeof payload.byPid === 'number' && USER.pid === payload.byPid) {
+      currentQuestionData.context = currentQuestionData.context || {};
+      currentQuestionData.context.kozepsuliHelpRemaining = typeof payload.remaining === 'number'
+        ? payload.remaining
+        : currentQuestionData.context.kozepsuliHelpRemaining;
+      currentQuestionData.context.canUseKozepsuliHelp = false;
+      renderQuestionActions(currentQuestionData);
+    }
+  }
+});
+
+socket.on('questionHelpGranted', function (payload) {
+  applyKozepsuliHelpGranted(payload);
 });
 
 socket.on('question:resolved', function (payload) {

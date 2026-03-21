@@ -116,6 +116,8 @@ async function setupGame(room) {
     activeQuestion: null,
     ultraSabotageRemaining: room.players.length * 4,
     ultraSabotageRemainingByPid: Object.fromEntries(room.players.map((player) => [player.pid, 4])),
+    kozepsuliHelpRemaining: room.players.length * 3,
+    kozepsuliHelpRemainingByPid: Object.fromEntries(room.players.map((player) => [player.pid, 3])),
   };
 
 
@@ -197,6 +199,17 @@ function attachNamespaceHandlers(room) {
         await handleActivateUltraSabotage(room, socket);
       } catch (error) {
         console.error('activateUltraSabotage error:', error);
+      }
+    });
+
+
+
+
+    socket.on('activateKozepsuliHelp', async () => {
+      try {
+        await handleActivateKozepsuliHelp(room, socket);
+      } catch (error) {
+        console.error('activateKozepsuliHelp error:', error);
       }
     });
 
@@ -963,6 +976,7 @@ async function createAndBroadcastQuestion(room, config) {
     ultraSabotageUsed: false,
     ultraSabotageTargetPid: null,
     ultraSabotageByPid: null,
+    questionHelpUsedByPid: {},
   };
 
   if (config.type === 'mcq') {
@@ -1818,6 +1832,8 @@ function emitSnapshot(room, socket = null) {
       reservedTerritories: room.game.reservedTerritories,
       ultraSabotageRemaining: getTotalUltraSabotageRemaining(room),
       ultraSabotageRemainingByPid: getUltraSabotageRemainingMap(room),
+      kozepsuliHelpRemaining: getTotalKozepsuliHelpRemaining(room),
+      kozepsuliHelpRemainingByPid: getKozepsuliHelpRemainingMap(room),
       gamefinish: room.game.gamefinish,
       winner: room.game.winner ?? null,
     },
@@ -1846,13 +1862,31 @@ function emitSnapshot(room, socket = null) {
 
 function publicQuestionContext(room, context, pid = null) {
   if (!context) return null;
-  if (context.flow === 'EXPANSION') {
-    return { flow: 'EXPANSION' };
-  }
 
   const runtime = room.questionRuntime || {};
   const question = room.game && room.game.activeQuestion ? room.game.activeQuestion : null;
   const sabotageRemaining = getUltraSabotageRemainingForPid(room, pid);
+  const helpRemaining = getKozepsuliHelpRemainingForPid(room, pid);
+  const hasAnswered = Boolean(question && question.answers && Number.isInteger(pid) && question.answers[pid]);
+  const helpUsedForQuestion = Boolean(runtime.questionHelpUsedByPid && runtime.questionHelpUsedByPid[pid]);
+  const canUseKozepsuliHelp = Boolean(
+    question &&
+    Array.isArray(question.participants) &&
+    question.participants.includes(pid) &&
+    helpRemaining > 0 &&
+    !hasAnswered &&
+    !helpUsedForQuestion
+  );
+
+  if (context.flow === 'EXPANSION') {
+    return {
+      flow: 'EXPANSION',
+      kozepsuliHelpRemaining: helpRemaining,
+      kozepsuliHelpRemainingTotal: getTotalKozepsuliHelpRemaining(room),
+      canUseKozepsuliHelp,
+    };
+  }
+
   const canUseUltraSabotage = Boolean(
     question &&
     question.type === 'mcq' &&
@@ -1878,6 +1912,9 @@ function publicQuestionContext(room, context, pid = null) {
     ultraSabotageTargetPid: Number.isInteger(runtime.ultraSabotageTargetPid) ? runtime.ultraSabotageTargetPid : null,
     ultraSabotageByPid: Number.isInteger(runtime.ultraSabotageByPid) ? runtime.ultraSabotageByPid : null,
     canUseUltraSabotage,
+    kozepsuliHelpRemaining: helpRemaining,
+    kozepsuliHelpRemainingTotal: getTotalKozepsuliHelpRemaining(room),
+    canUseKozepsuliHelp,
   };
 }
 
@@ -2079,6 +2116,7 @@ async function handleActivateUltraSabotage(room, socket) {
   const sourcePlayer = getPlayerByPid(room, player.pid);
   const targetPlayer = getPlayerByPid(room, targetPid);
   room.namespace.emit('ultraSabotageActivated', {
+    questionId: question.id,
     byPid: player.pid,
     targetPid,
     byName: sourcePlayer ? sourcePlayer.name : 'Ismeretlen',
@@ -2089,6 +2127,80 @@ async function handleActivateUltraSabotage(room, socket) {
 
   sendStatus(room, `${sourcePlayer ? sourcePlayer.name : 'Valaki'} szabotázst aktivált. ${targetPlayer ? targetPlayer.name : 'Az ellenfél'} ULTRA HARD kérdést kapott.`);
   gameLog(room, `${sourcePlayer ? sourcePlayer.name : 'Valaki'} szabotázst aktivált ${targetPlayer ? targetPlayer.name : 'az ellenfél'} ellen.`);
+}
+
+async function handleActivateKozepsuliHelp(room, socket) {
+  const player = getPlayerByUsername(room, socket.currentUsername);
+  const question = room.game && room.game.activeQuestion;
+  const runtime = room.questionRuntime || {};
+
+  if (!player || !question) return;
+  if (!Array.isArray(question.participants) || !question.participants.includes(player.pid)) {
+    socket.emit('serverstatus', ['Csak az aktuális kérdés résztvevői használhatják a segítséget.']);
+    return;
+  }
+  if (Date.now() > question.deadline) {
+    socket.emit('serverstatus', ['Lejárt az idő.']);
+    return;
+  }
+  if (question.answers[player.pid]) {
+    socket.emit('serverstatus', ['Már válaszoltál erre a kérdésre.']);
+    return;
+  }
+
+  const helpRemaining = getKozepsuliHelpRemainingForPid(room, player.pid);
+  if (helpRemaining <= 0) {
+    socket.emit('serverstatus', ['Elfogyott a KÖZÉPSULINEKED HELP ebben a meccsben.']);
+    return;
+  }
+
+  if (!room.questionRuntime) {
+    room.questionRuntime = { perPidQuestion: {}, questionHelpUsedByPid: {} };
+  }
+  if (!room.questionRuntime.questionHelpUsedByPid) {
+    room.questionRuntime.questionHelpUsedByPid = {};
+  }
+  if (room.questionRuntime.questionHelpUsedByPid[player.pid]) {
+    socket.emit('serverstatus', ['Erre a kérdésre már felhasználtad a segítséget.']);
+    return;
+  }
+
+  room.questionRuntime.questionHelpUsedByPid[player.pid] = true;
+  if (!room.game.kozepsuliHelpRemainingByPid || typeof room.game.kozepsuliHelpRemainingByPid !== 'object') {
+    room.game.kozepsuliHelpRemainingByPid = {};
+  }
+  room.game.kozepsuliHelpRemainingByPid[player.pid] = Math.max(0, helpRemaining - 1);
+  room.game.kozepsuliHelpRemaining = getTotalKozepsuliHelpRemaining(room);
+  await persistGame(room);
+
+  const localQuestion = getQuestionVariantForPid(room, player.pid) || question;
+  const helpPayload = {
+    questionId: question.id,
+    type: question.type,
+    remaining: getKozepsuliHelpRemainingForPid(room, player.pid),
+    remainingTotal: getTotalKozepsuliHelpRemaining(room),
+    unit: question.unit || '',
+  };
+
+  if (question.type === 'mcq') {
+    helpPayload.correctOptionIndex = localQuestion && Number.isInteger(localQuestion.correctOptionIndex)
+      ? localQuestion.correctOptionIndex
+      : question.correctOptionIndex;
+  } else if (question.type === 'guess') {
+    helpPayload.exactAnswer = question.exactAnswer;
+  }
+
+  socket.emit('questionHelpGranted', helpPayload);
+  room.namespace.emit('questionHelpActivated', {
+    questionId: question.id,
+    byPid: player.pid,
+    byName: player.name,
+    remaining: getKozepsuliHelpRemainingForPid(room, player.pid),
+    remainingTotal: getTotalKozepsuliHelpRemaining(room),
+  });
+
+  sendStatus(room, `${player.name} felhasználta a KÖZÉPSULINEKED HELP-et.`);
+  gameLog(room, `${player.name} felhasználta a KÖZÉPSULINEKED HELP-et.`);
 }
 
 function getUltraSabotageRemainingForPid(room, pid) {
@@ -2114,6 +2226,31 @@ function getUltraSabotageRemainingMap(room) {
 
 function getTotalUltraSabotageRemaining(room) {
   return Object.values(getUltraSabotageRemainingMap(room)).reduce((sum, value) => sum + value, 0);
+}
+
+function getKozepsuliHelpRemainingForPid(room, pid) {
+  if (!room || !room.game || !Number.isInteger(pid)) {
+    return 0;
+  }
+
+  const byPid = room.game.kozepsuliHelpRemainingByPid;
+  if (byPid && typeof byPid === 'object' && Object.prototype.hasOwnProperty.call(byPid, pid)) {
+    return Math.max(0, Number(byPid[pid]) || 0);
+  }
+
+  return 0;
+}
+
+function getKozepsuliHelpRemainingMap(room) {
+  const result = {};
+  room.players.forEach((player) => {
+    result[player.pid] = getKozepsuliHelpRemainingForPid(room, player.pid);
+  });
+  return result;
+}
+
+function getTotalKozepsuliHelpRemaining(room) {
+  return Object.values(getKozepsuliHelpRemainingMap(room)).reduce((sum, value) => sum + value, 0);
 }
 
 function sanitizeAnswers(question) {
