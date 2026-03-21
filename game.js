@@ -113,6 +113,8 @@ async function setupGame(room) {
     currentOrder: [],
     pendingSelections: {},
     reservedTerritories: [],
+    expansionRequiredByPid: {},
+    expansionReadyByPid: {},
     activeQuestion: null,
     ultraSabotageRemaining: room.players.length * 4,
     ultraSabotageRemainingByPid: Object.fromEntries(room.players.map((player) => [player.pid, 4])),
@@ -503,6 +505,8 @@ async function startExpansionRound(room, firstRound = false) {
   room.game.expansionCycleIndex = (room.game.expansionCycleIndex + 1) % room.game.orderCycle.length;
   room.game.pendingSelections = {};
   room.game.reservedTerritories = [];
+  room.game.expansionRequiredByPid = {};
+  room.game.expansionReadyByPid = {};
   room.game.activeQuestion = null;
   room.game.currentplayer = getNextExpansionSelectionPid(room, -1);
   await persistGame(room);
@@ -612,7 +616,7 @@ async function handleSelectExpansionTarget(room, socket, tid) {
     return;
   }
 
-  const requiredSelections = getExpansionSelectionsRequired(room, player.pid);
+  const requiredSelections = getLockedExpansionSelectionsRequired(room, player.pid);
   const currentSelections = Array.isArray(room.game.pendingSelections[player.pid])
     ? room.game.pendingSelections[player.pid].slice()
     : (room.game.pendingSelections[player.pid] != null ? [room.game.pendingSelections[player.pid]] : []);
@@ -625,6 +629,7 @@ async function handleSelectExpansionTarget(room, socket, tid) {
   currentSelections.push(tid);
   room.game.pendingSelections[player.pid] = currentSelections;
   room.game.reservedTerritories.push(tid);
+  room.game.expansionReadyByPid[player.pid] = currentSelections.length >= requiredSelections;
   gameLog(room, `${player.name} kinézte ezt a területet: ${territory.tname}.`);
 
   if (currentSelections.length < requiredSelections) {
@@ -736,7 +741,7 @@ async function maybeAdvanceWhenCurrentPlayerUnavailable(room) {
 
   if (room.game.phase === PHASES.EXPANSION_SELECTION) {
     const current = getPlayerByPid(room, room.game.currentplayer);
-    const currentRequiredSelections = current ? getExpansionSelectionsRequired(room, current.pid) : 0;
+    const currentRequiredSelections = current ? getLockedExpansionSelectionsRequired(room, current.pid) : 0;
     if (!current || current.eliminated || !current.connected || currentRequiredSelections <= 0) {
       if (current && !current.eliminated && current.connected && currentRequiredSelections <= 0) {
         gameLog(room, `${current.name} kimarad a foglalási körből, mert nem maradt választható területe.`);
@@ -1629,12 +1634,21 @@ function getExpansionSelectionsRequired(room, pid) {
   return Math.max(0, Math.min(EXPANSION_SELECTIONS_PER_TURN, selectableCount));
 }
 
+function getLockedExpansionSelectionsRequired(room, pid) {
+  const locked = room.game && room.game.expansionRequiredByPid ? room.game.expansionRequiredByPid[pid] : undefined;
+  if (Number.isInteger(locked)) {
+    return locked;
+  }
+  return getExpansionSelectionsRequired(room, pid);
+}
+
 function getCompletedExpansionSelectionMap(room) {
   const completed = {};
   Object.keys(room.game.pendingSelections || {}).forEach((pidKey) => {
     const pid = Number(pidKey);
     const selections = room.game.pendingSelections[pid];
-    if (Array.isArray(selections) && selections.length >= getExpansionSelectionsRequired(room, pid)) {
+    const isReady = Boolean(room.game.expansionReadyByPid && room.game.expansionReadyByPid[pid]);
+    if (Array.isArray(selections) && selections.length > 0 && isReady) {
       completed[pid] = selections.slice();
     }
   });
@@ -1654,10 +1668,23 @@ function getNextExpansionSelectionPid(room, currentIndex) {
       continue;
     }
 
-    const requiredSelections = getExpansionSelectionsRequired(room, pid);
+    const requiredSelections = getLockedExpansionSelectionsRequired(room, pid);
     if (requiredSelections <= 0) {
+      if (room.game.expansionRequiredByPid) {
+        room.game.expansionRequiredByPid[pid] = 0;
+      }
+      if (room.game.expansionReadyByPid) {
+        room.game.expansionReadyByPid[pid] = false;
+      }
       gameLog(room, `${player.name} kimarad a foglalási körből, mert nem maradt választható területe.`);
       continue;
+    }
+
+    if (room.game.expansionRequiredByPid && !Number.isInteger(room.game.expansionRequiredByPid[pid])) {
+      room.game.expansionRequiredByPid[pid] = requiredSelections;
+    }
+    if (room.game.expansionReadyByPid && typeof room.game.expansionReadyByPid[pid] !== 'boolean') {
+      room.game.expansionReadyByPid[pid] = false;
     }
 
     return pid;
