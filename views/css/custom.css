@@ -4220,3 +4220,232 @@ body.lobby-screen-modern .lobby-app-container {
     min-height: 138px;
   }
 }
+
+
+/* =========================
+   LOBBY MOBILE REDESIGN FIX
+   ========================= */
+.lobby-copy-mobile,
+.lobby-hero-mobile-line {
+  display: none;
+}
+
+@media (max-width: 767px) {
+  body.lobby-screen-modern .top-promo-strip {
+    margin-bottom: 8px;
+  }
+
+  body.lobby-screen-modern .lobby-app-container {
+    width: calc(100vw - 16px);
+    max-width: none;
+    padding-left: 10px;
+    padding-right: 10px;
+  }
+
+  .lobby-screen-modern .content-body.lobby-content-modern {
+    padding-top: 0;
+    padding-bottom: 18px;
+  }
+
+  .lobby-screen-modern .lobby-hero-mobile-line {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 10px;
+    color: rgba(255, 219, 160, 0.9);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+  }
+
+  .lobby-screen-modern .lobby-copy-desktop {
+    display: none;
+  }
+
+  .lobby-screen-modern .lobby-copy-mobile {
+    display: inline;
+  }
+
+  .lobby-screen-modern .lobby-card-row-modern {
+    margin-left: -6px;
+    margin-right: -6px;
+    gap: 12px 0;
+  }
+
+  .lobby-screen-modern .lobby-card-col {
+    padding-left: 6px;
+    padding-right: 6px;
+  }
+
+  .lobby-screen-modern .lobby-hero-card {
+    padding: 16px 16px 14px !important;
+    border-radius: 18px !important;
+  }
+
+  .lobby-screen-modern .lobby-hero-card h1 {
+    margin: 10px 0 6px;
+    font-size: 28px;
+  }
+
+  .lobby-screen-modern .lobby-hero-card p {
+    font-size: 13px;
+    line-height: 1.4;
+  }
+
+  .lobby-screen-modern .lobby-choice-card {
+    padding: 16px 16px 14px !important;
+    border-radius: 18px !important;
+  }
+
+  .lobby-screen-modern .lobby-card-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px 12px;
+    margin-bottom: 10px;
+  }
+
+  .lobby-screen-modern .lobby-card-head h2 {
+    font-size: 22px;
+    line-height: 1.08;
+    flex: 1 1 100%;
+    order: 2;
+  }
+
+  .lobby-screen-modern .lobby-card-kicker {
+    min-height: 26px;
+    padding: 4px 10px;
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    order: 1;
+  }
+
+  .lobby-screen-modern .lobby-card-copy {
+    margin-bottom: 12px;
+    font-size: 13px;
+    line-height: 1.45;
+  }
+
+  .lobby-screen-modern .lobby-feature-list {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    margin-bottom: 14px;
+  }
+
+  .lobby-screen-modern .lobby-feature-list li {
+    padding: 10px 10px 10px 26px;
+    border-radius: 14px;
+    background: rgba(255, 248, 231, 0.08);
+    border: 1px solid rgba(255, 197, 102, 0.12);
+    font-size: 12px;
+    line-height: 1.3;
+  }
+
+  .lobby-screen-modern .lobby-feature-list li::before {
+    left: 10px;
+    top: 9px;
+  }
+
+  .lobby-screen-modern .lobby-card-actions {
+    display: block;
+  }
+
+  .lobby-screen-modern .lobby-card-actions .lobby-action-btn-spark,
+  .lobby-screen-modern #joinButton.lobby-action-btn-spark {
+    width: 100%;
+    min-height: 50px;
+    padding: 13px 16px !important;
+    font-size: 12px !important;
+    letter-spacing: 0.06em;
+  }
+
+  .lobby-screen-modern .lobby-join-shell {
+    gap: 8px;
+  }
+
+  .lobby-screen-modern .lobby-input-label {
+    font-size: 11px;
+    letter-spacing: 0.1em;
+  }
+
+  .lobby-screen-modern .lobby-join-row {
+    grid-template-columns: minmax(0, 1fr) 128px;
+    gap: 8px;
+  }
+
+  .lobby-screen-modern .lobby-code-input {
+    min-height: 50px;
+    padding-left: 12px;
+    padding-right: 12px;
+    font-size: 16px !important;
+    letter-spacing: 0.08em;
+  }
+
+  .lobby-screen-modern .join-feedback {
+    min-height: 18px;
+    font-size: 12px;
+    line-height: 1.25;
+  }
+
+  .lobby-side-ads {
+    padding: 8px 10px 0;
+  }
+
+  .lobby-side-ad-right {
+    display: none !important;
+  }
+
+  .lobby-side-ad-left,
+  .lobby-side-ad {
+    min-height: 124px;
+    border-radius: 18px;
+  }
+}
+
+@media (max-width: 480px) {
+  .lobby-screen-modern .lobby-hero-card h1 {
+    font-size: 24px;
+  }
+
+  .lobby-screen-modern .lobby-feature-list {
+    grid-template-columns: 1fr;
+  }
+
+  .lobby-screen-modern .lobby-join-row {
+    grid-template-columns: minmax(0, 1fr) 112px;
+  }
+
+  .lobby-screen-modern #joinButton.lobby-action-btn-spark {
+    font-size: 11px !important;
+    padding-left: 10px !important;
+    padding-right: 10px !important;
+  }
+}
+
+@media (max-width: 360px) {
+  body.lobby-screen-modern .lobby-app-container {
+    width: calc(100vw - 10px);
+    padding-left: 6px;
+    padding-right: 6px;
+  }
+
+  .lobby-screen-modern .lobby-card-col {
+    padding-left: 4px;
+    padding-right: 4px;
+  }
+
+  .lobby-screen-modern .lobby-choice-card,
+  .lobby-screen-modern .lobby-hero-card {
+    padding: 14px 12px 12px !important;
+  }
+
+  .lobby-screen-modern .lobby-join-row {
+    grid-template-columns: 1fr;
+  }
+
+  .lobby-screen-modern #joinButton.lobby-action-btn-spark {
+    width: 100%;
+  }
+}
