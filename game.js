@@ -114,7 +114,8 @@ async function setupGame(room) {
     pendingSelections: {},
     reservedTerritories: [],
     activeQuestion: null,
-    ultraSabotageRemaining: 4,
+    ultraSabotageRemaining: room.players.length * 4,
+    ultraSabotageRemainingByPid: Object.fromEntries(room.players.map((player) => [player.pid, 4])),
   };
 
 
@@ -1815,7 +1816,8 @@ function emitSnapshot(room, socket = null) {
       pendingSelections: room.game.pendingSelections || {},
       expansionSelectionsPerTurn: EXPANSION_SELECTIONS_PER_TURN,
       reservedTerritories: room.game.reservedTerritories,
-      ultraSabotageRemaining: room.game.ultraSabotageRemaining || 0,
+      ultraSabotageRemaining: getTotalUltraSabotageRemaining(room),
+      ultraSabotageRemainingByPid: getUltraSabotageRemainingMap(room),
       gamefinish: room.game.gamefinish,
       winner: room.game.winner ?? null,
     },
@@ -1850,13 +1852,14 @@ function publicQuestionContext(room, context, pid = null) {
 
   const runtime = room.questionRuntime || {};
   const question = room.game && room.game.activeQuestion ? room.game.activeQuestion : null;
+  const sabotageRemaining = getUltraSabotageRemainingForPid(room, pid);
   const canUseUltraSabotage = Boolean(
     question &&
     question.type === 'mcq' &&
     context.flow === 'BATTLE' &&
     Array.isArray(question.participants) &&
     question.participants.includes(pid) &&
-    (room.game.ultraSabotageRemaining || 0) > 0 &&
+    sabotageRemaining > 0 &&
     !runtime.ultraSabotageUsed &&
     Object.keys(question.answers || {}).length === 0
   );
@@ -1869,7 +1872,8 @@ function publicQuestionContext(room, context, pid = null) {
     duelType: context.duelType || 'PRIMARY',
     attackerPid: Number.isInteger(context.attackerPid) ? context.attackerPid : null,
     defenderPid: Number.isInteger(context.defenderPid) ? context.defenderPid : null,
-    ultraSabotageRemaining: room.game.ultraSabotageRemaining || 0,
+    ultraSabotageRemaining: sabotageRemaining,
+    ultraSabotageRemainingTotal: getTotalUltraSabotageRemaining(room),
     ultraSabotageUsed: Boolean(runtime.ultraSabotageUsed),
     ultraSabotageTargetPid: Number.isInteger(runtime.ultraSabotageTargetPid) ? runtime.ultraSabotageTargetPid : null,
     ultraSabotageByPid: Number.isInteger(runtime.ultraSabotageByPid) ? runtime.ultraSabotageByPid : null,
@@ -2026,8 +2030,9 @@ async function handleActivateUltraSabotage(room, socket) {
     socket.emit('serverstatus', ['Csak az aktuális párbaj résztvevői használhatnak szabotázst.']);
     return;
   }
-  if ((room.game.ultraSabotageRemaining || 0) <= 0) {
-    socket.emit('serverstatus', ['Elfogyott a szabotázs ebben a meccsben.']);
+  const sabotageRemaining = getUltraSabotageRemainingForPid(room, player.pid);
+  if (sabotageRemaining <= 0) {
+    socket.emit('serverstatus', ['Elfogyott a szabotázsod ebben a meccsben.']);
     return;
   }
   if (runtime.ultraSabotageUsed) {
@@ -2062,7 +2067,11 @@ async function handleActivateUltraSabotage(room, socket) {
     isUltra: true,
   };
 
-  room.game.ultraSabotageRemaining = Math.max(0, (room.game.ultraSabotageRemaining || 0) - 1);
+  if (!room.game.ultraSabotageRemainingByPid || typeof room.game.ultraSabotageRemainingByPid !== 'object') {
+    room.game.ultraSabotageRemainingByPid = {};
+  }
+  room.game.ultraSabotageRemainingByPid[player.pid] = Math.max(0, sabotageRemaining - 1);
+  room.game.ultraSabotageRemaining = getTotalUltraSabotageRemaining(room);
   await persistGame(room);
 
   emitQuestionStart(room);
@@ -2074,11 +2083,37 @@ async function handleActivateUltraSabotage(room, socket) {
     targetPid,
     byName: sourcePlayer ? sourcePlayer.name : 'Ismeretlen',
     targetName: targetPlayer ? targetPlayer.name : 'Ismeretlen',
-    remaining: room.game.ultraSabotageRemaining || 0,
+    remaining: getUltraSabotageRemainingForPid(room, player.pid),
+    remainingTotal: getTotalUltraSabotageRemaining(room),
   });
 
   sendStatus(room, `${sourcePlayer ? sourcePlayer.name : 'Valaki'} szabotázst aktivált. ${targetPlayer ? targetPlayer.name : 'Az ellenfél'} ULTRA HARD kérdést kapott.`);
   gameLog(room, `${sourcePlayer ? sourcePlayer.name : 'Valaki'} szabotázst aktivált ${targetPlayer ? targetPlayer.name : 'az ellenfél'} ellen.`);
+}
+
+function getUltraSabotageRemainingForPid(room, pid) {
+  if (!room || !room.game || !Number.isInteger(pid)) {
+    return 0;
+  }
+
+  const byPid = room.game.ultraSabotageRemainingByPid;
+  if (byPid && typeof byPid === 'object' && Object.prototype.hasOwnProperty.call(byPid, pid)) {
+    return Math.max(0, Number(byPid[pid]) || 0);
+  }
+
+  return 0;
+}
+
+function getUltraSabotageRemainingMap(room) {
+  const result = {};
+  (room.players || []).forEach((player) => {
+    result[player.pid] = getUltraSabotageRemainingForPid(room, player.pid);
+  });
+  return result;
+}
+
+function getTotalUltraSabotageRemaining(room) {
+  return Object.values(getUltraSabotageRemainingMap(room)).reduce((sum, value) => sum + value, 0);
 }
 
 function sanitizeAnswers(question) {
