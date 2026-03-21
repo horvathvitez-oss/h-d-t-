@@ -4449,3 +4449,218 @@ body.lobby-screen-modern .lobby-app-container {
     width: 100%;
   }
 }
+
+
+/* =========================
+   GAME CORNER PROMO + QUESTION ACTION ART + ULTRA RESPONSIVE PATCH
+   ========================= */
+
+body.game-screen .order-card,
+body.game-screen .compact-order-card {
+  flex: 0 0 auto !important;
+  min-height: 0 !important;
+  height: auto !important;
+  max-height: min(38vh, 332px);
+}
+
+body.game-screen .hud-right {
+  padding-bottom: clamp(116px, 18vh, 190px);
+}
+
+#game-corner-promo {
+  position: absolute;
+  left: 14px;
+  bottom: 14px;
+  width: 214px;
+  aspect-ratio: 4 / 3;
+  z-index: 505;
+  display: block;
+  border-radius: 18px;
+  overflow: hidden;
+  box-shadow: 0 16px 34px rgba(0, 0, 0, 0.28), 0 0 0 1px rgba(255, 224, 173, 0.14);
+  background: rgba(0,0,0,0.45);
+  text-decoration: none;
+}
+
+#game-corner-promo .game-corner-promo-frame {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  border: 1px solid rgba(255, 210, 130, 0.22);
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.06);
+  z-index: 2;
+  pointer-events: none;
+}
+
+#game-corner-promo .game-corner-promo-video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  pointer-events: none;
+  background: #05080c;
+}
+
+#question-modal .question-panel {
+  width: min(92vw, 760px);
+  max-width: 760px;
+  max-height: min(86vh, 820px);
+  overflow: auto;
+  padding: clamp(16px, 2.3vw, 22px) clamp(16px, 2.3vw, 22px) 218px;
+  border-radius: clamp(16px, 2vw, 22px);
+}
+
+#question-modal .question-panel.is-ultra-hard {
+  width: min(92vw, 760px);
+  max-width: 760px;
+  max-height: min(86vh, 820px);
+  overflow: auto;
+  padding: clamp(16px, 2.3vw, 22px) clamp(16px, 2.3vw, 22px) 218px;
+  border-radius: clamp(16px, 2vw, 22px);
+}
+
+.question-extra-actions {
+  left: 22px;
+  right: 22px;
+  bottom: 18px;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 16px;
+}
+
+.question-action-group {
+  max-width: calc(50% - 8px);
+}
+
+.question-action-group--help {
+  align-items: flex-start;
+  text-align: left;
+  margin-right: auto;
+}
+
+.question-action-group--sabotage {
+  align-items: flex-end;
+  text-align: right;
+  margin-left: auto;
+}
+
+.question-action-counter {
+  font-size: 11px;
+  letter-spacing: 0.08em;
+}
+
+.question-action-art {
+  position: relative;
+  width: min(132px, 24vw);
+  aspect-ratio: 1 / 1;
+  border-radius: 16px;
+  overflow: hidden;
+  border: 1px solid rgba(255,255,255,0.16);
+  box-shadow: 0 10px 24px rgba(0,0,0,0.2);
+  background: rgba(0,0,0,0.18);
+}
+
+.question-action-art-image {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+  pointer-events: none;
+}
+
+.question-action-art--help {
+  box-shadow: 0 10px 24px rgba(3, 72, 31, 0.26), 0 0 0 1px rgba(191,255,210,0.08) inset;
+}
+
+.question-action-art--sabotage {
+  box-shadow: 0 10px 24px rgba(82, 9, 9, 0.26), 0 0 0 1px rgba(255,211,211,0.08) inset;
+}
+
+@media (max-width: 991px) {
+  body.game-screen .order-card,
+  body.game-screen .compact-order-card {
+    max-height: none;
+  }
+
+  #game-corner-promo {
+    width: 170px;
+    left: 12px;
+    bottom: 12px;
+  }
+
+  #question-modal .question-panel,
+  #question-modal .question-panel.is-ultra-hard {
+    width: min(96vw, 760px);
+    max-height: min(90vh, 880px);
+    padding: 16px 16px 204px;
+  }
+
+  .question-action-art {
+    width: 110px;
+  }
+}
+
+@media (max-width: 767px) {
+  body.game-screen .hud-right {
+    padding-bottom: 108px;
+  }
+
+  #game-corner-promo {
+    width: 128px;
+    left: 10px;
+    bottom: 10px;
+    border-radius: 14px;
+  }
+
+  #question-modal .question-panel,
+  #question-modal .question-panel.is-ultra-hard {
+    padding: 16px 16px 236px;
+  }
+
+  .question-extra-actions {
+    left: 14px;
+    right: 14px;
+    gap: 10px;
+  }
+
+  .question-action-group {
+    max-width: calc(50% - 5px);
+  }
+
+  .question-action-button {
+    width: 100%;
+    font-size: 11px;
+    padding: 11px 13px;
+  }
+
+  .question-action-art {
+    width: 92px;
+    border-radius: 12px;
+  }
+}
+
+@media (max-width: 520px) {
+  #game-corner-promo {
+    width: 104px;
+    left: 8px;
+    bottom: 8px;
+  }
+
+  #question-modal .question-panel,
+  #question-modal .question-panel.is-ultra-hard {
+    padding: 14px 14px 224px;
+  }
+
+  .question-extra-actions {
+    align-items: stretch;
+  }
+
+  .question-action-group {
+    max-width: calc(50% - 4px);
+    gap: 5px;
+  }
+
+  .question-action-art {
+    width: 72px;
+  }
+}
