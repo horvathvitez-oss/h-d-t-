@@ -3239,7 +3239,7 @@ body.game-screen .phase-compact-sub {
 #question-modal .question-panel {
   position: relative;
   overflow: visible;
-  padding-bottom: 108px;
+  padding-bottom: 190px;
 }
 
 .question-extra-actions {
@@ -4824,4 +4824,7 @@ body.game-screen .hud-right {
   body.game-screen .compact-chat-card .hud-scroll {
     max-height: 68px;
   }
+}
+body.game-screen .compact-chat-card {
+  display: none !important;
 }
