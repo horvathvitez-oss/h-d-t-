@@ -3261,12 +3261,32 @@ body.game-screen .phase-compact-sub {
 }
 
 .question-action-group {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 6px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    "button art"
+    "counter art";
+  column-gap: 12px;
+  row-gap: 6px;
+  align-items: center;
 }
 
+.question-action-button {
+  grid-area: button;
+  width: 100%;
+}
+
+.question-action-counter {
+  grid-area: counter;
+  justify-self: start;
+}
+
+.question-action-art {
+  grid-area: art;
+  align-self: center;
+  justify-self: end;
+  margin: 0;
+}
 .question-action-button {
   appearance: none;
   border: 0;
