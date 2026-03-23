@@ -1227,16 +1227,22 @@ function countriesOnEachFeature(feature, layer) {
       var tid = mapTerritories.indexOf(e.target);
       var baseStyle = buildLayerStyle(tid);
       if (!baseStyle) return;
-      var selectableExpansion = getExpansionHighlightState(tid).selectable;
-      if (selectableExpansion) {
-        baseStyle.weight = Math.max(baseStyle.weight || 2, 7);
-        baseStyle.fillOpacity = Math.min((baseStyle.fillOpacity || 0.7) + 0.06, 0.98);
-        baseStyle.color = '#fff8de';
+      var expansionHighlight = getExpansionHighlightState(tid);
+      var selectableExpansion = expansionHighlight.selectable;
+      var selectableBattle = Boolean(state.game && state.game.phase === 'BATTLE_SELECTION' && state.game.currentplayer === USER.pid && isSelectableAttack(tid));
+      if (selectableExpansion || selectableBattle) {
+        baseStyle.weight = Math.max(baseStyle.weight || 2, selectableBattle ? 8 : 7);
+        baseStyle.fillOpacity = Math.min((baseStyle.fillOpacity || 0.7) + (selectableBattle ? 0.07 : 0.06), 0.98);
+        baseStyle.color = selectableBattle ? '#ffe8ad' : '#fff8de';
         e.target.setStyle(baseStyle);
+        if (e.target._path && e.target._path.classList) {
+          e.target._path.classList.add('territory-selectable-hover');
+          if (selectableBattle) e.target._path.classList.add('territory-selectable-battle-hover');
+        }
         if (e.target.bringToFront) e.target.bringToFront();
       } else {
-        baseStyle.weight = Math.max(baseStyle.weight || 2, 4);
-        baseStyle.fillOpacity = Math.min((baseStyle.fillOpacity || 0.7) + 0.04, 0.92);
+        baseStyle.weight = Math.max(baseStyle.weight || 2, 3);
+        baseStyle.fillOpacity = Math.min((baseStyle.fillOpacity || 0.7) + 0.03, 0.9);
         e.target.setStyle(baseStyle);
       }
     },
@@ -1612,30 +1618,33 @@ function buildLayerStyle(tid) {
     var isUnowned = territory.ownsto === -1;
 
     if (expansionHighlight.selectable) {
-      style.weight = expansionHighlight.adjacentSelectable ? 6 : 5;
+      style.weight = expansionHighlight.adjacentSelectable ? 6.5 : 5.5;
       style.color = expansionHighlight.adjacentSelectable ? '#fff3c8' : '#dfffd7';
       style.fillColor = expansionHighlight.adjacentSelectable
-        ? lightenHex(getOwnerColor(USER.pid), 0.3)
-        : rgba(getOwnerColor(USER.pid), 0.82);
-      style.fillOpacity = expansionHighlight.adjacentSelectable ? 0.94 : 0.84;
+        ? lightenHex(getOwnerColor(USER.pid), 0.26)
+        : rgba(getOwnerColor(USER.pid), 0.8);
+      style.fillOpacity = expansionHighlight.adjacentSelectable ? 0.92 : 0.8;
       style.dashArray = '';
-      style.className = expansionHighlight.adjacentSelectable ? 'territory-selectable territory-selectable-adjacent' : 'territory-selectable territory-selectable-fallback';
+      style.className = expansionHighlight.adjacentSelectable
+        ? 'territory-selectable territory-selectable-adjacent territory-elevated'
+        : 'territory-selectable territory-selectable-fallback territory-elevated';
     } else if (isUnowned) {
-      style.weight = 1;
-      style.color = 'rgba(90,68,45,0.44)';
-      style.fillColor = expansionHighlight.adjacentCount ? 'rgba(76,56,41,0.28)' : rgba(UNOWNED_FILL, 0.52);
-      style.fillOpacity = expansionHighlight.adjacentCount ? 0.16 : 0.34;
-      style.dashArray = '2 6';
+      style.weight = 1.8;
+      style.color = 'rgba(111,84,58,0.62)';
+      style.fillColor = expansionHighlight.adjacentCount ? 'rgba(143,116,82,0.44)' : rgba(UNOWNED_FILL, 0.68);
+      style.fillOpacity = expansionHighlight.adjacentCount ? 0.42 : 0.52;
+      style.dashArray = '3 5';
       style.className = 'territory-unselectable';
     }
   }
 
   if (isCurrentTurn && state.game.phase === 'BATTLE_SELECTION' && isSelectableAttack(tid)) {
-    style.weight = 5;
-    style.color = '#f7e1a0';
-    style.fillColor = rgba(getOwnerColor(USER.pid), 0.72);
-    style.fillOpacity = 0.84;
+    style.weight = 6.5;
+    style.color = '#ffe2a2';
+    style.fillColor = rgba(getOwnerColor(USER.pid), 0.82);
+    style.fillOpacity = 0.88;
     style.dashArray = '';
+    style.className = 'territory-selectable territory-selectable-battle territory-elevated';
   }
 
   return style;
@@ -1672,7 +1681,16 @@ function applyLayerStyle(layer, tid) {
 
   layer.setStyle(style);
   if (layer._path && layer._path.classList) {
-    layer._path.classList.remove('territory-selectable', 'territory-selectable-adjacent', 'territory-selectable-fallback', 'territory-unselectable');
+    layer._path.classList.remove(
+      'territory-selectable',
+      'territory-selectable-adjacent',
+      'territory-selectable-fallback',
+      'territory-selectable-battle',
+      'territory-selectable-hover',
+      'territory-selectable-battle-hover',
+      'territory-elevated',
+      'territory-unselectable'
+    );
     if (style.className) {
       style.className.split(/\s+/).forEach(function (name) {
         if (name) layer._path.classList.add(name);
