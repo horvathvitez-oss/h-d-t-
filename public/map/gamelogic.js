@@ -82,10 +82,10 @@ function ensureQuestionEnhancementStyles() {
   style.id = 'question-enhancement-styles';
   style.textContent = [
     '#question-body.is-resolving { display:flex; flex-direction:column; gap:12px; }',
-    '#question-body .question-option { position:relative; overflow:hidden; transition: transform .26s ease, opacity .28s ease, box-shadow .28s ease, border-color .28s ease, filter .28s ease; }',
-    '#question-body .question-option.question-option-revealed { color:#fff; border-color: rgba(255,255,255,0.22); box-shadow: 0 16px 26px rgba(0,0,0,0.16); }',
-    '#question-body .question-option.question-option-correct { transform: scale(1.02); box-shadow: 0 18px 30px rgba(0,0,0,0.20); border-color: #f4ddab; }',
-    '#question-body .question-option.question-option-fade { opacity: 0; transform: translateY(10px) scale(0.98); pointer-events:none; max-height:0; margin:0; padding-top:0; padding-bottom:0; border-width:0; }',
+    '#question-body .question-option { position:relative; overflow:hidden; transition: transform .26s ease, opacity .32s ease, box-shadow .32s ease, border-color .32s ease, filter .32s ease, max-height .34s ease, margin .34s ease, padding .34s ease; }',
+    '#question-body .question-option.question-option-revealed { color:#fff; border-color: rgba(255,255,255,0.18); box-shadow: 0 20px 36px rgba(0,0,0,0.22); }',
+    '#question-body .question-option.question-option-correct { transform: translateY(-2px) scale(1.035); border:2px solid rgba(123,255,190,0.98); box-shadow: 0 0 0 1px rgba(214,255,235,0.22) inset, 0 0 22px rgba(128,255,196,0.28), 0 18px 34px rgba(0,0,0,0.24); }',
+    '#question-body .question-option.question-option-fade { opacity:0; filter:blur(2px) saturate(.55); transform:translateY(20px) scale(.965); pointer-events:none; max-height:0; margin:0; padding-top:0; padding-bottom:0; border-width:0; }',
     '#question-body .question-option .question-option-overlay { position:absolute; inset:0; opacity:0; transition: opacity .28s ease; z-index:0; }',
     '#question-body .question-option.question-option-revealed .question-option-overlay { opacity:1; }',
     '#question-body .question-option .question-option-label, #question-body .question-option .question-option-voters { position:relative; z-index:1; display:block; }',
@@ -246,23 +246,107 @@ function showOwnColorBanner() {
 
 
 
+
+function buildGuessRevealEntries(payload) {
+  var answers = payload && payload.answers ? payload.answers : {};
+  return Object.keys(answers).map(function (pidKey) {
+    var pid = Number(pidKey);
+    var player = getPlayerByPid(pid);
+    var answer = answers[pidKey] || {};
+    return {
+      pid: pid,
+      name: player ? player.name : ('Játékos ' + pid),
+      guess: answer.guess,
+      distance: Number.isFinite(answer.distance) ? answer.distance : Number.POSITIVE_INFINITY,
+      submittedAt: Number.isFinite(answer.submittedAt) ? answer.submittedAt : Number.POSITIVE_INFINITY,
+      timedOut: Boolean(answer.timedOut)
+    };
+  }).sort(function (a, b) {
+    return a.distance - b.distance || a.submittedAt - b.submittedAt || a.pid - b.pid;
+  });
+}
+
+function renderGuessReveal(payload) {
+  var body = element('question-body');
+  var note = element('question-note');
+  var timer = element('question-timer');
+  if (!body) return;
+
+  var entries = buildGuessRevealEntries(payload);
+  var unitSuffix = payload && payload.unit ? ' ' + payload.unit : '';
+  timer.textContent = payload.exactAnswer != null ? ('Pontos válasz: ' + payload.exactAnswer + unitSuffix) : '';
+
+  body.classList.add('is-resolving');
+  body.innerHTML = [
+    '<div class="question-guess-reveal">',
+      '<div class="question-guess-exact-card" id="question-guess-exact-card">',
+        '<div class="question-guess-exact-kicker">PONTOS VÁLASZ</div>',
+        '<div class="question-guess-exact-value">' + escapeHtml(String(payload.exactAnswer)) + (unitSuffix ? '<span class="question-guess-exact-unit">' + escapeHtml(unitSuffix) + '</span>' : '') + '</div>',
+      '</div>',
+      '<div class="question-guess-ranking" id="question-guess-ranking">',
+        entries.map(function (entry, index) {
+          var stateClass = entry.timedOut || entry.guess === null || typeof entry.guess === 'undefined' ? ' is-missed' : '';
+          var answerText = entry.timedOut || entry.guess === null || typeof entry.guess === 'undefined'
+            ? 'nem tippelt'
+            : String(entry.guess) + unitSuffix;
+          var distanceText = entry.timedOut || !Number.isFinite(entry.distance)
+            ? 'Nincs értékelhető tipp'
+            : ('Eltérés: ' + entry.distance + unitSuffix);
+          return [
+            '<div class="question-guess-card' + stateClass + '" data-rank="' + index + '">',
+              '<div class="question-guess-card-rank">#' + (index + 1) + '</div>',
+              '<div class="question-guess-card-name">' + escapeHtml(entry.name) + '</div>',
+              '<div class="question-guess-card-answer">' + escapeHtml(answerText) + '</div>',
+              '<div class="question-guess-card-distance">' + escapeHtml(distanceText) + '</div>',
+            '</div>'
+          ].join('');
+        }).join(''),
+      '</div>',
+    '</div>'
+  ].join('');
+
+  if (note) {
+    note.classList.remove('question-note-help');
+    note.textContent = 'A pontos válasz kiemelve, alatta a tippek közelség szerint rendezve.';
+  }
+
+  queueUiTimer(function () {
+    var exact = element('question-guess-exact-card');
+    if (exact) exact.classList.add('is-visible');
+    Array.prototype.slice.call(body.querySelectorAll('.question-guess-card')).forEach(function (card, index) {
+      queueUiTimer(function () {
+        card.classList.add('is-visible');
+        if (index <= 1) card.classList.add('is-nearest');
+      }, 120 + index * 130);
+    });
+  }, 60);
+
+  queueUiTimer(function () {
+    var winner = body.querySelector('.question-guess-card[data-rank="0"]');
+    if (winner) winner.classList.add('is-winner');
+  }, 1450);
+
+  if (questionRevealTimer) clearTimeout(questionRevealTimer);
+  questionRevealTimer = setTimeout(function() {
+    hideQuestion();
+  }, 4600);
+}
+
 function renderMcqAnswers(payload) {
   if (!currentQuestionData || currentQuestionData.type !== 'mcq') {
     hideQuestion();
     return;
   }
 
-
   ensureQuestionEnhancementStyles();
   clearQuestionCountdown();
   clearQuestionUiTimers();
-
+  stopQuestionTimerSound();
 
   var body = element('question-body');
   var note = element('question-note');
   var timer = element('question-timer');
   if (!body) return;
-
 
   var answers = payload && payload.answers ? payload.answers : {};
   var voteMap = {};
@@ -273,7 +357,6 @@ function renderMcqAnswers(payload) {
       voteMap[answer.selectedIndex].push(Number(pidKey));
     }
   });
-
 
   body.classList.add('is-resolving');
   body.innerHTML = (currentQuestionData.options || []).map(function (option, index) {
@@ -286,13 +369,11 @@ function renderMcqAnswers(payload) {
     ].join('');
   }).join('');
 
-
   Array.prototype.slice.call(body.querySelectorAll('.question-option')).forEach(function (button) {
     var optionIndex = Number(button.getAttribute('data-option'));
     var selectedPids = (voteMap[optionIndex] || []).slice().sort(function (a, b) { return a - b; });
     var overlay = button.querySelector('.question-option-overlay');
     var voters = button.querySelector('.question-option-voters');
-
 
     if (overlay) {
       overlay.style.background = buildOptionVoteGradient(selectedPids);
@@ -301,16 +382,16 @@ function renderMcqAnswers(payload) {
       voters.textContent = describeSelectedPlayers(selectedPids);
     }
 
-
     queueUiTimer(function () {
       button.classList.add('question-option-revealed');
-    }, 80 + optionIndex * 120);
+    }, 70 + optionIndex * 100);
   });
 
-
   timer.textContent = 'Válaszok felfedése';
-  note.textContent = 'Mindenki látja, ki mire szavazott.';
-
+  if (note) {
+    note.classList.remove('question-note-help');
+    note.textContent = 'A rossz válaszok kifutnak, a helyes megoldás UV-zöldben marad.';
+  }
 
   queueUiTimer(function () {
     Array.prototype.slice.call(body.querySelectorAll('.question-option')).forEach(function (button) {
@@ -321,17 +402,13 @@ function renderMcqAnswers(payload) {
         button.classList.add('question-option-fade');
       }
     });
-    note.textContent = 'A helyes válasz marad fent.';
-  }, 2100);
-
+    if (note) note.textContent = 'HELYES VÁLASZ kiemelve.';
+  }, 1700);
 
   queueUiTimer(function () {
     hideQuestion();
-  }, 3900);
+  }, 4900);
 }
-
-
-
 
 var PLAYER_FILL_COLORS = ['#a95f4f', '#6d8660', '#d7cfbd'];
 var PLAYER_STROKE_COLORS = ['#5e2f20', '#334b31', '#7c7464'];
@@ -367,7 +444,8 @@ correctAction: new Audio(SOUND_BASE + '/correct_action.mp3'),
 territoryCapture: new Audio(SOUND_BASE + '/territory_capture.mp3'),
 attackEnemyAction: new Audio(SOUND_BASE + '/attack_enemy_action.mp3'),
 ultraSabotage: new Audio(SOUND_BASE + '/ultra_sabotage_hahaha.mp3'),
-kozepsuliHelp: new Audio(SOUND_BASE + '/kozepsulineked_help.mp3')
+kozepsuliHelp: new Audio(SOUND_BASE + '/kozepsulineked_help.mp3'),
+expansionSelectablePick: new Audio(SOUND_BASE + '/expansion_select_pick.mp3')
 };
 
 
@@ -1092,26 +1170,8 @@ function showQuestionReveal(payload) {
   }
   clearQuestionCountdown();
   stopQuestionTimerSound();
-  var body = element('question-body');
-  var note = element('question-note');
-  element('question-timer').textContent = payload.exactAnswer != null ? ('Pontos válasz: ' + payload.exactAnswer) : '';
-  body.innerHTML = '<div class="question-reveal-list">' + payload.revealLines.map(function(line) {
-    return '<div class="question-reveal-item">' + escapeHtml(line) + '</div>';
-  }).join('') + '</div>';
-  note.classList.remove('question-note-help');
-  note.textContent = 'Lejárt az idő. Eredmények megjelenítése...';
-  if (questionRevealTimer) clearTimeout(questionRevealTimer);
-  questionRevealTimer = setTimeout(function() {
-    hideQuestion();
-  }, 2600);
+  renderGuessReveal(payload);
 }
-
-
-
-
-
-
-
 
 function startQuestionCountdown(deadline) {
   function render() {
@@ -1167,22 +1227,24 @@ function countriesOnEachFeature(feature, layer) {
       var tid = mapTerritories.indexOf(e.target);
       var baseStyle = buildLayerStyle(tid);
       if (!baseStyle) return;
-      baseStyle.weight = Math.max(baseStyle.weight || 2, 4);
-      baseStyle.fillOpacity = Math.min((baseStyle.fillOpacity || 0.7) + 0.08, 0.92);
-      e.target.setStyle(baseStyle);
+      var selectableExpansion = getExpansionHighlightState(tid).selectable;
+      if (selectableExpansion) {
+        baseStyle.weight = Math.max(baseStyle.weight || 2, 7);
+        baseStyle.fillOpacity = Math.min((baseStyle.fillOpacity || 0.7) + 0.06, 0.98);
+        baseStyle.color = '#fff8de';
+        e.target.setStyle(baseStyle);
+        if (e.target.bringToFront) e.target.bringToFront();
+      } else {
+        baseStyle.weight = Math.max(baseStyle.weight || 2, 4);
+        baseStyle.fillOpacity = Math.min((baseStyle.fillOpacity || 0.7) + 0.04, 0.92);
+        e.target.setStyle(baseStyle);
+      }
     },
     mouseout: function (e) {
       applyLayerStyle(e.target, mapTerritories.indexOf(e.target));
     }
   });
 }
-
-
-
-
-
-
-
 
 function whenClicked(e) {
   if (gameFinished || !state.game || !USER) {
@@ -1234,7 +1296,11 @@ function whenClicked(e) {
 
 
   if (state.game.phase === 'EXPANSION_SELECTION') {
-    playOneShot(soundPlayers.actionClick);
+    if (isSelectableExpansion(tid)) {
+      playOneShot(soundPlayers.expansionSelectablePick || soundPlayers.actionClick);
+    } else {
+      playOneShot(soundPlayers.actionClick);
+    }
     socket.emit('selectExpansionTarget', { tid: tid });
     return;
   }
@@ -1493,6 +1559,21 @@ function isSelectableAttack(tid) {
   return getAttackableTargets(USER.pid).indexOf(tid) !== -1;
 }
 
+function getExpansionHighlightState(tid) {
+  if (!state.game || !USER || state.game.phase !== 'EXPANSION_SELECTION' || state.game.currentplayer !== USER.pid) {
+    return { selectable: false, adjacentSelectable: false, fallbackSelectable: false, adjacentCount: 0 };
+  }
+  var selection = getExpansionSelectableTargets(USER.pid);
+  var adjacentSelectable = selection.adjacent.indexOf(tid) !== -1;
+  var fallbackSelectable = !selection.adjacent.length && selection.all.indexOf(tid) !== -1;
+  return {
+    selectable: adjacentSelectable || fallbackSelectable,
+    adjacentSelectable: adjacentSelectable,
+    fallbackSelectable: fallbackSelectable,
+    adjacentCount: selection.adjacent.length
+  };
+}
+
 
 
 
@@ -1504,23 +1585,9 @@ function buildLayerStyle(tid) {
   var territory = getTerritoryByTid(tid);
   if (!territory) return null;
 
-
-
-
-
-
-
-
   var castle = getCastleByTid(tid);
   var ownerFill = territory.ownsto >= 0 ? getOwnerColor(territory.ownsto) : UNOWNED_FILL;
   var ownerStroke = territory.ownsto >= 0 ? getOwnerStroke(territory.ownsto) : UNOWNED_STROKE;
-
-
-
-
-
-
-
 
   var style = {
     weight: castle ? 4 : 2,
@@ -1531,59 +1598,45 @@ function buildLayerStyle(tid) {
     fillColor: ownerFill,
   };
 
+  var isCurrentTurn = !gameFinished && state.game && USER && state.game.currentplayer === USER.pid;
+  if (isCurrentTurn && state.game.phase === 'BASE_SELECTION' && isSelectableBase(tid)) {
+    style.weight = 4;
+    style.color = '#f3d8a3';
+    style.fillColor = lightenHex(ownerFill, 0.18);
+    style.fillOpacity = 0.72;
+    style.dashArray = '';
+  }
 
+  if (isCurrentTurn && state.game.phase === 'EXPANSION_SELECTION') {
+    var expansionHighlight = getExpansionHighlightState(tid);
+    var isUnowned = territory.ownsto === -1;
 
-
-
-
-
-
-  if (!gameFinished && state.game && USER && state.game.currentplayer === USER.pid) {
-    if (state.game.phase === 'BASE_SELECTION' && isSelectableBase(tid)) {
-      style.weight = 4;
-      style.color = '#f3d8a3';
-      style.fillColor = lightenHex(ownerFill, 0.18);
-      style.fillOpacity = 0.72;
+    if (expansionHighlight.selectable) {
+      style.weight = expansionHighlight.adjacentSelectable ? 6 : 5;
+      style.color = expansionHighlight.adjacentSelectable ? '#fff3c8' : '#dfffd7';
+      style.fillColor = expansionHighlight.adjacentSelectable
+        ? lightenHex(getOwnerColor(USER.pid), 0.3)
+        : rgba(getOwnerColor(USER.pid), 0.82);
+      style.fillOpacity = expansionHighlight.adjacentSelectable ? 0.94 : 0.84;
       style.dashArray = '';
-    }
-
-
-
-
-
-
-
-
-    if (state.game.phase === 'EXPANSION_SELECTION' && isSelectableExpansion(tid)) {
-      style.weight = 4;
-      style.color = '#f4ddab';
-      style.fillColor = rgba(getOwnerColor(USER.pid), 0.76);
-      style.fillOpacity = 0.8;
-      style.dashArray = '';
-    }
-
-
-
-
-
-
-
-
-    if (state.game.phase === 'BATTLE_SELECTION' && isSelectableAttack(tid)) {
-      style.weight = 5;
-      style.color = '#f7e1a0';
-      style.fillColor = rgba(getOwnerColor(USER.pid), 0.72);
-      style.fillOpacity = 0.84;
-      style.dashArray = '';
+      style.className = expansionHighlight.adjacentSelectable ? 'territory-selectable territory-selectable-adjacent' : 'territory-selectable territory-selectable-fallback';
+    } else if (isUnowned) {
+      style.weight = 1;
+      style.color = 'rgba(90,68,45,0.44)';
+      style.fillColor = expansionHighlight.adjacentCount ? 'rgba(76,56,41,0.28)' : rgba(UNOWNED_FILL, 0.52);
+      style.fillOpacity = expansionHighlight.adjacentCount ? 0.16 : 0.34;
+      style.dashArray = '2 6';
+      style.className = 'territory-unselectable';
     }
   }
 
-
-
-
-
-
-
+  if (isCurrentTurn && state.game.phase === 'BATTLE_SELECTION' && isSelectableAttack(tid)) {
+    style.weight = 5;
+    style.color = '#f7e1a0';
+    style.fillColor = rgba(getOwnerColor(USER.pid), 0.72);
+    style.fillOpacity = 0.84;
+    style.dashArray = '';
+  }
 
   return style;
 }
@@ -1618,6 +1671,17 @@ function applyLayerStyle(layer, tid) {
 
 
   layer.setStyle(style);
+  if (layer._path && layer._path.classList) {
+    layer._path.classList.remove('territory-selectable', 'territory-selectable-adjacent', 'territory-selectable-fallback', 'territory-unselectable');
+    if (style.className) {
+      style.className.split(/\s+/).forEach(function (name) {
+        if (name) layer._path.classList.add(name);
+      });
+    }
+  }
+  if (style.className && style.className.indexOf('territory-selectable') !== -1 && layer.bringToFront) {
+    layer.bringToFront();
+  }
 
 
 

@@ -4878,3 +4878,234 @@ body.game-screen .hud-right {
 body.game-screen .compact-chat-card {
   display: none !important;
 }
+
+/* =========================
+   UX UPGRADE: SELECTABLE TERRITORIES + QUESTION REVEAL
+   ========================= */
+
+body.game-screen .leaflet-interactive {
+  transition: fill-opacity 180ms ease, stroke 180ms ease, stroke-width 180ms ease, opacity 180ms ease;
+}
+
+body.game-screen .leaflet-interactive.territory-unselectable {
+  opacity: 0.82;
+}
+
+body.game-screen .leaflet-interactive.territory-selectable {
+  filter: saturate(1.14) brightness(1.06);
+}
+
+#question-body .question-option {
+  position: relative;
+  overflow: hidden;
+  transition: transform 260ms ease, opacity 320ms ease, box-shadow 320ms ease, border-color 320ms ease, filter 320ms ease, max-height 340ms ease, margin 340ms ease, padding 340ms ease;
+}
+
+#question-body .question-option.question-option-revealed {
+  color: #fff;
+  border-color: rgba(255,255,255,0.18);
+  box-shadow: 0 20px 36px rgba(0,0,0,0.22);
+}
+
+#question-body .question-option.question-option-correct {
+  transform: translateY(-2px) scale(1.035);
+  border: 2px solid rgba(123, 255, 190, 0.98) !important;
+  background: linear-gradient(135deg, rgba(10, 46, 34, 0.98), rgba(15, 89, 64, 0.98)) !important;
+  box-shadow: 0 0 0 1px rgba(214,255,235,0.22) inset, 0 0 22px rgba(128,255,196,0.28), 0 18px 34px rgba(0,0,0,0.24) !important;
+}
+
+#question-body .question-option.question-option-correct::after {
+  content: '✓ HELYES VÁLASZ';
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: rgba(196, 255, 222, 0.16);
+  border: 1px solid rgba(141, 255, 193, 0.46);
+  color: #d8ffe7;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  box-shadow: 0 0 18px rgba(120,255,191,0.18);
+}
+
+#question-body .question-option.question-option-fade {
+  opacity: 0;
+  filter: blur(2px) saturate(0.55);
+  transform: translateY(20px) scale(0.965);
+  pointer-events: none;
+  max-height: 0;
+  margin: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+  border-width: 0;
+}
+
+#question-body .question-option-help-correct {
+  border: 2px solid rgba(123, 255, 190, 0.88) !important;
+  background: linear-gradient(135deg, rgba(11,78,40,0.98), rgba(25,157,83,0.96)) !important;
+  box-shadow: 0 0 0 1px rgba(230,255,240,0.28) inset, 0 0 24px rgba(114,255,180,0.22), 0 16px 30px rgba(11, 74, 34, 0.24) !important;
+}
+
+#question-body .question-option-help-correct::after {
+  content: 'HELP';
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  padding: 4px 9px;
+  border-radius: 999px;
+  background: rgba(204, 255, 225, 0.16);
+  border: 1px solid rgba(141, 255, 193, 0.42);
+  color: #d8ffe7;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.question-guess-reveal {
+  display: grid;
+  gap: 16px;
+  padding-top: 4px;
+}
+
+.question-guess-exact-card {
+  position: relative;
+  overflow: hidden;
+  border-radius: 18px;
+  padding: 18px 18px 20px;
+  background: linear-gradient(135deg, rgba(45, 25, 18, 0.98), rgba(92, 58, 35, 0.96));
+  border: 1px solid rgba(240, 210, 161, 0.18);
+  box-shadow: 0 18px 34px rgba(0,0,0,0.18);
+  opacity: 0;
+  transform: translateY(14px) scale(0.985);
+  transition: transform 360ms ease, opacity 360ms ease, box-shadow 360ms ease;
+}
+
+.question-guess-exact-card.is-visible {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  box-shadow: 0 18px 34px rgba(0,0,0,0.18), 0 0 30px rgba(133,255,197,0.16);
+}
+
+.question-guess-exact-kicker {
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #d9bea1;
+  margin-bottom: 8px;
+}
+
+.question-guess-exact-value {
+  font-size: clamp(28px, 5vw, 46px);
+  font-weight: 900;
+  line-height: 1;
+  color: #fef8ef;
+}
+
+.question-guess-exact-unit {
+  margin-left: 8px;
+  font-size: 0.38em;
+  color: #bdf9d2;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.question-guess-ranking {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+}
+
+.question-guess-card {
+  position: relative;
+  overflow: hidden;
+  border-radius: 16px;
+  padding: 14px;
+  background: linear-gradient(160deg, rgba(255,252,246,0.94), rgba(244,235,220,0.88));
+  border: 1px solid rgba(99, 71, 46, 0.18);
+  box-shadow: 0 12px 26px rgba(0,0,0,0.08);
+  opacity: 0;
+  transform: translateY(18px) scale(0.98);
+  transition: transform 320ms ease, opacity 320ms ease, box-shadow 320ms ease, border-color 320ms ease, background 320ms ease;
+}
+
+.question-guess-card.is-visible {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
+.question-guess-card.is-nearest {
+  transform: translateY(-2px) scale(1.01);
+}
+
+.question-guess-card.is-winner {
+  border-color: rgba(130, 255, 195, 0.92);
+  background: linear-gradient(150deg, rgba(232,255,243,0.98), rgba(196,255,224,0.95));
+  box-shadow: 0 0 0 1px rgba(205,255,225,0.42) inset, 0 0 26px rgba(126,255,192,0.22), 0 18px 34px rgba(0,0,0,0.14);
+}
+
+.question-guess-card.is-winner::after {
+  content: 'NYERTES';
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  padding: 4px 9px;
+  border-radius: 999px;
+  background: rgba(71, 255, 157, 0.12);
+  border: 1px solid rgba(123,255,190,0.48);
+  color: #0d7841;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.question-guess-card.is-missed {
+  background: linear-gradient(160deg, rgba(246,241,236,0.94), rgba(230,221,210,0.86));
+  color: #6a5949;
+}
+
+.question-guess-card-rank {
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #7c6650;
+  margin-bottom: 8px;
+}
+
+.question-guess-card-name {
+  font-size: 18px;
+  font-weight: 800;
+  color: #2f2014;
+  margin-bottom: 6px;
+}
+
+.question-guess-card-answer {
+  font-size: 20px;
+  font-weight: 900;
+  color: #1f160f;
+  line-height: 1.1;
+}
+
+.question-guess-card-distance {
+  margin-top: 8px;
+  font-size: 12px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #6f5c49;
+}
+
+@media (max-width: 767px) {
+  .question-guess-ranking {
+    grid-template-columns: 1fr;
+  }
+
+  .question-guess-exact-card {
+    padding: 15px 15px 16px;
+  }
+}
