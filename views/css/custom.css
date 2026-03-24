@@ -5296,3 +5296,66 @@ body.game-screen .leaflet-interactive.territory-selectable-battle-hover {
   .character-tray { right: 10px; left: 10px; bottom: 12px; max-width: none; }
   .character-tray-card { padding-right: 12px; }
 }
+
+
+/* === CHARACTER CLIENT FIXES: RESPONSIVE + OWN DETAIL ONLY + HIDE KOSSUTH UI === */
+.character-draft-card[data-character-id="kossuth"] {
+  display: none !important;
+}
+
+.character-tray-card.is-readonly {
+  cursor: default;
+}
+
+.character-tray-card.is-own {
+  box-shadow: 0 16px 30px rgba(0,0,0,0.26), 0 0 0 1px rgba(214,183,137,0.14) inset;
+}
+
+.character-tray-card.is-own .character-tray-detail {
+  max-width: 100%;
+}
+
+@media (max-width: 767px) {
+  .character-tray {
+    left: auto !important;
+    right: 10px !important;
+    bottom: 10px !important;
+    width: auto !important;
+    max-width: min(244px, calc(100vw - 20px)) !important;
+    gap: 8px !important;
+  }
+
+  .character-tray-card:not(.is-own) {
+    display: none !important;
+  }
+
+  .character-tray-card {
+    padding: 10px 12px 10px 48px !important;
+    border-radius: 16px !important;
+  }
+
+  .character-tray-image {
+    left: 12px !important;
+    top: 10px !important;
+    width: 28px !important;
+    height: 28px !important;
+    border-radius: 9px !important;
+  }
+
+  .character-tray-name {
+    font-size: 14px !important;
+  }
+
+  .character-tray-owner {
+    font-size: 10px !important;
+  }
+
+  .character-tray-detail {
+    margin-top: 8px !important;
+    font-size: 11px !important;
+    line-height: 1.38 !important;
+    max-height: 32vh !important;
+    overflow: auto !important;
+    padding-right: 4px !important;
+  }
+}

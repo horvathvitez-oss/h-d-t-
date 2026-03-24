@@ -287,7 +287,7 @@ function renderCharacterDraftModal() {
   var options = document.getElementById('character-draft-options');
   if (title) title.textContent = currentPlayer ? (getPlayerDisplayName(currentPlayer) + ' választ') : 'Karakterválasztás';
   if (subtitle) subtitle.textContent = USER && currentPid === USER.pid ? 'Válassz egy karaktert.' : 'Várj, amíg a soron lévő játékos választ.';
-  var available = state.game.availableCharacterIds || [];
+  var available = (state.game.availableCharacterIds || []).filter(function (id) { return id !== 'kossuth'; });
   options.innerHTML = available.map(function (id) {
     var def = getCharacterDefinition(id);
     if (!def) return '';
@@ -308,13 +308,14 @@ function renderCharacterTray() {
   ensureCharacterUi();
   var tray = document.getElementById('character-tray');
   if (!tray) return;
-  var cards = state.players.filter(function (player) { return !!player.characterId; }).sort(function (a, b) { return a.pid - b.pid; });
+  var cards = state.players.filter(function (player) { return !!player.characterId && player.characterId !== 'kossuth'; }).sort(function (a, b) { return a.pid - b.pid; });
   tray.innerHTML = cards.map(function (player) {
     var def = getCharacterDefinition(player.characterId);
+    var isOwn = Boolean(USER) && USER.pid === player.pid;
     if (!def) return '';
-    return '<button type="button" class="character-tray-card" data-character-tray="' + player.pid + '"><span class="character-tray-color" style="background:' + getOwnerColor(player.pid) + '"></span><img class="character-tray-image" src="' + escapeHtml(CHARACTER_IMAGE_BY_ID[player.characterId]) + '" alt="' + escapeHtml(def.name) + '" loading="lazy"><span class="character-tray-text"><span class="character-tray-name">' + escapeHtml(def.name) + '</span><span class="character-tray-owner">' + escapeHtml(getPlayerDisplayName(player)) + '</span></span><span class="character-tray-detail">' + escapeHtml(def.fullDescription) + '</span></button>';
+    return '<button type="button" class="character-tray-card' + (isOwn ? ' is-own' : ' is-readonly') + '" data-character-tray="' + player.pid + '" ' + (isOwn ? '' : 'aria-disabled="true"') + '><span class="character-tray-color" style="background:' + getOwnerColor(player.pid) + '"></span><img class="character-tray-image" src="' + escapeHtml(CHARACTER_IMAGE_BY_ID[player.characterId]) + '" alt="' + escapeHtml(def.name) + '" loading="lazy"><span class="character-tray-text"><span class="character-tray-name">' + escapeHtml(def.name) + '</span><span class="character-tray-owner">' + escapeHtml(getPlayerDisplayName(player)) + '</span></span>' + (isOwn ? ('<span class="character-tray-detail">' + escapeHtml(def.fullDescription) + '</span>') : '') + '</button>';
   }).join('');
-  Array.prototype.slice.call(tray.querySelectorAll('.character-tray-card')).forEach(function (card) {
+  Array.prototype.slice.call(tray.querySelectorAll('.character-tray-card.is-own')).forEach(function (card) {
     card.addEventListener('click', function () {
       card.classList.toggle('is-open');
     });
@@ -2260,26 +2261,10 @@ function renderStatus() {
 
 function renderKossuthAction() {
   var tray = document.getElementById('character-tray');
-  if (!tray || !USER) return;
-  var ownCharacter = getCharacterDefinition(USER.characterId);
-  if (!ownCharacter || ownCharacter.id !== 'kossuth') return;
-  var card = tray.querySelector('[data-character-tray="' + USER.pid + '"]');
-  if (!card) return;
-  var existing = card.querySelector('.character-tray-action');
-  if (existing) existing.parentNode.removeChild(existing);
-  if (state.game && state.game.phase === 'EXPANSION_SELECTION' && state.game.currentplayer === USER.pid) {
-    var action = document.createElement('button');
-    action.type = 'button';
-    action.className = 'character-tray-action character-tray-action--kossuth';
-    action.textContent = state.game.kossuthGambleArmedByPid && state.game.kossuthGambleArmedByPid[USER.pid] ? 'KASZINÓ AKTÍV' : 'KOSSUTH KASZINÓ';
-    action.disabled = Boolean(state.game.kossuthGambleArmedByPid && state.game.kossuthGambleArmedByPid[USER.pid]);
-    action.addEventListener('click', function (ev) {
-      ev.stopPropagation();
-      socket.emit('activateKossuthGamble');
-      action.disabled = true;
-    });
-    card.appendChild(action);
-  }
+  if (!tray) return;
+  Array.prototype.slice.call(tray.querySelectorAll('.character-tray-action')).forEach(function (button) {
+    if (button && button.parentNode) button.parentNode.removeChild(button);
+  });
 }
 
 function renderHUD() {
