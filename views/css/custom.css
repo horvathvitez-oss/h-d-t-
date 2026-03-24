@@ -5359,3 +5359,27 @@ body.game-screen .leaflet-interactive.territory-selectable-battle-hover {
     padding-right: 4px !important;
   }
 }
+
+
+@keyframes napoleonEuropePulse {
+  0% {
+    filter: drop-shadow(0 0 8px rgba(115, 198, 255, 0.42)) drop-shadow(0 0 18px rgba(73, 130, 255, 0.18));
+  }
+  50% {
+    filter: drop-shadow(0 0 14px rgba(151, 222, 255, 0.82)) drop-shadow(0 0 30px rgba(73, 130, 255, 0.42));
+  }
+  100% {
+    filter: drop-shadow(0 0 8px rgba(115, 198, 255, 0.42)) drop-shadow(0 0 18px rgba(73, 130, 255, 0.18));
+  }
+}
+
+.territory-napoleon-europe {
+  animation: napoleonEuropePulse 1.9s ease-in-out infinite;
+  filter: drop-shadow(0 0 8px rgba(115, 198, 255, 0.48)) drop-shadow(0 0 18px rgba(73, 130, 255, 0.22));
+}
+.territory-napoleon-europe.territory-selectable,
+.territory-napoleon-europe.territory-elevated,
+.territory-napoleon-europe.territory-selectable-battle {
+  animation-duration: 1.45s;
+  filter: drop-shadow(0 0 12px rgba(115, 198, 255, 0.78)) drop-shadow(0 0 28px rgba(73, 130, 255, 0.36));
+}

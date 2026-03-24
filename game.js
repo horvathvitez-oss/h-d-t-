@@ -75,6 +75,13 @@ const NAPOLEON_EUROPE_NAMES = [
   'scandinavia',
   'great britain',
 ];
+const NAPOLEON_EUROPE_MEDIUM_NAMES = [
+  'western europe',
+  'middle europe',
+  'ukraine',
+  'scandinavia',
+  'great britain',
+];
 
 
 
@@ -1936,8 +1943,21 @@ function getBrutusMirrorRemainingForPid(room, pid) {
   return Math.max(0, Number(byPid[pid]) || 0);
 }
 
+function getNapoleonRequiredEuropeNames(room) {
+  const availableNames = new Set((room.territories || []).map((territory) => normalizeTerritoryName(territory.tname)));
+  const primary = NAPOLEON_EUROPE_NAMES.filter((name) => availableNames.has(name));
+  if (primary.length >= 6) {
+    return primary;
+  }
+  const medium = NAPOLEON_EUROPE_MEDIUM_NAMES.filter((name) => availableNames.has(name));
+  if (medium.length) {
+    return medium;
+  }
+  return primary;
+}
+
 function getNapoleonEuropeTerritoryIds(room) {
-  const wanted = new Set(NAPOLEON_EUROPE_NAMES.map(normalizeTerritoryName));
+  const wanted = new Set(getNapoleonRequiredEuropeNames(room));
   return room.territories
     .filter((territory) => wanted.has(normalizeTerritoryName(territory.tname)))
     .map((territory) => territory.tid)
@@ -1953,7 +1973,7 @@ function syncNapoleonEuropeState(room) {
       player.napoleonEuropeBonus = 0;
       return;
     }
-    const ownsAll = europeTids.length === NAPOLEON_EUROPE_NAMES.length && europeTids.every((tid) => {
+    const ownsAll = europeTids.length > 0 && europeTids.every((tid) => {
       const territory = getTerritoryByTid(room, tid);
       return territory && territory.ownsto === player.pid;
     });
@@ -2479,6 +2499,71 @@ async function handleActivateKozepsuliHelp(room, socket) {
 
   sendStatus(room, `${player.name} felhasználta a KÖZÉPSULINEKED HELP-et.`);
   gameLog(room, `${player.name} felhasználta a KÖZÉPSULINEKED HELP-et.`);
+}
+
+
+async function handleActivateBrutusMirror(room, socket) {
+  const player = getPlayerByUsername(room, socket.currentUsername);
+  const question = room.game && room.game.activeQuestion;
+  const runtime = room.questionRuntime;
+
+  if (!player || !question || !runtime) return;
+  if (room.game.phase !== PHASES.BATTLE_QUESTION) return;
+  if (question.type !== 'mcq' || !question.context || question.context.flow !== 'BATTLE') return;
+  if (!Array.isArray(question.participants) || !question.participants.includes(player.pid)) {
+    socket.emit('serverstatus', ['Csak az aktuális párbaj résztvevői használhatják Brutust.']);
+    return;
+  }
+  if (getCharacterIdForPid(room, player.pid) !== 'brutus') {
+    socket.emit('serverstatus', ['Brutus képességét csak Brutus használhatja.']);
+    return;
+  }
+
+  const brutusRemaining = getBrutusMirrorRemainingForPid(room, player.pid);
+  if (brutusRemaining <= 0) {
+    socket.emit('serverstatus', ['Elfogyott Brutus minden használata ebben a meccsben.']);
+    return;
+  }
+  if (runtime.brutusMirrorUsed) {
+    socket.emit('serverstatus', ['Erre a kérdésre már aktiválták Brutust.']);
+    return;
+  }
+  if (Object.keys(question.answers || {}).length > 0) {
+    socket.emit('serverstatus', ['Brutust csak az első válasz előtt lehet aktiválni.']);
+    return;
+  }
+
+  const targetPid = question.participants.find((pid) => pid !== player.pid);
+  if (!Number.isInteger(targetPid)) {
+    socket.emit('serverstatus', ['Most nincs érvényes Brutus célpont.']);
+    return;
+  }
+
+  runtime.brutusMirrorUsed = true;
+  runtime.brutusMirrorTargetPid = targetPid;
+  runtime.brutusMirrorByPid = player.pid;
+
+  if (!room.game.brutusMirrorRemainingByPid || typeof room.game.brutusMirrorRemainingByPid !== 'object') {
+    room.game.brutusMirrorRemainingByPid = {};
+  }
+  room.game.brutusMirrorRemainingByPid[player.pid] = Math.max(0, brutusRemaining - 1);
+  await persistGame(room);
+
+  emitQuestionStart(room);
+
+  const sourcePlayer = getPlayerByPid(room, player.pid);
+  const targetPlayer = getPlayerByPid(room, targetPid);
+  room.namespace.emit('brutusMirrorActivated', {
+    questionId: question.id,
+    byPid: player.pid,
+    targetPid,
+    byName: sourcePlayer ? sourcePlayer.name : 'Ismeretlen',
+    targetName: targetPlayer ? targetPlayer.name : 'Ismeretlen',
+    remaining: getBrutusMirrorRemainingForPid(room, player.pid),
+  });
+
+  sendStatus(room, `${sourcePlayer ? sourcePlayer.name : 'Valaki'} aktiválta Brutust. ${targetPlayer ? targetPlayer.name : 'Az ellenfél'} tükrözött kérdést kapott.`);
+  gameLog(room, `${sourcePlayer ? sourcePlayer.name : 'Valaki'} aktiválta Brutust ${targetPlayer ? targetPlayer.name : 'az ellenfél'} ellen.`);
 }
 
 function getUltraSabotageRemainingForPid(room, pid) {
