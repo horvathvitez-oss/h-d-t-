@@ -11,6 +11,7 @@ const { MULTIPLE_CHOICE_QUESTIONS, GUESS_QUESTIONS, ULTRAHARD_QUESTIONS = [] } =
 const PHASES = {
   WAITING: 'WAITING_FOR_PLAYERS',
   BASE_SELECTION: 'BASE_SELECTION',
+  CHARACTER_SELECTION: 'CHARACTER_SELECTION',
   EXPANSION_SELECTION: 'EXPANSION_SELECTION',
   EXPANSION_QUESTION: 'EXPANSION_QUESTION',
   BATTLE_SELECTION: 'BATTLE_SELECTION',
@@ -31,6 +32,49 @@ const MCQ_TIME_LIMIT_MS = 18000;
 const GUESS_TIME_LIMIT_MS = 18000;
 const REMAINDER_GUESS_CUTOFF = 4;
 const REMAINDER_GUESS_MAX_REWARD = 2;
+
+
+const NAPOLEON_CONTINENT_BONUS = 800;
+const CHARACTERS = {
+  einstein: {
+    id: 'einstein',
+    name: 'Einstein',
+    shortDescription: '6 segítséged van 3 helyett.',
+    fullDescription: 'Einsteinként összesen 6 KÖZÉPSULINEKED HELP-et használhatsz a meccs során.',
+    image: '/images/character-einstein.png',
+  },
+  kossuth: {
+    id: 'kossuth',
+    name: 'Kossuth',
+    shortDescription: 'Kaszinózhatsz a foglalási köröd előtt.',
+    fullDescription: 'A köröd elején aktiválhatod a kaszinót. Sikeres foglalásnál a területenkénti 200 pont fölé még +200-at kapsz, sikertelen kör esetén -200 pont jár.',
+    image: '/images/character-kossuth.png',
+  },
+  napoleon: {
+    id: 'napoleon',
+    name: 'Napóleon',
+    shortDescription: 'Ha tied egész Európa, +800 pontot kapsz.',
+    fullDescription: 'Ha tied Western Europe, Middle Europe, Southern Europe, Northern Europe, Ukraine, Scandinavia és Great Britain, +800 pontod lesz addig, amíg a szövetség él.',
+    image: '/images/character-napoleon.png',
+  },
+  brutus: {
+    id: 'brutus',
+    name: 'Brutus',
+    shortDescription: '3 tükröző szabotázsod van battle phase-ben.',
+    fullDescription: 'Battle kérdésnél 3 alkalommal lila, tükrözött kérdéskártyát adhatsz az ellenfelednek.',
+    image: '/images/character-brutus.png',
+  },
+};
+const CHARACTER_ORDER = ['einstein', 'kossuth', 'napoleon', 'brutus'];
+const NAPOLEON_EUROPE_NAMES = [
+  'western europe',
+  'middle europe',
+  'southern europe',
+  'northern europe',
+  'ukraine',
+  'scandinavia',
+  'great britain',
+];
 
 
 
@@ -116,6 +160,14 @@ async function setupGame(room) {
     expansionRequiredByPid: {},
     expansionReadyByPid: {},
     activeQuestion: null,
+    characterDraftOrder: [],
+    characterDraftIndex: 0,
+    availableCharacterIds: CHARACTER_ORDER.slice(),
+    selectedCharactersByPid: {},
+    brutusMirrorRemainingByPid: Object.fromEntries(room.players.map((player) => [player.pid, 0])),
+    kossuthGambleArmedByPid: Object.fromEntries(room.players.map((player) => [player.pid, false])),
+    napoleonEuropeOwnerPid: null,
+    napoleonEuropeTerritoryTids: [],
     ultraSabotageRemaining: room.players.length * 4,
     ultraSabotageRemainingByPid: Object.fromEntries(room.players.map((player) => [player.pid, 4])),
     kozepsuliHelpRemaining: room.players.length * 3,
@@ -212,6 +264,30 @@ function attachNamespaceHandlers(room) {
         await handleActivateKozepsuliHelp(room, socket);
       } catch (error) {
         console.error('activateKozepsuliHelp error:', error);
+      }
+    });
+
+    socket.on('selectCharacter', async (data = {}) => {
+      try {
+        await handleSelectCharacter(room, socket, String(data.characterId || '').trim());
+      } catch (error) {
+        console.error('selectCharacter error:', error);
+      }
+    });
+
+    socket.on('activateBrutusMirror', async () => {
+      try {
+        await handleActivateBrutusMirror(room, socket);
+      } catch (error) {
+        console.error('activateBrutusMirror error:', error);
+      }
+    });
+
+    socket.on('activateKossuthGamble', async () => {
+      try {
+        await handleActivateKossuthGamble(room, socket);
+      } catch (error) {
+        console.error('activateKossuthGamble error:', error);
       }
     });
 
@@ -456,7 +532,7 @@ async function handleSelectBase(room, socket, tid) {
 
   room.game.baseSelectionIndex += 1;
   if (room.game.baseSelectionIndex >= room.game.baseOrder.length) {
-    await startExpansionRound(room, true);
+    await startCharacterDraft(room);
   } else {
     room.game.currentplayer = room.game.baseOrder[room.game.baseSelectionIndex];
     await persistGame(room);
@@ -472,6 +548,79 @@ async function handleSelectBase(room, socket, tid) {
 
 
 
+
+
+async function startCharacterDraft(room) {
+  const draftOrder = room.players
+    .filter((player) => player.name !== 'x' && !player.eliminated)
+    .map((player) => player.pid)
+    .sort((a, b) => a - b);
+
+  room.game.phase = PHASES.CHARACTER_SELECTION;
+  room.game.currentOrder = draftOrder;
+  room.game.characterDraftOrder = draftOrder.slice();
+  room.game.characterDraftIndex = 0;
+  room.game.currentplayer = draftOrder.length ? draftOrder[0] : -1;
+  room.game.availableCharacterIds = CHARACTER_ORDER.slice();
+  room.game.selectedCharactersByPid = {};
+  await persistGame(room);
+
+  const current = getPlayerByPid(room, room.game.currentplayer);
+  sendStatus(room, current ? `Karakterválasztás: ${current.name} választ.` : 'Karakterválasztás indul.');
+  gameLog(room, 'A bázisok kiosztása után karakterválasztás indul.');
+  emitSnapshot(room);
+}
+
+async function handleSelectCharacter(room, socket, characterId) {
+  const player = getPlayerByUsername(room, socket.currentUsername);
+  if (!player) return;
+  if (room.game.phase !== PHASES.CHARACTER_SELECTION) return;
+  if (room.game.currentplayer !== player.pid) {
+    socket.emit('serverstatus', ['Most nem te választasz karaktert.']);
+    return;
+  }
+  if (!CHARACTERS[characterId]) {
+    socket.emit('serverstatus', ['Érvénytelen karakter.']);
+    return;
+  }
+  if ((room.game.availableCharacterIds || []).indexOf(characterId) === -1) {
+    socket.emit('serverstatus', ['Ezt a karaktert már elvitték.']);
+    return;
+  }
+
+  room.game.selectedCharactersByPid[player.pid] = characterId;
+  room.game.availableCharacterIds = (room.game.availableCharacterIds || []).filter((id) => id !== characterId);
+  player.characterId = characterId;
+
+  if (characterId === 'einstein') {
+    room.game.kozepsuliHelpRemainingByPid[player.pid] = 6;
+  }
+  if (characterId === 'brutus') {
+    room.game.brutusMirrorRemainingByPid[player.pid] = 3;
+  }
+
+  const currentIndex = room.game.characterDraftOrder.indexOf(player.pid);
+  const nextPid = nextEligiblePidInOrder(room, room.game.characterDraftOrder, currentIndex, false, room.game.selectedCharactersByPid);
+  if (nextPid === -1) {
+    room.game.currentplayer = -1;
+    await persistPlayer(room, player);
+    await persistGame(room);
+    sendStatus(room, 'Mindenki karaktert választott. Indul a foglalási kör.');
+    gameLog(room, `${player.name} karaktere: ${CHARACTERS[characterId].name}. Minden karakter kiosztva.`);
+    emitSnapshot(room);
+    await startExpansionRound(room, true);
+    return;
+  }
+
+  room.game.currentplayer = nextPid;
+  room.game.characterDraftIndex = Math.max(0, currentIndex + 1);
+  await persistPlayer(room, player);
+  await persistGame(room);
+  const nextPlayer = getPlayerByPid(room, nextPid);
+  gameLog(room, `${player.name} karaktere: ${CHARACTERS[characterId].name}.`);
+  sendStatus(room, `Karakterválasztás: ${nextPlayer.name} választ.`);
+  emitSnapshot(room);
+}
 
 async function startExpansionRound(room, firstRound = false) {
   if (allTerritoriesClaimed(room)) {
@@ -507,6 +656,7 @@ async function startExpansionRound(room, firstRound = false) {
   room.game.reservedTerritories = [];
   room.game.expansionRequiredByPid = {};
   room.game.expansionReadyByPid = {};
+  room.game.kossuthGambleArmedByPid = Object.fromEntries(room.players.map((player) => [player.pid, false]));
   room.game.activeQuestion = null;
   room.game.currentplayer = getNextExpansionSelectionPid(room, -1);
   await persistGame(room);
@@ -738,6 +888,22 @@ async function maybeAdvanceWhenCurrentPlayerUnavailable(room) {
 
 
 
+
+  if (room.game.phase === PHASES.CHARACTER_SELECTION) {
+    const current = getPlayerByPid(room, room.game.currentplayer);
+    if (!current || !current.connected) {
+      const currentIndex = room.game.characterDraftOrder.indexOf(room.game.currentplayer);
+      const nextPid = nextEligiblePidInOrder(room, room.game.characterDraftOrder, currentIndex, false, room.game.selectedCharactersByPid);
+      if (nextPid === -1) {
+        await startExpansionRound(room, true);
+      } else {
+        room.game.currentplayer = nextPid;
+        await persistGame(room);
+        emitSnapshot(room);
+      }
+    }
+    return;
+  }
 
   if (room.game.phase === PHASES.EXPANSION_SELECTION) {
     const current = getPlayerByPid(room, room.game.currentplayer);
@@ -981,6 +1147,9 @@ async function createAndBroadcastQuestion(room, config) {
     ultraSabotageUsed: false,
     ultraSabotageTargetPid: null,
     ultraSabotageByPid: null,
+    brutusMirrorUsed: false,
+    brutusMirrorTargetPid: null,
+    brutusMirrorByPid: null,
     questionHelpUsedByPid: {},
   };
 
@@ -1732,18 +1901,71 @@ function rebuildPlayerTerritories(room) {
 
 
 function recalculateScores(room) {
+  syncNapoleonEuropeState(room);
   room.players.forEach((player) => {
     const territoryCount = room.territories.filter((territory) => territory.ownsto === player.pid).length;
     const activeCastleBonus = room.castles.some((castle) => castle.active && castle.pid === player.pid)
       ? CASTLE_SCORE_BONUS
       : 0;
     const assetScore = territoryCount * TERRITORY_SCORE + activeCastleBonus;
-    player.score = assetScore + (player.defenseBonus || 0) + (player.castleCaptureBonus || 0);
+    player.score = assetScore + (player.defenseBonus || 0) + (player.castleCaptureBonus || 0) + (player.kossuthScoreModifier || 0) + (player.napoleonEuropeBonus || 0);
   });
 }
 
 
 
+
+
+function normalizeTerritoryName(value) {
+  return String(value || '').trim().toLowerCase();
+}
+
+function getCharacterIdForPid(room, pid) {
+  if (!room || !room.game || !Number.isInteger(pid)) return null;
+  const selected = room.game.selectedCharactersByPid || {};
+  if (Object.prototype.hasOwnProperty.call(selected, pid)) {
+    return selected[pid] || null;
+  }
+  const player = getPlayerByPid(room, pid);
+  return player && player.characterId ? player.characterId : null;
+}
+
+function getBrutusMirrorRemainingForPid(room, pid) {
+  if (!room || !room.game || !Number.isInteger(pid)) return 0;
+  const byPid = room.game.brutusMirrorRemainingByPid || {};
+  return Math.max(0, Number(byPid[pid]) || 0);
+}
+
+function getNapoleonEuropeTerritoryIds(room) {
+  const wanted = new Set(NAPOLEON_EUROPE_NAMES.map(normalizeTerritoryName));
+  return room.territories
+    .filter((territory) => wanted.has(normalizeTerritoryName(territory.tname)))
+    .map((territory) => territory.tid)
+    .sort((a, b) => a - b);
+}
+
+function syncNapoleonEuropeState(room) {
+  const europeTids = getNapoleonEuropeTerritoryIds(room);
+  room.game.napoleonEuropeTerritoryTids = europeTids;
+  let activePid = null;
+  room.players.forEach((player) => {
+    if (getCharacterIdForPid(room, player.pid) !== 'napoleon') {
+      player.napoleonEuropeBonus = 0;
+      return;
+    }
+    const ownsAll = europeTids.length === NAPOLEON_EUROPE_NAMES.length && europeTids.every((tid) => {
+      const territory = getTerritoryByTid(room, tid);
+      return territory && territory.ownsto === player.pid;
+    });
+    if (ownsAll) {
+      activePid = player.pid;
+      player.napoleonEuropeBonus = NAPOLEON_CONTINENT_BONUS;
+    } else {
+      player.napoleonEuropeBonus = 0;
+    }
+  });
+  room.game.napoleonEuropeOwnerPid = Number.isInteger(activePid) ? activePid : null;
+}
 
 function getHighestScorePlayer(room) {
   return [...room.players].sort((a, b) => b.score - a.score || a.pid - b.pid)[0];
@@ -1861,6 +2083,13 @@ function emitSnapshot(room, socket = null) {
       ultraSabotageRemainingByPid: getUltraSabotageRemainingMap(room),
       kozepsuliHelpRemaining: getTotalKozepsuliHelpRemaining(room),
       kozepsuliHelpRemainingByPid: getKozepsuliHelpRemainingMap(room),
+      characterDraftOrder: room.game.characterDraftOrder || [],
+      availableCharacterIds: room.game.availableCharacterIds || [],
+      selectedCharactersByPid: room.game.selectedCharactersByPid || {},
+      brutusMirrorRemainingByPid: room.game.brutusMirrorRemainingByPid || {},
+      kossuthGambleArmedByPid: room.game.kossuthGambleArmedByPid || {},
+      napoleonEuropeOwnerPid: Number.isInteger(room.game.napoleonEuropeOwnerPid) ? room.game.napoleonEuropeOwnerPid : null,
+      napoleonEuropeTerritoryTids: room.game.napoleonEuropeTerritoryTids || [],
       gamefinish: room.game.gamefinish,
       winner: room.game.winner ?? null,
     },
@@ -1874,6 +2103,10 @@ function emitSnapshot(room, socket = null) {
       connected: Boolean(player.connected),
       eliminated: Boolean(player.eliminated),
       castleCaptureBonus: player.castleCaptureBonus || 0,
+      characterId: player.characterId || null,
+      characterName: player.characterId && CHARACTERS[player.characterId] ? CHARACTERS[player.characterId].name : null,
+      napoleonEuropeBonus: player.napoleonEuropeBonus || 0,
+      kossuthScoreModifier: player.kossuthScoreModifier || 0,
     })),
     castles: room.castles.map((castle) => ({
       pid: castle.pid,
@@ -1911,6 +2144,7 @@ function publicQuestionContext(room, context, pid = null) {
       kozepsuliHelpRemaining: helpRemaining,
       kozepsuliHelpRemainingTotal: getTotalKozepsuliHelpRemaining(room),
       canUseKozepsuliHelp,
+      kossuthGambleArmed: Boolean(room.game && room.game.kossuthGambleArmedByPid && room.game.kossuthGambleArmedByPid[pid]),
     };
   }
 
@@ -1922,6 +2156,18 @@ function publicQuestionContext(room, context, pid = null) {
     question.participants.includes(pid) &&
     sabotageRemaining > 0 &&
     !runtime.ultraSabotageUsed &&
+    Object.keys(question.answers || {}).length === 0
+  );
+  const brutusRemaining = getBrutusMirrorRemainingForPid(room, pid);
+  const canUseBrutusMirror = Boolean(
+    question &&
+    question.type === 'mcq' &&
+    context.flow === 'BATTLE' &&
+    Array.isArray(question.participants) &&
+    question.participants.includes(pid) &&
+    getCharacterIdForPid(room, pid) === 'brutus' &&
+    brutusRemaining > 0 &&
+    !runtime.brutusMirrorUsed &&
     Object.keys(question.answers || {}).length === 0
   );
 
@@ -1942,6 +2188,11 @@ function publicQuestionContext(room, context, pid = null) {
     kozepsuliHelpRemaining: helpRemaining,
     kozepsuliHelpRemainingTotal: getTotalKozepsuliHelpRemaining(room),
     canUseKozepsuliHelp,
+    brutusMirrorRemaining: brutusRemaining,
+    brutusMirrorUsed: Boolean(runtime.brutusMirrorUsed),
+    brutusMirrorTargetPid: Number.isInteger(runtime.brutusMirrorTargetPid) ? runtime.brutusMirrorTargetPid : null,
+    brutusMirrorByPid: Number.isInteger(runtime.brutusMirrorByPid) ? runtime.brutusMirrorByPid : null,
+    canUseBrutusMirror,
   };
 }
 

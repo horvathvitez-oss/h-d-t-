@@ -5192,3 +5192,107 @@ body.game-screen .leaflet-interactive.territory-selectable-battle-hover {
     drop-shadow(0 12px 22px rgba(23, 10, 3, 0.38))
     drop-shadow(0 0 24px rgba(255, 214, 129, 0.3));
 }
+
+
+/* === CHARACTER SYSTEM UI === */
+#character-draft-modal {
+  position: fixed;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 12000;
+}
+#character-draft-modal.is-open { display: flex; }
+.character-draft-backdrop { position:absolute; inset:0; background:rgba(8,10,18,0.74); backdrop-filter: blur(8px); }
+.character-draft-panel {
+  position: relative;
+  z-index: 1;
+  width: min(940px, calc(100vw - 32px));
+  background: linear-gradient(180deg, rgba(36,24,16,0.98), rgba(20,13,9,0.96));
+  border: 1px solid rgba(206,171,120,0.42);
+  border-radius: 24px;
+  box-shadow: 0 28px 60px rgba(0,0,0,0.38);
+  padding: 22px 24px 24px;
+  color: #f5ecd7;
+}
+.character-draft-kicker { font-size:12px; letter-spacing:.18em; text-transform:uppercase; color:#d5c3a0; }
+.character-draft-title { font-size: 28px; font-weight: 800; margin-top: 6px; }
+.character-draft-subtitle { color: rgba(245,236,215,0.72); margin-top: 4px; }
+.character-draft-options { margin-top: 18px; display:grid; grid-template-columns: repeat(auto-fit,minmax(190px,1fr)); gap: 16px; }
+.character-draft-card {
+  appearance:none; border:none; text-align:left; cursor:pointer; padding:14px; border-radius:18px;
+  background: linear-gradient(180deg, rgba(255,248,232,0.12), rgba(255,248,232,0.05));
+  border: 1px solid rgba(219,189,142,0.18); color:#fff; display:flex; gap:12px; align-items:center;
+  transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+}
+.character-draft-card:hover:not(.is-disabled) { transform: translateY(-3px); border-color: rgba(219,189,142,0.4); box-shadow: 0 16px 30px rgba(0,0,0,0.22); }
+.character-draft-card.is-disabled { opacity:.58; cursor:default; }
+.character-draft-card-image-wrap { width:70px; height:70px; border-radius:16px; overflow:hidden; flex:0 0 auto; background: rgba(255,255,255,0.08); }
+.character-draft-card-image { width:100%; height:100%; object-fit:cover; display:block; }
+.character-draft-card-name { display:block; font-size:18px; font-weight:800; }
+.character-draft-card-desc { display:block; margin-top:4px; font-size:13px; line-height:1.45; color: rgba(255,255,255,0.84); }
+
+.character-tray {
+  position: fixed; right: 18px; bottom: 18px; z-index: 8600; display:flex; flex-direction:column; gap:10px;
+  max-width: min(320px, calc(100vw - 28px));
+}
+.character-tray-card {
+  position: relative; appearance:none; border:none; text-align:left; cursor:pointer; padding: 12px 14px 12px 56px;
+  border-radius: 18px; color:#f6efdf; background: rgba(28,18,12,0.92); border:1px solid rgba(191,162,117,0.28);
+  box-shadow: 0 14px 28px rgba(0,0,0,0.22); overflow:hidden;
+}
+.character-tray-color { position:absolute; left:0; top:0; bottom:0; width:8px; }
+.character-tray-image { position:absolute; left:14px; top:12px; width:32px; height:32px; object-fit:cover; border-radius:10px; }
+.character-tray-text { display:block; }
+.character-tray-name { display:block; font-size:15px; font-weight:800; }
+.character-tray-owner { display:block; font-size:11px; letter-spacing:.06em; text-transform:uppercase; color: rgba(246,239,223,0.66); }
+.character-tray-detail { display:none; margin-top:10px; font-size:12px; line-height:1.5; color: rgba(246,239,223,0.88); }
+.character-tray-card.is-open .character-tray-detail { display:block; }
+.character-tray-action { margin-top:10px; border:none; border-radius:12px; padding:10px 12px; font-weight:800; font-size:12px; letter-spacing:.06em; }
+.character-tray-action--kossuth { background: linear-gradient(135deg,#f2d08d,#b87923); color:#2b1b0c; }
+
+.player-mini-stat--score { position: relative; overflow: visible; }
+.player-score-delta {
+  position:absolute; top:-18px; right:-8px; font-size:13px; font-weight:900; padding:4px 8px; border-radius:999px; box-shadow:0 10px 18px rgba(0,0,0,0.18);
+  animation: scoreDeltaRise 2.4s ease forwards;
+}
+.player-score-delta.is-positive { background: rgba(84, 245, 154, 0.18); color:#8effba; border:1px solid rgba(120,255,180,0.48); }
+.player-score-delta.is-negative { background: rgba(255, 87, 105, 0.16); color:#ff98aa; border:1px solid rgba(255,127,141,0.42); }
+@keyframes scoreDeltaRise { 0% { opacity:0; transform:translateY(10px) scale(.94);} 15%{opacity:1; transform:translateY(0) scale(1);} 80%{opacity:1;} 100%{opacity:0; transform:translateY(-18px) scale(1.02);} }
+
+#question-modal .question-panel.is-brutus-mirror {
+  background: linear-gradient(180deg, rgba(39, 11, 58, 0.96), rgba(20, 8, 34, 0.96));
+  border-color: rgba(183, 109, 255, 0.72);
+  box-shadow: 0 0 0 1px rgba(194,132,255,0.2) inset, 0 0 28px rgba(158,86,255,0.24), 0 18px 40px rgba(0,0,0,0.36);
+}
+#question-modal .question-panel.is-brutus-mirror .question-prompt,
+#question-modal .question-panel.is-brutus-mirror #question-body,
+#question-modal .question-panel.is-brutus-mirror .question-note,
+#question-modal .question-panel.is-brutus-mirror .question-context,
+#question-modal .question-panel.is-brutus-mirror .question-timer {
+  transform: scaleX(-1);
+}
+.question-brutus-button {
+  background: linear-gradient(135deg, #a05bff, #6d1ec9); color:#fff;
+}
+.question-brutus-counter { color:#d9b8ff; }
+.question-action-group--brutus .question-action-button { box-shadow:0 0 0 1px rgba(204,162,255,0.22) inset, 0 12px 22px rgba(107,48,190,0.22); }
+
+.territory-napoleon-europe {
+  filter: drop-shadow(0 0 7px rgba(115, 198, 255, 0.55)) drop-shadow(0 0 16px rgba(73, 130, 255, 0.24));
+}
+.territory-napoleon-europe.territory-selectable,
+.territory-napoleon-europe.territory-elevated {
+  filter: drop-shadow(0 0 10px rgba(115, 198, 255, 0.72)) drop-shadow(0 0 24px rgba(73, 130, 255, 0.34));
+}
+
+.phase-compact-title { letter-spacing: .03em; }
+.phase-compact-sub { opacity: .88; }
+
+@media (max-width: 767px) {
+  .character-draft-panel { width: calc(100vw - 18px); padding:18px 14px 16px; }
+  .character-draft-options { grid-template-columns: 1fr; }
+  .character-tray { right: 10px; left: 10px; bottom: 12px; max-width: none; }
+  .character-tray-card { padding-right: 12px; }
+}

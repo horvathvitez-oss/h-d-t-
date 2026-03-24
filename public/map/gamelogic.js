@@ -247,6 +247,119 @@ function showOwnColorBanner() {
 
 
 
+
+function getCharacterDefinition(id) {
+  return id && CHARACTER_DEFS[id] ? CHARACTER_DEFS[id] : null;
+}
+
+function ensureCharacterUi() {
+  if (!document.getElementById('character-draft-modal')) {
+    var modal = document.createElement('div');
+    modal.id = 'character-draft-modal';
+    modal.className = 'character-draft-modal';
+    modal.innerHTML = '<div class="character-draft-backdrop"></div><div class="character-draft-panel"><div class="character-draft-header"><div class="character-draft-kicker">KARAKTERVÁLASZTÁS</div><div id="character-draft-title" class="character-draft-title"></div><div id="character-draft-subtitle" class="character-draft-subtitle"></div></div><div id="character-draft-options" class="character-draft-options"></div></div>';
+    document.body.appendChild(modal);
+  }
+  if (!document.getElementById('character-tray')) {
+    var tray = document.createElement('div');
+    tray.id = 'character-tray';
+    tray.className = 'character-tray';
+    document.body.appendChild(tray);
+  }
+}
+
+function getCharacterDraftOrder() {
+  return state && state.game && Array.isArray(state.game.characterDraftOrder) ? state.game.characterDraftOrder.slice() : [];
+}
+
+function renderCharacterDraftModal() {
+  ensureCharacterUi();
+  var modal = document.getElementById('character-draft-modal');
+  if (!modal) return;
+  if (!state.game || state.game.phase !== 'CHARACTER_SELECTION') {
+    modal.classList.remove('is-open');
+    return;
+  }
+  var currentPid = state.game.currentplayer;
+  var currentPlayer = getPlayerByPid(currentPid);
+  var title = document.getElementById('character-draft-title');
+  var subtitle = document.getElementById('character-draft-subtitle');
+  var options = document.getElementById('character-draft-options');
+  if (title) title.textContent = currentPlayer ? (getPlayerDisplayName(currentPlayer) + ' választ') : 'Karakterválasztás';
+  if (subtitle) subtitle.textContent = USER && currentPid === USER.pid ? 'Válassz egy karaktert.' : 'Várj, amíg a soron lévő játékos választ.';
+  var available = state.game.availableCharacterIds || [];
+  options.innerHTML = available.map(function (id) {
+    var def = getCharacterDefinition(id);
+    if (!def) return '';
+    return '<button type="button" class="character-draft-card' + (USER && currentPid === USER.pid ? '' : ' is-disabled') + '" data-character-id="' + escapeHtml(id) + '" ' + (USER && currentPid === USER.pid ? '' : 'disabled') + '><span class="character-draft-card-image-wrap"><img class="character-draft-card-image" src="' + escapeHtml(CHARACTER_IMAGE_BY_ID[id]) + '" alt="' + escapeHtml(def.name) + '" loading="lazy"></span><span class="character-draft-card-body"><span class="character-draft-card-name">' + escapeHtml(def.name) + '</span><span class="character-draft-card-desc">' + escapeHtml(def.shortDescription) + '</span></span></button>';
+  }).join('');
+  Array.prototype.slice.call(options.querySelectorAll('[data-character-id]')).forEach(function (button) {
+    button.addEventListener('click', function () {
+      if (!USER || state.game.currentplayer !== USER.pid) return;
+      button.disabled = true;
+      playOneShot(soundPlayers.characterSelect);
+      socket.emit('selectCharacter', { characterId: button.getAttribute('data-character-id') });
+    });
+  });
+  modal.classList.add('is-open');
+}
+
+function renderCharacterTray() {
+  ensureCharacterUi();
+  var tray = document.getElementById('character-tray');
+  if (!tray) return;
+  var cards = state.players.filter(function (player) { return !!player.characterId; }).sort(function (a, b) { return a.pid - b.pid; });
+  tray.innerHTML = cards.map(function (player) {
+    var def = getCharacterDefinition(player.characterId);
+    if (!def) return '';
+    return '<button type="button" class="character-tray-card" data-character-tray="' + player.pid + '"><span class="character-tray-color" style="background:' + getOwnerColor(player.pid) + '"></span><img class="character-tray-image" src="' + escapeHtml(CHARACTER_IMAGE_BY_ID[player.characterId]) + '" alt="' + escapeHtml(def.name) + '" loading="lazy"><span class="character-tray-text"><span class="character-tray-name">' + escapeHtml(def.name) + '</span><span class="character-tray-owner">' + escapeHtml(getPlayerDisplayName(player)) + '</span></span><span class="character-tray-detail">' + escapeHtml(def.fullDescription) + '</span></button>';
+  }).join('');
+  Array.prototype.slice.call(tray.querySelectorAll('.character-tray-card')).forEach(function (card) {
+    card.addEventListener('click', function () {
+      card.classList.toggle('is-open');
+    });
+  });
+}
+
+function canUseBrutusMirror(question) {
+  return Boolean(question && question.context && question.context.canUseBrutusMirror);
+}
+
+function applyNapoleonEuropeState() {
+  var ownerPid = state && state.game ? state.game.napoleonEuropeOwnerPid : null;
+  if (ownerPid !== lastNapoleonEuropeOwnerPid) {
+    if (Number.isInteger(ownerPid) || Number.isInteger(lastNapoleonEuropeOwnerPid)) {
+      playOneShot(soundPlayers.napoleonEurope);
+    }
+    lastNapoleonEuropeOwnerPid = ownerPid;
+  }
+}
+
+function updateScoreDeltas(previousPlayers, nextPlayers) {
+  previousScoreByPid = previousScoreByPid || {};
+  latestScoreDeltaByPid = latestScoreDeltaByPid || {};
+  (nextPlayers || []).forEach(function (player) {
+    var prev = Object.prototype.hasOwnProperty.call(previousScoreByPid, player.pid) ? previousScoreByPid[player.pid] : player.score;
+    var delta = player.score - prev;
+    if (delta !== 0) {
+      latestScoreDeltaByPid[player.pid] = { value: delta, at: Date.now() };
+    }
+    previousScoreByPid[player.pid] = player.score;
+  });
+}
+
+function getActiveScoreDelta(pid) {
+  var entry = latestScoreDeltaByPid[pid];
+  if (!entry) return null;
+  if (Date.now() - entry.at > 2600) return null;
+  return entry;
+}
+
+function syncCharacterUi() {
+  renderCharacterDraftModal();
+  renderCharacterTray();
+}
+
 function buildGuessRevealEntries(payload) {
   var answers = payload && payload.answers ? payload.answers : {};
   return Object.keys(answers).map(function (pidKey) {
@@ -425,6 +538,9 @@ badVoiceCount: 0,
 currentBg: null,
 lastSnapshotSeen: false
 };
+var previousScoreByPid = {};
+var latestScoreDeltaByPid = {};
+var lastNapoleonEuropeOwnerPid = null;
 
 
 var soundPlayers = {
@@ -445,7 +561,10 @@ territoryCapture: new Audio(SOUND_BASE + '/territory_capture.mp3'),
 attackEnemyAction: new Audio(SOUND_BASE + '/attack_enemy_action.mp3'),
 ultraSabotage: new Audio(SOUND_BASE + '/ultra_sabotage_hahaha.mp3'),
 kozepsuliHelp: new Audio(SOUND_BASE + '/kozepsulineked_help.mp3'),
-expansionSelectablePick: new Audio(SOUND_BASE + '/expansion_select_pick.mp3')
+expansionSelectablePick: new Audio(SOUND_BASE + '/expansion_select_pick.mp3'),
+napoleonEurope: new Audio(SOUND_BASE + '/napoleon_europe.mp3'),
+brutusMirror: new Audio(SOUND_BASE + '/brutus_mirror.mp3'),
+characterSelect: new Audio(SOUND_BASE + '/character_select.mp3')
 };
 
 
@@ -458,6 +577,18 @@ var GAME_CORNER_PROMO_LINK = 'https://kozepsulineked.com/products/30-napos-elofi
 var GAME_CORNER_PROMO_VIDEO = '/videos/game-corner-promo.mp4';
 var QUESTION_HELP_ART_SRC = '/images/question-help-king.png';
 var QUESTION_SABOTAGE_ART_SRC = '/images/question-sabotage-clown.png';
+var CHARACTER_IMAGE_BY_ID = {
+  einstein: '/images/character-einstein.png',
+  kossuth: '/images/character-kossuth.png',
+  napoleon: '/images/character-napoleon.png',
+  brutus: '/images/character-brutus.png'
+};
+var CHARACTER_DEFS = {
+  einstein: { id: 'einstein', name: 'Einstein', shortDescription: '6 segítséged van 3 helyett.', fullDescription: 'Einsteinként 6 KÖZÉPSULINEKED HELP-et kapsz a meccs teljes hosszára.' },
+  kossuth: { id: 'kossuth', name: 'Kossuth', shortDescription: 'Kaszinózhatsz a foglalási köröd előtt.', fullDescription: 'A foglalási köröd elején aktiválhatod a kaszinót: siker esetén extra pont, kudarc esetén pontvesztés.' },
+  napoleon: { id: 'napoleon', name: 'Napóleon', shortDescription: 'Ha tied egész Európa, +800 pontot kapsz.', fullDescription: 'Western Europe, Middle Europe, Southern Europe, Northern Europe, Ukraine, Scandinavia és Great Britain egyesítése +800 pontot ér.' },
+  brutus: { id: 'brutus', name: 'Brutus', shortDescription: '3 tükröző battle-szabotázsod van.', fullDescription: 'Battle kérdésnél 3 alkalommal tükrözheted az ellenfél kérdéskártyáját.' }
+};
 
 
 function safePlay(audio) {
@@ -691,6 +822,7 @@ L.control.zoom({ position: 'bottomright' }).addTo(map);
 
 var questionModal = buildQuestionModal();
 var gameCornerPromo = createGameCornerPromo();
+ensureCharacterUi();
 
 
 
@@ -858,7 +990,10 @@ function applyQuestionVisualMode(question) {
   var panel = getQuestionPanel();
   if (!panel) return;
   panel.classList.toggle('is-ultra-hard', Boolean(question && question.isUltra));
+  var brutusActive = Boolean(question && question.context && Number.isInteger(USER && USER.pid) && question.context.brutusMirrorTargetPid === USER.pid);
+  panel.classList.toggle('is-brutus-mirror', brutusActive);
 }
+
 
 function renderQuestionActions(question) {
   var host = getQuestionActionsHost();
@@ -866,6 +1001,7 @@ function renderQuestionActions(question) {
   host.innerHTML = '';
 
   var sabotageGroup = null;
+  var brutusGroup = null;
   var helpGroup = null;
 
   if (canUseUltraSabotage(question)) {
@@ -906,6 +1042,34 @@ function renderQuestionActions(question) {
     sabotageGroup.appendChild(sabotageButton);
     sabotageGroup.appendChild(sabotageCounter);
     sabotageGroup.appendChild(sabotageArtWrap);
+  }
+
+
+  if (canUseBrutusMirror(question)) {
+    brutusGroup = document.createElement('div');
+    brutusGroup.className = 'question-action-group question-action-group--brutus';
+
+    var brutusButton = document.createElement('button');
+    brutusButton.type = 'button';
+    brutusButton.className = 'question-action-button question-brutus-button';
+    brutusButton.textContent = 'BRUTUS';
+    brutusButton.addEventListener('click', function () {
+      brutusButton.disabled = true;
+      triggerQuestionActionEffect('brutus');
+      socket.emit('activateBrutusMirror');
+      var note = element('question-note');
+      if (note) {
+        note.textContent = 'Brutus aktiválva...';
+        note.classList.remove('question-note-help');
+      }
+    });
+
+    var brutusCounter = document.createElement('div');
+    brutusCounter.className = 'question-action-counter question-brutus-counter';
+    brutusCounter.textContent = 'MARADÉK: ' + Number(question.context.brutusMirrorRemaining || 0);
+
+    brutusGroup.appendChild(brutusButton);
+    brutusGroup.appendChild(brutusCounter);
   }
 
   if (canUseKozepsuliHelp(question)) {
@@ -950,6 +1114,9 @@ function renderQuestionActions(question) {
 
   if (sabotageGroup) {
     host.appendChild(sabotageGroup);
+  }
+  if (brutusGroup) {
+    host.appendChild(brutusGroup);
   }
   if (helpGroup) {
     host.appendChild(helpGroup);
@@ -1638,6 +1805,15 @@ function buildLayerStyle(tid) {
     }
   }
 
+  var napoleonEuropeActive = state.game && Number.isInteger(state.game.napoleonEuropeOwnerPid) && Array.isArray(state.game.napoleonEuropeTerritoryTids) && state.game.napoleonEuropeTerritoryTids.indexOf(tid) !== -1;
+  if (napoleonEuropeActive) {
+    style.weight = Math.max(style.weight, 4.5);
+    style.color = '#9fd4ff';
+    style.fillColor = territory.ownsto >= 0 ? '#4f7ed6' : '#3b5ea8';
+    style.fillOpacity = territory.ownsto >= 0 ? 0.88 : 0.72;
+    style.className = ((style.className ? style.className + ' ' : '') + 'territory-napoleon-europe').trim();
+  }
+
   if (isCurrentTurn && state.game.phase === 'BATTLE_SELECTION' && isSelectableAttack(tid)) {
     style.weight = 6.5;
     style.color = '#ffe2a2';
@@ -1689,7 +1865,8 @@ function applyLayerStyle(layer, tid) {
       'territory-selectable-hover',
       'territory-selectable-battle-hover',
       'territory-elevated',
-      'territory-unselectable'
+      'territory-unselectable',
+      'territory-napoleon-europe'
     );
     if (style.className) {
       style.className.split(/\s+/).forEach(function (name) {
@@ -1753,6 +1930,7 @@ function renderAllTerritories() {
 function getCurrentPhaseGroup() {
   if (!state.game || !state.game.phase) return 'WAIT';
   if (state.game.phase === 'BASE_SELECTION') return 'BASE';
+  if (state.game.phase === 'CHARACTER_SELECTION') return 'CHAR';
   if (state.game.phase.indexOf('EXPANSION') === 0) return 'EXPANSION';
   if (state.game.phase.indexOf('BATTLE') === 0) return 'BATTLE';
   if (state.game.phase === 'FINISHED') return 'FINISHED';
@@ -1816,7 +1994,7 @@ function renderPlayerCards() {
         '<div class="player-sub">' + escapeHtml(status) + '</div>',
         '</div>',
         '<div class="player-mini-stats">',
-        '<span class="player-mini-stat"><strong>' + player.score + '</strong><em>PONT</em></span>',
+        '<span class="player-mini-stat player-mini-stat--score"><strong>' + player.score + '</strong><em>PONT</em>' + (getActiveScoreDelta(player.pid) ? ('<span class="player-score-delta ' + (getActiveScoreDelta(player.pid).value > 0 ? 'is-positive' : 'is-negative') + '">' + (getActiveScoreDelta(player.pid).value > 0 ? '+' : '') + getActiveScoreDelta(player.pid).value + '</span>') : '') + '</span>',
         '<span class="player-mini-stat"><strong>' + player.territories.length + '</strong><em>TER.</em></span>',
         '<span class="player-mini-stat"><strong>' + castleTowers + '</strong><em>TORONY</em></span>',
         '</div>',
@@ -1867,7 +2045,10 @@ function renderPhaseBoard() {
 
 
 
-  if (phaseGroup === 'BASE') {
+  if (state.game.phase === 'CHARACTER_SELECTION') {
+    title = 'Karakterválasztás';
+    subtitle = 'Piros, zöld, majd fehér választ.';
+  } else if (phaseGroup === 'BASE') {
     title = 'Bázisfoglalás';
     subtitle = 'Mindenki kijelöli a saját kezdő várát.';
   } else if (phaseGroup === 'EXPANSION') {
@@ -2035,6 +2216,8 @@ function renderStatus() {
     setStatus('Várakozás a játékosokra.');
   } else if (state.game.phase === 'BASE_SELECTION') {
     setStatus(state.game.currentplayer === USER.pid ? 'Te választasz bázist. Kattints egy érvényes üres mezőre.' : 'Most más választ bázist.');
+  } else if (state.game.phase === 'CHARACTER_SELECTION') {
+    setStatus(state.game.currentplayer === USER.pid ? 'Te választasz karaktert.' : 'Most más választ karaktert.');
   } else if (state.game.phase === 'EXPANSION_SELECTION') {
     var selectable = getExpansionSelectableTargets(USER.pid);
     var canChooseAny = selectable.adjacent.length === 0;
@@ -2074,11 +2257,38 @@ function renderStatus() {
 
 
 
+
+function renderKossuthAction() {
+  var tray = document.getElementById('character-tray');
+  if (!tray || !USER) return;
+  var ownCharacter = getCharacterDefinition(USER.characterId);
+  if (!ownCharacter || ownCharacter.id !== 'kossuth') return;
+  var card = tray.querySelector('[data-character-tray="' + USER.pid + '"]');
+  if (!card) return;
+  var existing = card.querySelector('.character-tray-action');
+  if (existing) existing.parentNode.removeChild(existing);
+  if (state.game && state.game.phase === 'EXPANSION_SELECTION' && state.game.currentplayer === USER.pid) {
+    var action = document.createElement('button');
+    action.type = 'button';
+    action.className = 'character-tray-action character-tray-action--kossuth';
+    action.textContent = state.game.kossuthGambleArmedByPid && state.game.kossuthGambleArmedByPid[USER.pid] ? 'KASZINÓ AKTÍV' : 'KOSSUTH KASZINÓ';
+    action.disabled = Boolean(state.game.kossuthGambleArmedByPid && state.game.kossuthGambleArmedByPid[USER.pid]);
+    action.addEventListener('click', function (ev) {
+      ev.stopPropagation();
+      socket.emit('activateKossuthGamble');
+      action.disabled = true;
+    });
+    card.appendChild(action);
+  }
+}
+
 function renderHUD() {
   renderPlayerCards();
   renderPhaseBoard();
   renderOrderBoard();
   renderStatus();
+  syncCharacterUi();
+  renderKossuthAction();
 }
 
 
@@ -2125,7 +2335,10 @@ function maybeShowPhaseSplash() {
     return;
   }
   lastPhaseGroupShown = phaseGroup;
-  if (phaseGroup === 'BASE') {
+  if (state.game.phase === 'CHARACTER_SELECTION') {
+    title = 'Karakterválasztás';
+    subtitle = 'Piros, zöld, majd fehér választ.';
+  } else if (phaseGroup === 'BASE') {
     showPhaseSplash('BÁZISFOGLALÁS');
     queueUiTimer(function () {
       showOwnColorBanner();
@@ -2181,7 +2394,9 @@ function onStateSnapshot(payload) {
   var previousState = state;
   state = payload;
   USER = state.players.find(function (player) { return player.name === username; }) || null;
+  updateScoreDeltas(previousState && previousState.players, state.players);
   maybePlayTerritoryCaptureSound(previousState, state);
+  applyNapoleonEuropeState();
   soundState.lastSnapshotSeen = true;
   renderAllTerritories();
   renderHUD();
@@ -2245,6 +2460,17 @@ socket.on('stateSnapshot', onStateSnapshot);
 socket.on('question:start', function (question) {
   showQuestion(question);
   renderAllTerritories();
+});
+
+socket.on('brutusMirrorActivated', function (payload) {
+  playOneShot(soundPlayers.brutusMirror);
+  if (currentQuestionData && currentQuestionData.context) {
+    currentQuestionData.context.brutusMirrorTargetPid = payload && typeof payload.targetPid === 'number' ? payload.targetPid : null;
+    currentQuestionData.context.brutusMirrorByPid = payload && typeof payload.byPid === 'number' ? payload.byPid : null;
+    currentQuestionData.context.brutusMirrorRemaining = payload && typeof payload.remaining === 'number' ? payload.remaining : currentQuestionData.context.brutusMirrorRemaining;
+    applyQuestionVisualMode(currentQuestionData);
+    renderQuestionActions(currentQuestionData);
+  }
 });
 
 socket.on('ultraSabotageActivated', function (payload) {
