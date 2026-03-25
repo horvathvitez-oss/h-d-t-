@@ -12,6 +12,7 @@ var USER = null;
 var activeQuestionId = null;
 var questionCountdownInterval = null;
 var questionRevealTimer = null;
+var castleInterludeTimer = null;
 
 
 
@@ -54,7 +55,6 @@ var questionUiTimers = [];
 var ownColorBannerTimer = null;
 var ultraSabotageBannerTimer = null;
 var hasSubmittedCurrentQuestion = false;
-var castleInterludeTimer = null;
 
 
 
@@ -105,60 +105,6 @@ function ensureQuestionEnhancementStyles() {
 
 
 
-
-
-function ensureCastleInterlude() {
-  if (document.getElementById('castle-interlude')) return;
-  var overlay = document.createElement('div');
-  overlay.id = 'castle-interlude';
-  overlay.className = 'castle-interlude';
-  overlay.innerHTML = [
-    '<div class="castle-interlude-panel">',
-      '<div id="castle-interlude-kicker" class="castle-interlude-kicker">VÁROSTROM</div>',
-      '<div id="castle-interlude-title" class="castle-interlude-title">OSTROM KEZDŐDIK</div>',
-      '<div id="castle-interlude-subtitle" class="castle-interlude-subtitle"></div>',
-    '</div>'
-  ].join('');
-  document.body.appendChild(overlay);
-}
-
-function hideCastleInterlude() {
-  var overlay = document.getElementById('castle-interlude');
-  if (!overlay) return;
-  overlay.classList.remove('is-visible');
-  if (castleInterludeTimer) {
-    clearTimeout(castleInterludeTimer);
-    castleInterludeTimer = null;
-  }
-}
-
-function showCastleInterlude(payload) {
-  ensureCastleInterlude();
-  var overlay = document.getElementById('castle-interlude');
-  var title = document.getElementById('castle-interlude-title');
-  var subtitle = document.getElementById('castle-interlude-subtitle');
-  var kicker = document.getElementById('castle-interlude-kicker');
-  if (!overlay || !title || !subtitle || !kicker) return;
-  var attacker = payload && Number.isInteger(payload.attackerPid) ? getPlayerByPid(payload.attackerPid) : null;
-  var defender = payload && Number.isInteger(payload.defenderPid) ? getPlayerByPid(payload.defenderPid) : null;
-  var targetName = payload && payload.targetName ? payload.targetName : 'Ellenséges vár';
-  if (payload && payload.type === 'tower-fall') {
-    kicker.textContent = 'TORONY LEDŐLT';
-    title.textContent = targetName;
-    subtitle.textContent = (attacker ? getPlayerDisplayName(attacker) : 'A támadó') + ' újabb tornyot rombolt le.';
-    playOneShot(soundPlayers.castleTowerFall || soundPlayers.popupBattle);
-  } else {
-    kicker.textContent = 'VÁROSTROM';
-    title.textContent = targetName;
-    subtitle.textContent = (attacker ? getPlayerDisplayName(attacker) : 'A támadó') + ' ostrom alá vette ' + (defender ? getPlayerDisplayName(defender) : 'a védőt') + ' várát.';
-    playOneShot(soundPlayers.castleSiegeIntro || soundPlayers.popupBattle);
-  }
-  overlay.classList.add('is-visible');
-  if (castleInterludeTimer) clearTimeout(castleInterludeTimer);
-  castleInterludeTimer = setTimeout(function () {
-    hideCastleInterlude();
-  }, 1500);
-}
 
 function getPlayerColorName(pid) {
   var names = ['PIROS', 'ZÖLD', 'FEHÉR'];
@@ -620,9 +566,9 @@ kozepsuliHelp: new Audio(SOUND_BASE + '/kozepsulineked_help.mp3'),
 expansionSelectablePick: new Audio(SOUND_BASE + '/expansion_select_pick.mp3'),
 napoleonEurope: new Audio(SOUND_BASE + '/napoleon_europe.mp3'),
 brutusMirror: new Audio(SOUND_BASE + '/brutus_mirror.mp3'),
+characterSelect: new Audio(SOUND_BASE + '/character_select.mp3'),
 castleSiegeIntro: new Audio(SOUND_BASE + '/castle_siege_intro.mp3'),
-castleTowerFall: new Audio(SOUND_BASE + '/castle_tower_fall.mp3'),
-characterSelect: new Audio(SOUND_BASE + '/character_select.mp3')
+castleTowerFall: new Audio(SOUND_BASE + '/castle_tower_fall.mp3')
 };
 
 
@@ -879,6 +825,7 @@ L.control.zoom({ position: 'bottomright' }).addTo(map);
 
 
 var questionModal = buildQuestionModal();
+var castleInterlude = buildCastleInterlude();
 var gameCornerPromo = createGameCornerPromo();
 ensureCharacterUi();
 
@@ -904,6 +851,59 @@ function buildQuestionModal() {
   ].join('');
   document.body.appendChild(modal);
   return modal;
+}
+
+
+function buildCastleInterlude() {
+  var overlay = document.createElement('div');
+  overlay.id = 'castle-interlude';
+  overlay.innerHTML = [
+    '<div class="castle-interlude-panel">',
+      '<div id="castle-interlude-kicker" class="castle-interlude-kicker">VÁROSTROM</div>',
+      '<div id="castle-interlude-title" class="castle-interlude-title">A vár ostroma megkezdődött</div>',
+      '<div id="castle-interlude-subtitle" class="castle-interlude-subtitle"></div>',
+    '</div>'
+  ].join('');
+  document.body.appendChild(overlay);
+  return overlay;
+}
+
+function hideCastleInterlude() {
+  if (!castleInterlude) return;
+  if (castleInterludeTimer) {
+    clearTimeout(castleInterludeTimer);
+    castleInterludeTimer = null;
+  }
+  castleInterlude.classList.remove('is-visible');
+}
+
+function showCastleInterlude(payload) {
+  if (!castleInterlude) return;
+  if (castleInterludeTimer) {
+    clearTimeout(castleInterludeTimer);
+    castleInterludeTimer = null;
+  }
+  var kicker = element('castle-interlude-kicker');
+  var title = element('castle-interlude-title');
+  var subtitle = element('castle-interlude-subtitle');
+  var type = payload && payload.type ? payload.type : 'siege-start';
+  if (kicker) kicker.textContent = type === 'tower-fall' ? 'TORONY LEDŐLT' : 'VÁROSTROM';
+  if (title) title.textContent = type === 'tower-fall'
+    ? 'Egy torony megsemmisült'
+    : 'Megkezdődött a vár ostroma';
+  if (subtitle) {
+    var attacker = payload && payload.attackerName ? payload.attackerName : 'Támadó';
+    var defender = payload && payload.defenderName ? payload.defenderName : 'Védő';
+    var territory = payload && payload.territoryName ? payload.territoryName : 'ismeretlen vár';
+    var hp = payload && typeof payload.castleHp === 'number' ? payload.castleHp : null;
+    subtitle.textContent = type === 'tower-fall'
+      ? attacker + ' lerombolt egy tornyot ' + defender + ' várából (' + territory + '). Maradék torony: ' + hp
+      : attacker + ' ostrom alá vette ' + defender + ' várát (' + territory + ').';
+  }
+  castleInterlude.classList.add('is-visible');
+  castleInterludeTimer = setTimeout(function () {
+    hideCastleInterlude();
+  }, Math.max(900, (payload && payload.durationMs ? payload.durationMs : 1800) - 120));
 }
 
 
@@ -1383,7 +1383,6 @@ function hideQuestion() {
   if (note) note.classList.remove('question-note-help');
   questionModal.classList.remove('is-open');
   stopQuestionTimerSound();
-  hideCastleInterlude();
   renderAllTerritories();
 }
 
@@ -2505,10 +2504,6 @@ initializeMap();
 
 
 socket.on('stateSnapshot', onStateSnapshot);
-socket.on('castle:interlude', function (payload) {
-  hideQuestion();
-  showCastleInterlude(payload || {});
-});
 socket.on('question:start', function (question) {
   showQuestion(question);
   renderAllTerritories();
