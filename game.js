@@ -32,8 +32,9 @@ const MCQ_TIME_LIMIT_MS = 18000;
 const GUESS_TIME_LIMIT_MS = 18000;
 const REMAINDER_GUESS_CUTOFF = 4;
 const REMAINDER_GUESS_MAX_REWARD = 2;
-const CASTLE_SIEGE_INTRO_DELAY_MS = 1800;
-const CASTLE_TOWER_FALL_DELAY_MS = 1700;
+const CASTLE_SIEGE_INTRO_MS = 2800;
+const CASTLE_TOWER_DOWN_MS = 2500;
+const CASTLE_DESTROYED_MS = 3200;
 
 
 const NAPOLEON_CONTINENT_BONUS = 800;
@@ -1002,21 +1003,10 @@ async function handleSelectAttackTarget(room, socket, tid) {
   if (castle) {
     room.game.phase = PHASES.BATTLE_QUESTION;
     room.game.currentplayer = -1;
+    room.game.activeQuestion = null;
     await persistGame(room);
     emitSnapshot(room);
-    emitCastleInterlude(room, {
-      type: 'siege-start',
-      attackerPid: attacker.pid,
-      defenderPid: defender.pid,
-      attackerName: attacker.name,
-      defenderName: defender.name,
-      territoryName: territory.tname,
-      castleTid: castle.tid,
-      castleHp: castle.hp,
-      durationMs: CASTLE_SIEGE_INTRO_DELAY_MS,
-      stage: 1,
-    });
-    await wait(CASTLE_SIEGE_INTRO_DELAY_MS);
+    await playCastleSiegeIntro(room, { attacker, defender, territory, castle });
   }
 
   await startBattleMcq(room, {
@@ -1620,6 +1610,8 @@ async function resolveSuccessfulAttack(room, context) {
 
 
 
+  const territory = getTerritoryByTid(room, context.targetTid);
+  const previousCastleHp = castle.hp;
   castle.hp -= 1;
   await persistCastle(room, castle, false);
 
@@ -1637,9 +1629,9 @@ async function resolveSuccessfulAttack(room, context) {
 
 
 
-    room.territories.forEach((territory) => {
-      if (territory.ownsto === defender.pid) {
-        territory.ownsto = attacker.pid;
+    room.territories.forEach((territoryItem) => {
+      if (territoryItem.ownsto === defender.pid) {
+        territoryItem.ownsto = attacker.pid;
       }
     });
 
@@ -1666,6 +1658,7 @@ async function resolveSuccessfulAttack(room, context) {
     room.game.phase = PHASES.BATTLE_SELECTION;
     await persistGame(room);
     emitSnapshot(room);
+    await playCastleDestroyed(room, { attacker, defender, territory });
 
 
 
@@ -1690,31 +1683,24 @@ async function resolveSuccessfulAttack(room, context) {
   gameLog(room, line);
   room.namespace.emit('battle:result', { message: line });
   room.game.activeQuestion = null;
-  room.game.phase = PHASES.BATTLE_QUESTION;
-  room.game.currentplayer = -1;
   await persistGame(room);
   emitSnapshot(room);
-
-  emitCastleInterlude(room, {
-    type: 'tower-fall',
-    attackerPid: attacker.pid,
-    defenderPid: defender.pid,
-    attackerName: attacker.name,
-    defenderName: defender.name,
-    territoryName: getTerritoryByTid(room, context.targetTid).tname,
-    castleTid: context.castleTid,
-    castleHp: castle.hp,
-    durationMs: CASTLE_TOWER_FALL_DELAY_MS,
-    stage: context.castleStage,
-    nextStage: context.castleStage + 1,
+  await playCastleTowerDown(room, {
+    attacker,
+    defender,
+    territory,
+    previousHp: previousCastleHp,
+    remainingHp: castle.hp,
   });
-  await wait(CASTLE_TOWER_FALL_DELAY_MS);
+
+
+
 
   await startBattleMcq(room, {
     attackerPid: attacker.pid,
     defenderPid: defender.pid,
     targetTid: context.targetTid,
-    targetName: getTerritoryByTid(room, context.targetTid).tname,
+    targetName: territory.tname,
     isCastle: true,
     castleTid: context.castleTid,
     castleStage: context.castleStage + 1,
@@ -2118,6 +2104,73 @@ function gameLog(room, message) {
 }
 
 
+
+
+function wait(ms) {
+  return new Promise((resolve) => setTimeout(resolve, Math.max(0, Number(ms) || 0)));
+}
+
+
+async function emitCastleCinematic(room, payload, durationMs) {
+  const finalDuration = Math.max(0, Number(durationMs) || 0);
+  room.namespace.emit('castle:cinematic', {
+    ...payload,
+    durationMs: finalDuration,
+  });
+  if (finalDuration > 0) {
+    await wait(finalDuration);
+  }
+}
+
+
+async function playCastleSiegeIntro(room, { attacker, defender, territory, castle }) {
+  if (!attacker || !defender || !territory || !castle || !castle.active) return;
+  await emitCastleCinematic(room, {
+    kind: 'siege-intro',
+    attackerPid: attacker.pid,
+    attackerName: attacker.name,
+    defenderPid: defender.pid,
+    defenderName: defender.name,
+    targetTid: territory.tid,
+    targetName: territory.tname,
+    remainingHp: castle.hp,
+    maxHp: 3,
+  }, CASTLE_SIEGE_INTRO_MS);
+}
+
+
+async function playCastleTowerDown(room, { attacker, defender, territory, previousHp, remainingHp }) {
+  if (!attacker || !defender || !territory) return;
+  await emitCastleCinematic(room, {
+    kind: 'tower-down',
+    attackerPid: attacker.pid,
+    attackerName: attacker.name,
+    defenderPid: defender.pid,
+    defenderName: defender.name,
+    targetTid: territory.tid,
+    targetName: territory.tname,
+    previousHp,
+    remainingHp,
+    maxHp: 3,
+  }, CASTLE_TOWER_DOWN_MS);
+}
+
+
+async function playCastleDestroyed(room, { attacker, defender, territory }) {
+  if (!attacker || !defender || !territory) return;
+  await emitCastleCinematic(room, {
+    kind: 'castle-destroyed',
+    attackerPid: attacker.pid,
+    attackerName: attacker.name,
+    defenderPid: defender.pid,
+    defenderName: defender.name,
+    targetTid: territory.tid,
+    targetName: territory.tname,
+    previousHp: 1,
+    remainingHp: 0,
+    maxHp: 3,
+  }, CASTLE_DESTROYED_MS);
+}
 
 
 function emitSnapshot(room, socket = null) {

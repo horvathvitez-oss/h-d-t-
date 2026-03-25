@@ -12,7 +12,8 @@ var USER = null;
 var activeQuestionId = null;
 var questionCountdownInterval = null;
 var questionRevealTimer = null;
-var castleInterludeTimer = null;
+var castleCinematicTimer = null;
+var castleCinematicCleanupTimer = null;
 
 
 
@@ -205,6 +206,151 @@ function describeSelectedPlayers(selectedPids) {
 }
 
 
+
+
+function clearCastleCinematicTimers() {
+  if (castleCinematicTimer) {
+    clearTimeout(castleCinematicTimer);
+    castleCinematicTimer = null;
+  }
+  if (castleCinematicCleanupTimer) {
+    clearTimeout(castleCinematicCleanupTimer);
+    castleCinematicCleanupTimer = null;
+  }
+}
+
+
+function ensureCastleCinematicOverlay() {
+  var existing = document.getElementById('castle-cinematic');
+  if (existing) return existing;
+
+  var overlay = document.createElement('div');
+  overlay.id = 'castle-cinematic';
+  overlay.className = 'castle-cinematic';
+  overlay.innerHTML = [
+    '<div class="castle-cinematic-backdrop"></div>',
+    '<div class="castle-cinematic-flare"></div>',
+    '<div class="castle-cinematic-panel">',
+      '<div class="castle-cinematic-kicker" id="castle-cinematic-kicker">VÁROSTROM</div>',
+      '<div class="castle-cinematic-title" id="castle-cinematic-title"></div>',
+      '<div class="castle-cinematic-subtitle" id="castle-cinematic-subtitle"></div>',
+      '<div class="castle-cinematic-versus" id="castle-cinematic-versus"></div>',
+      '<div class="castle-cinematic-towers" id="castle-cinematic-towers"></div>',
+      '<div class="castle-cinematic-footer" id="castle-cinematic-footer"></div>',
+    '</div>'
+  ].join('');
+
+  document.body.appendChild(overlay);
+  return overlay;
+}
+
+
+function buildCastleCinematicTowers(remainingHp, maxHp) {
+  var total = Number(maxHp) || 3;
+  var active = Math.max(0, Math.min(total, Number(remainingHp) || 0));
+  var html = [];
+  for (var i = 0; i < total; i += 1) {
+    var broken = i >= active;
+    html.push('<span class="castle-cinematic-tower' + (broken ? ' is-broken' : '') + '"><span class="castle-cinematic-tower-icon">♜</span><span class="castle-cinematic-tower-base"></span></span>');
+  }
+  return html.join('');
+}
+
+
+function getCastleCinematicSubtitle(payload) {
+  var remainingHp = Number(payload && payload.remainingHp);
+  if (payload && payload.kind === 'siege-intro') {
+    if (remainingHp <= 1) return 'Az utolsó torony áll. A döntő ostrom következik.';
+    if (remainingHp === 2) return 'Két torony áll még. A vár meginog, de még tartja magát.';
+    return 'A vár teljes erejével készül a védelemre.';
+  }
+  if (payload && payload.kind === 'tower-down') {
+    if (remainingHp <= 1) return 'Már csak az utolsó torony áll.';
+    if (remainingHp === 2) return 'Ledőlt egy torony. Már csak 2 maradt.';
+    return 'A vár még mindig áll, de egy torony elesett.';
+  }
+  return 'A vár romokban. A védő minden területét elvesztette.';
+}
+
+
+function getCastleCinematicFooter(payload) {
+  var targetName = payload && payload.targetName ? payload.targetName : 'Ismeretlen terület';
+  if (payload && payload.kind === 'siege-intro') return targetName + ' ostroma megkezdődött';
+  if (payload && payload.kind === 'tower-down') return targetName + ' falai megremegtek';
+  return targetName + ' végleg elesett';
+}
+
+
+function showCastleCinematic(payload) {
+  if (!payload || !payload.kind) return;
+
+  hideQuestion();
+  clearCastleCinematicTimers();
+
+  var overlay = ensureCastleCinematicOverlay();
+  var kicker = element('castle-cinematic-kicker');
+  var title = element('castle-cinematic-title');
+  var subtitle = element('castle-cinematic-subtitle');
+  var versus = element('castle-cinematic-versus');
+  var towers = element('castle-cinematic-towers');
+  var footer = element('castle-cinematic-footer');
+  var attackerName = payload.attackerName || 'Ismeretlen támadó';
+  var defenderName = payload.defenderName || 'Ismeretlen védő';
+  var remainingHp = Number(payload.remainingHp);
+  var duration = Math.max(1200, Number(payload.durationMs) || 2600);
+
+  overlay.className = 'castle-cinematic is-' + String(payload.kind).replace(/[^a-z0-9]+/gi, '-').toLowerCase();
+  document.body.classList.add('castle-cinematic-active');
+
+  if (kicker) kicker.textContent = payload.kind === 'siege-intro' ? 'VÁROSTROM' : (payload.kind === 'tower-down' ? 'LEDŐLT EGY TORONY' : 'A VÁR ELPUSZTULT');
+  if (title) {
+    if (payload.kind === 'siege-intro') {
+      title.textContent = attackerName + ' megtámadja ' + defenderName + ' várát';
+    } else if (payload.kind === 'tower-down') {
+      title.textContent = attackerName + ' áttörte ' + defenderName + ' védelmét';
+    } else {
+      title.textContent = attackerName + ' lerombolta ' + defenderName + ' várát';
+    }
+  }
+  if (subtitle) subtitle.textContent = getCastleCinematicSubtitle(payload);
+  if (versus) versus.textContent = attackerName + '  ⚔  ' + defenderName;
+  if (towers) towers.innerHTML = buildCastleCinematicTowers(remainingHp, payload.maxHp);
+  if (footer) footer.textContent = getCastleCinematicFooter(payload);
+
+  if (soundState.unlocked) {
+    if (payload.kind === 'siege-intro') {
+      playOneShot(soundPlayers.attackEnemyAction);
+    } else if (payload.kind === 'tower-down') {
+      playOneShot(soundPlayers.correctAction);
+    } else {
+      playOneShot(soundPlayers.territoryCapture);
+    }
+  }
+
+  requestAnimationFrame(function () {
+    overlay.classList.add('is-visible');
+  });
+
+  castleCinematicTimer = setTimeout(function () {
+    hideCastleCinematic();
+  }, duration);
+}
+
+
+function hideCastleCinematic(immediate) {
+  clearCastleCinematicTimers();
+  var overlay = document.getElementById('castle-cinematic');
+  if (!overlay) return;
+  document.body.classList.remove('castle-cinematic-active');
+  if (immediate) {
+    overlay.className = 'castle-cinematic';
+    return;
+  }
+  overlay.classList.remove('is-visible');
+  castleCinematicCleanupTimer = setTimeout(function () {
+    overlay.className = 'castle-cinematic';
+  }, 360);
+}
 
 
 function showOwnColorBanner() {
@@ -566,9 +712,7 @@ kozepsuliHelp: new Audio(SOUND_BASE + '/kozepsulineked_help.mp3'),
 expansionSelectablePick: new Audio(SOUND_BASE + '/expansion_select_pick.mp3'),
 napoleonEurope: new Audio(SOUND_BASE + '/napoleon_europe.mp3'),
 brutusMirror: new Audio(SOUND_BASE + '/brutus_mirror.mp3'),
-characterSelect: new Audio(SOUND_BASE + '/character_select.mp3'),
-castleSiegeIntro: new Audio(SOUND_BASE + '/castle_siege_intro.mp3'),
-castleTowerFall: new Audio(SOUND_BASE + '/castle_tower_fall.mp3')
+characterSelect: new Audio(SOUND_BASE + '/character_select.mp3')
 };
 
 
@@ -825,7 +969,7 @@ L.control.zoom({ position: 'bottomright' }).addTo(map);
 
 
 var questionModal = buildQuestionModal();
-var castleInterlude = buildCastleInterlude();
+var castleCinematicOverlay = ensureCastleCinematicOverlay();
 var gameCornerPromo = createGameCornerPromo();
 ensureCharacterUi();
 
@@ -851,59 +995,6 @@ function buildQuestionModal() {
   ].join('');
   document.body.appendChild(modal);
   return modal;
-}
-
-
-function buildCastleInterlude() {
-  var overlay = document.createElement('div');
-  overlay.id = 'castle-interlude';
-  overlay.innerHTML = [
-    '<div class="castle-interlude-panel">',
-      '<div id="castle-interlude-kicker" class="castle-interlude-kicker">VÁROSTROM</div>',
-      '<div id="castle-interlude-title" class="castle-interlude-title">A vár ostroma megkezdődött</div>',
-      '<div id="castle-interlude-subtitle" class="castle-interlude-subtitle"></div>',
-    '</div>'
-  ].join('');
-  document.body.appendChild(overlay);
-  return overlay;
-}
-
-function hideCastleInterlude() {
-  if (!castleInterlude) return;
-  if (castleInterludeTimer) {
-    clearTimeout(castleInterludeTimer);
-    castleInterludeTimer = null;
-  }
-  castleInterlude.classList.remove('is-visible');
-}
-
-function showCastleInterlude(payload) {
-  if (!castleInterlude) return;
-  if (castleInterludeTimer) {
-    clearTimeout(castleInterludeTimer);
-    castleInterludeTimer = null;
-  }
-  var kicker = element('castle-interlude-kicker');
-  var title = element('castle-interlude-title');
-  var subtitle = element('castle-interlude-subtitle');
-  var type = payload && payload.type ? payload.type : 'siege-start';
-  if (kicker) kicker.textContent = type === 'tower-fall' ? 'TORONY LEDŐLT' : 'VÁROSTROM';
-  if (title) title.textContent = type === 'tower-fall'
-    ? 'Egy torony megsemmisült'
-    : 'Megkezdődött a vár ostroma';
-  if (subtitle) {
-    var attacker = payload && payload.attackerName ? payload.attackerName : 'Támadó';
-    var defender = payload && payload.defenderName ? payload.defenderName : 'Védő';
-    var territory = payload && payload.territoryName ? payload.territoryName : 'ismeretlen vár';
-    var hp = payload && typeof payload.castleHp === 'number' ? payload.castleHp : null;
-    subtitle.textContent = type === 'tower-fall'
-      ? attacker + ' lerombolt egy tornyot ' + defender + ' várából (' + territory + '). Maradék torony: ' + hp
-      : attacker + ' ostrom alá vette ' + defender + ' várát (' + territory + ').';
-  }
-  castleInterlude.classList.add('is-visible');
-  castleInterludeTimer = setTimeout(function () {
-    hideCastleInterlude();
-  }, Math.max(900, (payload && payload.durationMs ? payload.durationMs : 1800) - 120));
 }
 
 
@@ -1227,7 +1318,6 @@ function showQuestion(question) {
     clearTimeout(questionRevealTimer);
     questionRevealTimer = null;
   }
-  hideCastleInterlude();
   currentQuestionData = question;
   hasSubmittedCurrentQuestion = false;
   ensureQuestionEnhancementStyles();
@@ -1399,6 +1489,11 @@ function showQuestionReveal(payload) {
     return;
   }
   clearQuestionCountdown();
+  clearQuestionUiTimers();
+  if (questionRevealTimer) {
+    clearTimeout(questionRevealTimer);
+    questionRevealTimer = null;
+  }
   stopQuestionTimerSound();
   renderGuessReveal(payload);
 }
@@ -2421,6 +2516,7 @@ function showWinnerModal(winner) {
 
 function finishGame(winnerPid) {
   gameFinished = true;
+  hideCastleCinematic(true);
   hideQuestion();
   var winner = getPlayerByPid(winnerPid);
   setStatus(winner && USER && winner.pid === USER.pid ? 'Megnyerted a meccset.' : 'A meccs véget ért. Győztes: ' + (winner ? getPlayerDisplayName(winner) : 'ismeretlen'));
@@ -2504,7 +2600,11 @@ initializeMap();
 
 
 socket.on('stateSnapshot', onStateSnapshot);
+socket.on('castle:cinematic', function (payload) {
+  showCastleCinematic(payload);
+});
 socket.on('question:start', function (question) {
+  hideCastleCinematic(true);
   showQuestion(question);
   renderAllTerritories();
 });

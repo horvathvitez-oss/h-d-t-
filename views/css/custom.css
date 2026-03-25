@@ -5385,81 +5385,212 @@ body.game-screen .leaflet-interactive.territory-selectable-battle-hover {
 }
 
 
-/* Castle siege interlude */
-#castle-interlude {
+/* =========================
+   CASTLE SIEGE CINEMATIC
+   ========================= */
+
+#game-shell {
+  transition: filter 0.34s ease, transform 0.34s ease;
+}
+
+body.castle-cinematic-active #game-shell {
+  filter: brightness(0.42) saturate(0.62) blur(1.2px);
+  transform: scale(1.015);
+}
+
+.castle-cinematic {
   position: fixed;
   inset: 0;
+  z-index: 12000;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 24px;
-  background: radial-gradient(circle at center, rgba(34,10,8,0.18), rgba(7,4,3,0.72));
-  backdrop-filter: blur(6px);
+  padding: 28px;
   opacity: 0;
   pointer-events: none;
-  transition: opacity .28s ease;
-  z-index: 10090;
+  overflow: hidden;
+  transition: opacity 0.28s ease;
 }
 
-#castle-interlude.is-visible {
+.castle-cinematic.is-visible {
   opacity: 1;
+  pointer-events: auto;
 }
 
-#castle-interlude .castle-interlude-panel {
-  width: min(680px, calc(100vw - 32px));
-  border-radius: 24px;
-  padding: 28px 26px;
-  background: linear-gradient(180deg, rgba(52,18,14,0.96), rgba(19,9,8,0.96));
-  border: 1px solid rgba(244, 204, 160, 0.28);
-  box-shadow: 0 28px 60px rgba(0,0,0,0.48), 0 0 0 1px rgba(255,255,255,0.03) inset;
+.castle-cinematic-backdrop,
+.castle-cinematic-flare {
+  position: absolute;
+  inset: 0;
+}
+
+.castle-cinematic-backdrop {
+  background:
+    radial-gradient(circle at center, rgba(125, 18, 18, 0.16), rgba(8, 3, 3, 0.78) 48%, rgba(0, 0, 0, 0.94) 100%),
+    linear-gradient(180deg, rgba(0, 0, 0, 0.22), rgba(0, 0, 0, 0.74));
+}
+
+.castle-cinematic-flare {
+  background:
+    radial-gradient(circle at 50% 50%, rgba(255, 229, 179, 0.18), rgba(255, 229, 179, 0) 36%),
+    radial-gradient(circle at 50% 25%, rgba(187, 38, 38, 0.28), rgba(187, 38, 38, 0) 42%);
+  animation: castleCinematicPulse 1.8s ease-in-out infinite;
+}
+
+.castle-cinematic-panel {
+  position: relative;
+  width: min(900px, calc(100vw - 40px));
+  padding: 46px 42px 38px;
+  border-radius: 28px;
+  border: 1px solid rgba(255, 222, 170, 0.18);
+  background: linear-gradient(180deg, rgba(30, 10, 10, 0.9), rgba(9, 6, 6, 0.96));
+  box-shadow: 0 40px 90px rgba(0, 0, 0, 0.5), inset 0 0 0 1px rgba(255, 255, 255, 0.05);
   text-align: center;
+  color: #f8ead1;
+  transform: translateY(22px) scale(0.97);
+  transition: transform 0.34s ease, opacity 0.34s ease;
 }
 
-#castle-interlude .castle-interlude-kicker {
-  color: #ffb687;
-  font-size: 12px;
-  letter-spacing: .28em;
-  text-transform: uppercase;
-  margin-bottom: 10px;
-  font-weight: 700;
+.castle-cinematic.is-visible .castle-cinematic-panel {
+  transform: translateY(0) scale(1);
 }
 
-#castle-interlude .castle-interlude-title {
-  color: #fff3df;
-  font-size: clamp(24px, 3vw, 40px);
-  line-height: 1.05;
+.castle-cinematic-kicker {
+  font-size: 15px;
   font-weight: 800;
-  margin-bottom: 12px;
-  text-shadow: 0 10px 30px rgba(0,0,0,0.4);
+  letter-spacing: 0.55em;
+  text-transform: uppercase;
+  color: #f3c46c;
+  text-shadow: 0 0 22px rgba(243, 196, 108, 0.26);
 }
 
-#castle-interlude .castle-interlude-subtitle {
-  color: rgba(255,239,221,0.86);
-  font-size: clamp(14px, 1.55vw, 18px);
-  line-height: 1.45;
+.castle-cinematic-title {
+  margin-top: 18px;
+  font-size: clamp(30px, 5vw, 56px);
+  line-height: 1.02;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #fff6e6;
+  text-shadow: 0 8px 28px rgba(0, 0, 0, 0.45);
 }
 
-@media (max-width: 767px) {
-  #castle-interlude {
-    padding: 16px;
+.castle-cinematic-subtitle {
+  margin-top: 14px;
+  font-size: clamp(16px, 2.2vw, 24px);
+  color: rgba(248, 234, 209, 0.92);
+  line-height: 1.35;
+}
+
+.castle-cinematic-versus {
+  margin-top: 18px;
+  font-size: clamp(15px, 2vw, 20px);
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: rgba(243, 212, 162, 0.78);
+}
+
+.castle-cinematic-towers {
+  margin-top: 28px;
+  display: flex;
+  justify-content: center;
+  gap: 18px;
+}
+
+.castle-cinematic-tower {
+  position: relative;
+  width: 76px;
+  height: 98px;
+  border-radius: 22px 22px 14px 14px;
+  border: 1px solid rgba(255, 233, 202, 0.18);
+  background: linear-gradient(180deg, rgba(255, 240, 214, 0.12), rgba(157, 41, 41, 0.2));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), 0 18px 24px rgba(0,0,0,0.22);
+  overflow: hidden;
+}
+
+.castle-cinematic-tower::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(243, 196, 108, 0.14), rgba(243, 196, 108, 0));
+}
+
+.castle-cinematic-tower-icon {
+  position: relative;
+  z-index: 1;
+  font-size: 38px;
+  color: #fff0d1;
+  text-shadow: 0 0 20px rgba(255, 225, 181, 0.18);
+}
+
+.castle-cinematic-tower-base {
+  position: absolute;
+  left: 14px;
+  right: 14px;
+  bottom: 12px;
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(243, 196, 108, 0.36);
+}
+
+.castle-cinematic-tower.is-broken {
+  background: linear-gradient(180deg, rgba(112, 112, 112, 0.16), rgba(58, 22, 22, 0.44));
+  transform: rotate(-7deg) translateY(8px) scale(0.94);
+  opacity: 0.52;
+}
+
+.castle-cinematic-tower.is-broken .castle-cinematic-tower-icon {
+  color: rgba(255, 232, 210, 0.46);
+}
+
+.castle-cinematic-footer {
+  margin-top: 24px;
+  font-size: 14px;
+  letter-spacing: 0.26em;
+  text-transform: uppercase;
+  color: rgba(255, 226, 181, 0.62);
+}
+
+.castle-cinematic.is-tower-down .castle-cinematic-backdrop {
+  background:
+    radial-gradient(circle at center, rgba(162, 24, 24, 0.22), rgba(8, 3, 3, 0.82) 50%, rgba(0, 0, 0, 0.96) 100%),
+    linear-gradient(180deg, rgba(40, 9, 9, 0.18), rgba(0, 0, 0, 0.78));
+}
+
+.castle-cinematic.is-castle-destroyed .castle-cinematic-backdrop {
+  background:
+    radial-gradient(circle at center, rgba(201, 126, 52, 0.18), rgba(22, 7, 7, 0.86) 46%, rgba(0, 0, 0, 0.97) 100%),
+    linear-gradient(180deg, rgba(52, 15, 7, 0.18), rgba(0, 0, 0, 0.82));
+}
+
+.castle-cinematic.is-castle-destroyed .castle-cinematic-kicker {
+  color: #f6a94d;
+}
+
+@keyframes castleCinematicPulse {
+  0% { transform: scale(1); opacity: 0.7; }
+  50% { transform: scale(1.04); opacity: 1; }
+  100% { transform: scale(1); opacity: 0.72; }
+}
+
+@media (max-width: 700px) {
+  .castle-cinematic-panel {
+    padding: 34px 22px 28px;
   }
 
-  #castle-interlude .castle-interlude-panel {
-    width: min(520px, calc(100vw - 20px));
-    padding: 22px 18px;
-    border-radius: 20px;
+  .castle-cinematic-kicker {
+    letter-spacing: 0.34em;
+    font-size: 13px;
   }
 
-  #castle-interlude .castle-interlude-kicker {
-    font-size: 11px;
-    letter-spacing: .22em;
+  .castle-cinematic-towers {
+    gap: 10px;
   }
 
-  #castle-interlude .castle-interlude-title {
-    font-size: clamp(21px, 7vw, 30px);
-  }
-
-  #castle-interlude .castle-interlude-subtitle {
-    font-size: 14px;
+  .castle-cinematic-tower {
+    width: 62px;
+    height: 82px;
   }
 }
