@@ -54,6 +54,7 @@ var questionUiTimers = [];
 var ownColorBannerTimer = null;
 var ultraSabotageBannerTimer = null;
 var hasSubmittedCurrentQuestion = false;
+var castleInterludeTimer = null;
 
 
 
@@ -104,6 +105,60 @@ function ensureQuestionEnhancementStyles() {
 
 
 
+
+
+function ensureCastleInterlude() {
+  if (document.getElementById('castle-interlude')) return;
+  var overlay = document.createElement('div');
+  overlay.id = 'castle-interlude';
+  overlay.className = 'castle-interlude';
+  overlay.innerHTML = [
+    '<div class="castle-interlude-panel">',
+      '<div id="castle-interlude-kicker" class="castle-interlude-kicker">VÁROSTROM</div>',
+      '<div id="castle-interlude-title" class="castle-interlude-title">OSTROM KEZDŐDIK</div>',
+      '<div id="castle-interlude-subtitle" class="castle-interlude-subtitle"></div>',
+    '</div>'
+  ].join('');
+  document.body.appendChild(overlay);
+}
+
+function hideCastleInterlude() {
+  var overlay = document.getElementById('castle-interlude');
+  if (!overlay) return;
+  overlay.classList.remove('is-visible');
+  if (castleInterludeTimer) {
+    clearTimeout(castleInterludeTimer);
+    castleInterludeTimer = null;
+  }
+}
+
+function showCastleInterlude(payload) {
+  ensureCastleInterlude();
+  var overlay = document.getElementById('castle-interlude');
+  var title = document.getElementById('castle-interlude-title');
+  var subtitle = document.getElementById('castle-interlude-subtitle');
+  var kicker = document.getElementById('castle-interlude-kicker');
+  if (!overlay || !title || !subtitle || !kicker) return;
+  var attacker = payload && Number.isInteger(payload.attackerPid) ? getPlayerByPid(payload.attackerPid) : null;
+  var defender = payload && Number.isInteger(payload.defenderPid) ? getPlayerByPid(payload.defenderPid) : null;
+  var targetName = payload && payload.targetName ? payload.targetName : 'Ellenséges vár';
+  if (payload && payload.type === 'tower-fall') {
+    kicker.textContent = 'TORONY LEDŐLT';
+    title.textContent = targetName;
+    subtitle.textContent = (attacker ? getPlayerDisplayName(attacker) : 'A támadó') + ' újabb tornyot rombolt le.';
+    playOneShot(soundPlayers.castleTowerFall || soundPlayers.popupBattle);
+  } else {
+    kicker.textContent = 'VÁROSTROM';
+    title.textContent = targetName;
+    subtitle.textContent = (attacker ? getPlayerDisplayName(attacker) : 'A támadó') + ' ostrom alá vette ' + (defender ? getPlayerDisplayName(defender) : 'a védőt') + ' várát.';
+    playOneShot(soundPlayers.castleSiegeIntro || soundPlayers.popupBattle);
+  }
+  overlay.classList.add('is-visible');
+  if (castleInterludeTimer) clearTimeout(castleInterludeTimer);
+  castleInterludeTimer = setTimeout(function () {
+    hideCastleInterlude();
+  }, 1500);
+}
 
 function getPlayerColorName(pid) {
   var names = ['PIROS', 'ZÖLD', 'FEHÉR'];
@@ -524,12 +579,11 @@ function renderMcqAnswers(payload) {
   }, 4900);
 }
 
-var PLAYER_FILL_COLORS = ['#b76455', '#728a5f', '#e4d9c0'];
-var PLAYER_STROKE_COLORS = ['#61372a', '#41503b', '#817562'];
+var PLAYER_FILL_COLORS = ['#a95f4f', '#6d8660', '#d7cfbd'];
+var PLAYER_STROKE_COLORS = ['#5e2f20', '#334b31', '#7c7464'];
 var PLAYER_NAMES_FALLBACK = ['Piros', 'Zöld', 'Fehér'];
-var UNOWNED_FILL = '#bba17a';
-var UNOWNED_STROKE = '#6a543d';
-var topoMapEngine = null;
+var UNOWNED_FILL = '#b69f79';
+var UNOWNED_STROKE = '#5a442d';
 
 
 var SOUND_BASE = document.body.getAttribute('data-sound-base') || '/sounds';
@@ -566,6 +620,8 @@ kozepsuliHelp: new Audio(SOUND_BASE + '/kozepsulineked_help.mp3'),
 expansionSelectablePick: new Audio(SOUND_BASE + '/expansion_select_pick.mp3'),
 napoleonEurope: new Audio(SOUND_BASE + '/napoleon_europe.mp3'),
 brutusMirror: new Audio(SOUND_BASE + '/brutus_mirror.mp3'),
+castleSiegeIntro: new Audio(SOUND_BASE + '/castle_siege_intro.mp3'),
+castleTowerFall: new Audio(SOUND_BASE + '/castle_tower_fall.mp3'),
 characterSelect: new Audio(SOUND_BASE + '/character_select.mp3')
 };
 
@@ -1167,6 +1223,11 @@ function showUltraSabotageBanner(payload) {
 function showQuestion(question) {
   clearQuestionCountdown();
   clearQuestionUiTimers();
+  if (questionRevealTimer) {
+    clearTimeout(questionRevealTimer);
+    questionRevealTimer = null;
+  }
+  hideCastleInterlude();
   currentQuestionData = question;
   hasSubmittedCurrentQuestion = false;
   ensureQuestionEnhancementStyles();
@@ -1322,6 +1383,7 @@ function hideQuestion() {
   if (note) note.classList.remove('question-note-help');
   questionModal.classList.remove('is-open');
   stopQuestionTimerSound();
+  hideCastleInterlude();
   renderAllTerritories();
 }
 
@@ -1404,7 +1466,6 @@ function countriesOnEachFeature(feature, layer) {
         baseStyle.fillOpacity = Math.min((baseStyle.fillOpacity || 0.7) + (selectableBattle ? 0.07 : 0.06), 0.98);
         baseStyle.color = selectableBattle ? '#ffe8ad' : '#fff8de';
         e.target.setStyle(baseStyle);
-        decorateInteractiveLayer(e.target, baseStyle);
         if (e.target._path && e.target._path.classList) {
           e.target._path.classList.add('territory-selectable-hover');
           if (selectableBattle) e.target._path.classList.add('territory-selectable-battle-hover');
@@ -1414,7 +1475,6 @@ function countriesOnEachFeature(feature, layer) {
         baseStyle.weight = Math.max(baseStyle.weight || 2, 3);
         baseStyle.fillOpacity = Math.min((baseStyle.fillOpacity || 0.7) + 0.03, 0.9);
         e.target.setStyle(baseStyle);
-        decorateInteractiveLayer(e.target, baseStyle);
       }
     },
     mouseout: function (e) {
@@ -1571,18 +1631,6 @@ function lightenHex(hex, amount) {
   var g = Math.round(rgb.g + (255 - rgb.g) * amount);
   var b = Math.round(rgb.b + (255 - rgb.b) * amount);
   return 'rgb(' + r + ',' + g + ',' + b + ')';
-}
-
-
-function mergeClassNames(existing, additions) {
-  var classes = {};
-  String(existing || '').split(/\s+/).forEach(function (name) {
-    if (name) classes[name] = true;
-  });
-  String(additions || '').split(/\s+/).forEach(function (name) {
-    if (name) classes[name] = true;
-  });
-  return Object.keys(classes).join(' ');
 }
 
 
@@ -1779,27 +1827,21 @@ function buildLayerStyle(tid) {
   var ownerStroke = territory.ownsto >= 0 ? getOwnerStroke(territory.ownsto) : UNOWNED_STROKE;
 
   var style = {
-    weight: castle ? 3.2 : (territory.ownsto >= 0 ? 1.85 : 1.35),
-    opacity: territory.ownsto >= 0 ? 0.98 : 0.84,
+    weight: castle ? 4 : 2,
+    opacity: 1,
     color: ownerStroke,
-    dashArray: territory.ownsto >= 0 ? '' : '4 5',
-    fillOpacity: territory.ownsto >= 0 ? 0.34 : 0.18,
+    dashArray: castle ? '' : '4 4',
+    fillOpacity: territory.ownsto >= 0 ? 0.9 : 0.58,
     fillColor: ownerFill,
-    className: mergeClassNames('', [
-      'territory-terrain-wash',
-      territory.ownsto >= 0 ? ('territory-owned territory-player-' + territory.ownsto) : 'territory-neutral',
-      castle ? 'territory-has-castle' : ''
-    ].join(' '))
   };
 
   var isCurrentTurn = !gameFinished && state.game && USER && state.game.currentplayer === USER.pid;
   if (isCurrentTurn && state.game.phase === 'BASE_SELECTION' && isSelectableBase(tid)) {
-    style.weight = 4.1;
-    style.color = '#f1dbac';
-    style.fillColor = lightenHex(ownerFill, 0.16);
-    style.fillOpacity = 0.42;
+    style.weight = 4;
+    style.color = '#f3d8a3';
+    style.fillColor = lightenHex(ownerFill, 0.18);
+    style.fillOpacity = 0.72;
     style.dashArray = '';
-    style.className = mergeClassNames(style.className, 'territory-selectable territory-elevated territory-base-choice');
   }
 
   if (isCurrentTurn && state.game.phase === 'EXPANSION_SELECTION') {
@@ -1807,57 +1849,47 @@ function buildLayerStyle(tid) {
     var isUnowned = territory.ownsto === -1;
 
     if (expansionHighlight.selectable) {
-      style.weight = expansionHighlight.adjacentSelectable ? 5.8 : 4.8;
-      style.color = expansionHighlight.adjacentSelectable ? '#fff4cf' : '#def6d8';
+      style.weight = expansionHighlight.adjacentSelectable ? 6.5 : 5.5;
+      style.color = expansionHighlight.adjacentSelectable ? '#fff3c8' : '#dfffd7';
       style.fillColor = expansionHighlight.adjacentSelectable
-        ? lightenHex(getOwnerColor(USER.pid), 0.22)
-        : lightenHex(getOwnerColor(USER.pid), 0.12);
-      style.fillOpacity = expansionHighlight.adjacentSelectable ? 0.54 : 0.44;
+        ? lightenHex(getOwnerColor(USER.pid), 0.26)
+        : rgba(getOwnerColor(USER.pid), 0.8);
+      style.fillOpacity = expansionHighlight.adjacentSelectable ? 0.92 : 0.8;
       style.dashArray = '';
-      style.className = mergeClassNames(style.className, expansionHighlight.adjacentSelectable
+      style.className = expansionHighlight.adjacentSelectable
         ? 'territory-selectable territory-selectable-adjacent territory-elevated'
-        : 'territory-selectable territory-selectable-fallback territory-elevated');
+        : 'territory-selectable territory-selectable-fallback territory-elevated';
     } else if (isUnowned) {
-      style.weight = 1.5;
-      style.color = 'rgba(111,84,58,0.58)';
-      style.fillColor = expansionHighlight.adjacentCount ? 'rgba(150,124,88,0.40)' : rgba(UNOWNED_FILL, 0.62);
-      style.fillOpacity = expansionHighlight.adjacentCount ? 0.16 : 0.14;
+      style.weight = 1.8;
+      style.color = 'rgba(111,84,58,0.62)';
+      style.fillColor = expansionHighlight.adjacentCount ? 'rgba(143,116,82,0.44)' : rgba(UNOWNED_FILL, 0.68);
+      style.fillOpacity = expansionHighlight.adjacentCount ? 0.42 : 0.52;
       style.dashArray = '3 5';
-      style.className = mergeClassNames(style.className, 'territory-unselectable');
+      style.className = 'territory-unselectable';
     }
   }
 
   var napoleonEuropeActive = state.game && Number.isInteger(state.game.napoleonEuropeOwnerPid) && Array.isArray(state.game.napoleonEuropeTerritoryTids) && state.game.napoleonEuropeTerritoryTids.indexOf(tid) !== -1;
   if (napoleonEuropeActive) {
-    style.weight = Math.max(style.weight, 4.4);
-    style.color = '#a8dcff';
-    style.fillColor = territory.ownsto >= 0 ? '#5d81d0' : '#4966ad';
-    style.fillOpacity = territory.ownsto >= 0 ? 0.4 : 0.26;
-    style.className = mergeClassNames(style.className, 'territory-napoleon-europe');
+    style.weight = Math.max(style.weight, 4.5);
+    style.color = '#9fd4ff';
+    style.fillColor = territory.ownsto >= 0 ? '#4f7ed6' : '#3b5ea8';
+    style.fillOpacity = territory.ownsto >= 0 ? 0.88 : 0.72;
+    style.className = ((style.className ? style.className + ' ' : '') + 'territory-napoleon-europe').trim();
   }
 
   if (isCurrentTurn && state.game.phase === 'BATTLE_SELECTION' && isSelectableAttack(tid)) {
-    style.weight = 5.9;
-    style.color = '#ffe3a8';
-    style.fillColor = lightenHex(getOwnerColor(USER.pid), 0.16);
-    style.fillOpacity = 0.5;
+    style.weight = 6.5;
+    style.color = '#ffe2a2';
+    style.fillColor = rgba(getOwnerColor(USER.pid), 0.82);
+    style.fillOpacity = 0.88;
     style.dashArray = '';
-    style.className = mergeClassNames(style.className, 'territory-selectable territory-selectable-battle territory-elevated');
+    style.className = 'territory-selectable territory-selectable-battle territory-elevated';
   }
 
   return style;
 }
 
-
-
-
-
-
-
-function decorateInteractiveLayer(layer, style) {
-  if (!layer || !style || !layer._path) return;
-  layer._path.style.fillRule = 'evenodd';
-}
 
 
 
@@ -1888,7 +1920,6 @@ function applyLayerStyle(layer, tid) {
 
 
   layer.setStyle(style);
-  decorateInteractiveLayer(layer, style);
   if (layer._path && layer._path.classList) {
     layer._path.classList.remove(
       'territory-selectable',
@@ -1951,7 +1982,6 @@ function renderAllTerritories() {
   mapTerritories.forEach(function (layer, tid) {
     applyLayerStyle(layer, tid);
   });
-  if (topoMapEngine) topoMapEngine.scheduleRedraw();
 }
 
 
@@ -2432,494 +2462,15 @@ function onStateSnapshot(payload) {
 
 
 
-var TOPO_RIDGE_CHAINS = [
-  { lat: 42.7, lng: -0.3, sxDeg: 3.6, syDeg: 0.52, angle: -10, amp: 0.92 },
-  { lat: 46.45, lng: 10.4, sxDeg: 6.6, syDeg: 0.78, angle: 18, amp: 1.48 },
-  { lat: 44.9, lng: 7.4, sxDeg: 2.8, syDeg: 0.52, angle: 12, amp: 0.58 },
-  { lat: 42.75, lng: 13.1, sxDeg: 4.8, syDeg: 0.42, angle: 30, amp: 0.82 },
-  { lat: 47.0, lng: 24.2, sxDeg: 7.3, syDeg: 0.72, angle: 32, amp: 1.16 },
-  { lat: 45.0, lng: 17.9, sxDeg: 4.9, syDeg: 0.44, angle: 38, amp: 0.76 },
-  { lat: 42.6, lng: 24.2, sxDeg: 4.6, syDeg: 0.54, angle: 12, amp: 0.68 },
-  { lat: 63.1, lng: 13.8, sxDeg: 11.2, syDeg: 0.95, angle: 18, amp: 1.22 },
-  { lat: 57.2, lng: -4.6, sxDeg: 2.8, syDeg: 0.82, angle: 18, amp: 0.54 },
-  { lat: 45.4, lng: 3.0, sxDeg: 2.7, syDeg: 1.25, angle: 2, amp: 0.4 },
-  { lat: 40.8, lng: -3.8, sxDeg: 5.0, syDeg: 1.28, angle: -12, amp: 0.36 },
-  { lat: 67.2, lng: 18.6, sxDeg: 5.8, syDeg: 0.72, angle: 24, amp: 0.46 }
-];
-
-var TOPO_RIVERS = [
-  { width: 2.4, points: [[48.08, 8.23], [49.0, 8.6], [49.8, 8.9], [50.2, 7.6], [51.0, 6.9], [51.86, 4.3]] },
-  { width: 2.5, points: [[47.3, 8.0], [48.1, 9.6], [48.7, 12.1], [48.2, 16.3], [47.5, 19.1], [47.1, 21.7], [45.25, 28.7]] },
-  { width: 2.3, points: [[46.2, 6.8], [45.9, 4.8], [45.75, 4.85], [44.0, 4.8], [43.3, 4.8], [43.0, 4.8]] },
-  { width: 2.2, points: [[55.75, 37.6], [56.5, 40.4], [56.9, 44.5], [55.7, 49.1], [53.2, 50.15], [48.7, 44.5], [46.7, 48.0]] }
-];
-
-function createTopographicMapEngine(mapInstance) {
-  var featureCollection = null;
-  var baseCanvas = null;
-  var detailCanvas = null;
-  var baseCtx = null;
-  var detailCtx = null;
-  var listenersBound = false;
-  var redrawScheduled = false;
-
-  function clamp(value, min, max) {
-    return Math.max(min, Math.min(max, value));
-  }
-
-  function lerp(a, b, t) {
-    return a + (b - a) * t;
-  }
-
-  function smoothstep(t) {
-    return t * t * (3 - 2 * t);
-  }
-
-  function createPane(name, zIndex) {
-    var pane = mapInstance.getPane(name);
-    if (!pane) pane = mapInstance.createPane(name);
-    if (pane.classList) pane.classList.add(name);
-    pane.style.zIndex = String(zIndex);
-    pane.style.pointerEvents = 'none';
-    return pane;
-  }
-
-  function createCanvas(pane, className) {
-    var canvas = pane.querySelector('.' + className);
-    if (!canvas) {
-      canvas = document.createElement('canvas');
-      canvas.className = className + ' topo-canvas';
-      pane.appendChild(canvas);
-    }
-    canvas.style.position = 'absolute';
-    canvas.style.top = '0';
-    canvas.style.left = '0';
-    canvas.style.width = '100%';
-    canvas.style.height = '100%';
-    canvas.style.pointerEvents = 'none';
-    return canvas;
-  }
-
-  function ensureCanvases() {
-    if (baseCanvas && detailCanvas) return;
-    var basePane = createPane('topoBasePane', 330);
-    var detailPane = createPane('topoDetailPane', 410);
-    baseCanvas = createCanvas(basePane, 'topo-base-canvas');
-    detailCanvas = createCanvas(detailPane, 'topo-detail-canvas');
-    baseCtx = baseCanvas.getContext('2d', { alpha: true });
-    detailCtx = detailCanvas.getContext('2d', { alpha: true });
-  }
-
-  function bindListeners() {
-    if (listenersBound) return;
-    listenersBound = true;
-    mapInstance.on('zoomend moveend resize viewreset', scheduleRedraw);
-  }
-
-  function setCanvasSize(canvas, size) {
-    if (canvas.width !== size.x || canvas.height !== size.y) {
-      canvas.width = size.x;
-      canvas.height = size.y;
-    }
-    canvas.style.width = size.x + 'px';
-    canvas.style.height = size.y + 'px';
-  }
-
-  function alignCanvas(canvas) {
-    L.DomUtil.setPosition(canvas, mapInstance.containerPointToLayerPoint([0, 0]));
-  }
-
-  function project(lat, lng) {
-    var point = mapInstance.latLngToContainerPoint([lat, lng]);
-    return { x: point.x, y: point.y };
-  }
-
-  function buildLandPath() {
-    var path = new Path2D();
-    if (!featureCollection || !featureCollection.features) return path;
-
-    function drawRing(ring) {
-      if (!ring || !ring.length) return;
-      for (var i = 0; i < ring.length; i++) {
-        var point = mapInstance.latLngToContainerPoint([ring[i][1], ring[i][0]]);
-        if (i === 0) path.moveTo(point.x, point.y);
-        else path.lineTo(point.x, point.y);
-      }
-      path.closePath();
-    }
-
-    featureCollection.features.forEach(function (feature) {
-      if (!feature || !feature.geometry) return;
-      var geometry = feature.geometry;
-      if (geometry.type === 'Polygon') {
-        geometry.coordinates.forEach(drawRing);
-      } else if (geometry.type === 'MultiPolygon') {
-        geometry.coordinates.forEach(function (polygon) {
-          polygon.forEach(drawRing);
-        });
-      }
-    });
-
-    return path;
-  }
-
-  function hash2(x, y) {
-    var seed = Math.sin(x * 127.1 + y * 311.7) * 43758.5453123;
-    return seed - Math.floor(seed);
-  }
-
-  function valueNoise(x, y) {
-    var xi = Math.floor(x);
-    var yi = Math.floor(y);
-    var xf = x - xi;
-    var yf = y - yi;
-    var h00 = hash2(xi, yi);
-    var h10 = hash2(xi + 1, yi);
-    var h01 = hash2(xi, yi + 1);
-    var h11 = hash2(xi + 1, yi + 1);
-    var u = smoothstep(xf);
-    var v = smoothstep(yf);
-    return lerp(lerp(h00, h10, u), lerp(h01, h11, u), v);
-  }
-
-  function fbm(x, y) {
-    var total = 0;
-    var amplitude = 0.55;
-    var frequency = 1;
-    for (var i = 0; i < 4; i++) {
-      total += amplitude * valueNoise(x * frequency, y * frequency);
-      amplitude *= 0.5;
-      frequency *= 2;
-    }
-    return total;
-  }
-
-  function degScaleAt(lat, lng) {
-    var center = mapInstance.latLngToContainerPoint([lat, lng]);
-    var x1 = mapInstance.latLngToContainerPoint([lat, lng + 1]);
-    var y1 = mapInstance.latLngToContainerPoint([lat + 1, lng]);
-    return {
-      pxPerLng: Math.max(1, Math.abs(x1.x - center.x)),
-      pxPerLat: Math.max(1, Math.abs(y1.y - center.y))
-    };
-  }
-
-  function buildRidgesPx() {
-    return TOPO_RIDGE_CHAINS.map(function (ridge) {
-      var point = project(ridge.lat, ridge.lng);
-      var scale = degScaleAt(ridge.lat, ridge.lng);
-      return {
-        x: point.x,
-        y: point.y,
-        sx: Math.max(20, ridge.sxDeg * scale.pxPerLng),
-        sy: Math.max(10, ridge.syDeg * scale.pxPerLat),
-        angle: ridge.angle * Math.PI / 180,
-        amp: ridge.amp
-      };
-    });
-  }
-
-  function ridgeContribution(x, y, ridge) {
-    var dx = x - ridge.x;
-    var dy = y - ridge.y;
-    var ca = Math.cos(ridge.angle);
-    var sa = Math.sin(ridge.angle);
-    var u = dx * ca + dy * sa;
-    var v = -dx * sa + dy * ca;
-    return ridge.amp * Math.exp(-((u * u) / (2 * ridge.sx * ridge.sx) + (v * v) / (2 * ridge.sy * ridge.sy)));
-  }
-
-  function sampleElevation(x, y, ridgesPx) {
-    var elevation = 0;
-    for (var i = 0; i < ridgesPx.length; i++) {
-      elevation += ridgeContribution(x, y, ridgesPx[i]);
-    }
-    var macro = fbm(x * 0.0032, y * 0.0032) - 0.5;
-    var medium = fbm((x + macro * 48) * 0.0066, (y - macro * 48) * 0.0066) - 0.5;
-    var micro = fbm(x * 0.0125, y * 0.0125) - 0.5;
-    elevation += macro * 0.26;
-    elevation += medium * 0.18;
-    elevation += micro * 0.08;
-    return Math.max(0, elevation);
-  }
-
-  function marchingSegments(v0, v1, v2, v3, level, x, y, step) {
-    var index = 0;
-    if (v0 > level) index |= 1;
-    if (v1 > level) index |= 2;
-    if (v2 > level) index |= 4;
-    if (v3 > level) index |= 8;
-    if (index === 0 || index === 15) return [];
-
-    function interp(a, b) {
-      var delta = b - a;
-      if (Math.abs(delta) < 1e-6) return 0.5;
-      return (level - a) / delta;
-    }
-
-    var topT = interp(v0, v1);
-    var rightT = interp(v1, v2);
-    var bottomT = interp(v3, v2);
-    var leftT = interp(v0, v3);
-
-    var ptTop = [x + step * topT, y];
-    var ptRight = [x + step, y + step * rightT];
-    var ptBottom = [x + step * bottomT, y + step];
-    var ptLeft = [x, y + step * leftT];
-
-    var table = {
-      1: [[ptLeft, ptTop]],
-      2: [[ptTop, ptRight]],
-      3: [[ptLeft, ptRight]],
-      4: [[ptRight, ptBottom]],
-      5: [[ptLeft, ptBottom], [ptTop, ptRight]],
-      6: [[ptTop, ptBottom]],
-      7: [[ptLeft, ptBottom]],
-      8: [[ptBottom, ptLeft]],
-      9: [[ptTop, ptBottom]],
-      10: [[ptTop, ptLeft], [ptRight, ptBottom]],
-      11: [[ptRight, ptBottom]],
-      12: [[ptLeft, ptRight]],
-      13: [[ptTop, ptRight]],
-      14: [[ptLeft, ptTop]]
-    };
-
-    return table[index] || [];
-  }
-
-  function drawBathymetry(ctx, landPath) {
-    ctx.save();
-    ctx.globalCompositeOperation = 'source-over';
-    var widths = [56, 34, 20, 10];
-    var colors = [
-      'rgba(116, 166, 176, 0.070)',
-      'rgba(146, 195, 202, 0.090)',
-      'rgba(187, 219, 225, 0.115)',
-      'rgba(228, 243, 244, 0.095)'
-    ];
-    for (var i = 0; i < widths.length; i++) {
-      ctx.lineJoin = 'round';
-      ctx.lineCap = 'round';
-      ctx.lineWidth = widths[i];
-      ctx.strokeStyle = colors[i];
-      ctx.stroke(landPath);
-    }
-    ctx.restore();
-  }
-
-  function drawLandBase(ctx, landPath, ridgesPx, size) {
-    ctx.save();
-    ctx.clip(landPath);
-
-    var ground = ctx.createLinearGradient(0, 0, size.x, size.y);
-    ground.addColorStop(0, 'rgba(190, 182, 132, 0.92)');
-    ground.addColorStop(0.36, 'rgba(176, 168, 120, 0.94)');
-    ground.addColorStop(0.72, 'rgba(163, 151, 111, 0.96)');
-    ground.addColorStop(1, 'rgba(152, 138, 102, 0.98)');
-    ctx.fillStyle = ground;
-    ctx.fillRect(0, 0, size.x, size.y);
-
-    var shadeStep = 10;
-    for (var y = 0; y < size.y; y += shadeStep) {
-      for (var x = 0; x < size.x; x += shadeStep) {
-        var elevation = sampleElevation(x, y, ridgesPx);
-        var dx = sampleElevation(x + 3, y, ridgesPx) - sampleElevation(x - 3, y, ridgesPx);
-        var dy = sampleElevation(x, y + 3, ridgesPx) - sampleElevation(x, y - 3, ridgesPx);
-        var light = clamp(0.56 + (-dx * 0.96 - dy * 0.72), 0, 1);
-        var height = clamp(elevation * 0.74, 0, 1);
-        var r = Math.round(154 + height * 54 + light * 22);
-        var g = Math.round(144 + height * 46 + light * 18);
-        var b = Math.round(104 + height * 30 + light * 10);
-        var alpha = clamp(0.20 + height * 0.18 + light * 0.03, 0.18, 0.42);
-        ctx.fillStyle = 'rgba(' + r + ',' + g + ',' + b + ',' + alpha.toFixed(3) + ')';
-        ctx.fillRect(x, y, shadeStep + 1, shadeStep + 1);
-      }
-    }
-
-    ctx.globalAlpha = 0.065;
-    for (var gy = 0; gy < size.y; gy += 12) {
-      for (var gx = 0; gx < size.x; gx += 12) {
-        var grain = fbm(gx * 0.035, gy * 0.035);
-        var shade = Math.round(90 + grain * 65);
-        ctx.fillStyle = 'rgb(' + shade + ',' + Math.round(shade * 0.95) + ',' + Math.round(shade * 0.78) + ')';
-        ctx.fillRect(gx, gy, 4, 4);
-      }
-    }
-    ctx.restore();
-  }
-
-  function drawContours(ctx, landPath, ridgesPx, size) {
-    ctx.save();
-    ctx.clip(landPath);
-
-    var step = 18;
-    var gridW = Math.ceil(size.x / step) + 1;
-    var gridH = Math.ceil(size.y / step) + 1;
-    var grid = new Array(gridH);
-    for (var gy = 0; gy < gridH; gy++) {
-      grid[gy] = new Array(gridW);
-      for (var gx = 0; gx < gridW; gx++) {
-        grid[gy][gx] = sampleElevation(gx * step, gy * step, ridgesPx);
-      }
-    }
-
-    var levels = [0.12, 0.18, 0.25, 0.33, 0.43, 0.56, 0.72, 0.9, 1.1, 1.32];
-    levels.forEach(function (level, index) {
-      ctx.beginPath();
-      for (var gy = 0; gy < gridH - 1; gy++) {
-        for (var gx = 0; gx < gridW - 1; gx++) {
-          var x = gx * step;
-          var y = gy * step;
-          var v0 = grid[gy][gx];
-          var v1 = grid[gy][gx + 1];
-          var v2 = grid[gy + 1][gx + 1];
-          var v3 = grid[gy + 1][gx];
-          var segments = marchingSegments(v0, v1, v2, v3, level, x, y, step);
-          for (var i = 0; i < segments.length; i++) {
-            ctx.moveTo(segments[i][0][0], segments[i][0][1]);
-            ctx.lineTo(segments[i][1][0], segments[i][1][1]);
-          }
-        }
-      }
-      ctx.lineWidth = index % 3 === 0 ? 1.14 : 0.72;
-      ctx.strokeStyle = index % 3 === 0 ? 'rgba(84, 68, 42, 0.30)' : 'rgba(84, 68, 42, 0.18)';
-      ctx.stroke();
-    });
-    ctx.restore();
-  }
-
-  function drawRidgeHachures(ctx, landPath, ridgesPx) {
-    ctx.save();
-    ctx.clip(landPath);
-    ridgesPx.forEach(function (ridge) {
-      var tangentX = Math.cos(ridge.angle);
-      var tangentY = Math.sin(ridge.angle);
-      var normalX = -Math.sin(ridge.angle);
-      var normalY = Math.cos(ridge.angle);
-      for (var t = -0.82; t <= 0.82; t += 0.16) {
-        var centerX = ridge.x + tangentX * ridge.sx * 0.68 * t;
-        var centerY = ridge.y + tangentY * ridge.sx * 0.68 * t;
-        var length = ridge.sy * (0.86 - Math.abs(t) * 0.45);
-        ctx.beginPath();
-        ctx.moveTo(centerX - normalX * length * 0.55, centerY - normalY * length * 0.55);
-        ctx.lineTo(centerX + normalX * length * 0.55, centerY + normalY * length * 0.55);
-        ctx.lineWidth = 0.8;
-        ctx.strokeStyle = 'rgba(248, 241, 216, 0.14)';
-        ctx.stroke();
-        ctx.beginPath();
-        ctx.moveTo(centerX - normalX * length * 0.35, centerY - normalY * length * 0.35);
-        ctx.lineTo(centerX + normalX * length * 0.35, centerY + normalY * length * 0.35);
-        ctx.lineWidth = 0.6;
-        ctx.strokeStyle = 'rgba(69, 53, 32, 0.10)';
-        ctx.stroke();
-      }
-    });
-    ctx.restore();
-  }
-
-  function drawRivers(ctx, landPath) {
-    ctx.save();
-    ctx.clip(landPath);
-    TOPO_RIVERS.forEach(function (river) {
-      ctx.beginPath();
-      river.points.forEach(function (point, index) {
-        var projected = project(point[0], point[1]);
-        if (index === 0) ctx.moveTo(projected.x, projected.y);
-        else ctx.lineTo(projected.x, projected.y);
-      });
-      ctx.lineCap = 'round';
-      ctx.lineJoin = 'round';
-      ctx.lineWidth = river.width + 1.6;
-      ctx.strokeStyle = 'rgba(233, 242, 246, 0.16)';
-      ctx.stroke();
-      ctx.lineWidth = river.width;
-      ctx.strokeStyle = 'rgba(99, 125, 134, 0.30)';
-      ctx.stroke();
-    });
-    ctx.restore();
-  }
-
-  function drawCoastEmboss(ctx, landPath) {
-    ctx.save();
-    ctx.lineJoin = 'round';
-    ctx.lineCap = 'round';
-    ctx.shadowBlur = 20;
-    ctx.shadowColor = 'rgba(245, 225, 176, 0.12)';
-    ctx.lineWidth = 7;
-    ctx.strokeStyle = 'rgba(48, 38, 26, 0.12)';
-    ctx.stroke(landPath);
-    ctx.shadowBlur = 0;
-    ctx.lineWidth = 2.1;
-    ctx.strokeStyle = 'rgba(255, 246, 216, 0.20)';
-    ctx.stroke(landPath);
-    ctx.lineWidth = 1.1;
-    ctx.strokeStyle = 'rgba(79, 63, 42, 0.28)';
-    ctx.stroke(landPath);
-    ctx.restore();
-  }
-
-  function redraw() {
-    if (!featureCollection) return;
-    ensureCanvases();
-    bindListeners();
-
-    var size = mapInstance.getSize();
-    setCanvasSize(baseCanvas, size);
-    setCanvasSize(detailCanvas, size);
-    alignCanvas(baseCanvas);
-    alignCanvas(detailCanvas);
-
-    baseCtx.clearRect(0, 0, size.x, size.y);
-    detailCtx.clearRect(0, 0, size.x, size.y);
-
-    var landPath = buildLandPath();
-    var ridgesPx = buildRidgesPx();
-
-    drawBathymetry(baseCtx, landPath);
-    drawLandBase(baseCtx, landPath, ridgesPx, size);
-    drawContours(detailCtx, landPath, ridgesPx, size);
-    drawRidgeHachures(detailCtx, landPath, ridgesPx);
-    drawRivers(detailCtx, landPath);
-    drawCoastEmboss(detailCtx, landPath);
-  }
-
-  function scheduleRedraw() {
-    if (redrawScheduled) return;
-    redrawScheduled = true;
-    requestAnimationFrame(function () {
-      redrawScheduled = false;
-      redraw();
-    });
-  }
-
-  return {
-    init: function (collection) {
-      featureCollection = collection;
-      ensureCanvases();
-      bindListeners();
-      scheduleRedraw();
-    },
-    redraw: redraw,
-    scheduleRedraw: scheduleRedraw
-  };
-}
-
-
-
-
-
-
-
 function initializeMap() {
   function baseStyle() {
     return {
       fillColor: UNOWNED_FILL,
-      weight: 1.35,
-      opacity: 0.84,
+      weight: 2,
+      opacity: 1,
       color: UNOWNED_STROKE,
-      dashArray: '4 5',
-      fillOpacity: 0.18,
-      className: 'territory-terrain-wash territory-neutral'
+      dashArray: '4 4',
+      fillOpacity: 0.58,
     };
   }
 
@@ -2930,10 +2481,11 @@ function initializeMap() {
 
 
 
-  var activeCollection = maplevel === 'medium' ? countries30 : countries;
-  countriesLayer = L.geoJson(activeCollection, { style: baseStyle, onEachFeature: countriesOnEachFeature }).addTo(map);
-  topoMapEngine = createTopographicMapEngine(map);
-  topoMapEngine.init(activeCollection);
+  if (maplevel === 'medium') {
+    countriesLayer = L.geoJson(countries30, { style: baseStyle, onEachFeature: countriesOnEachFeature }).addTo(map);
+  } else {
+    countriesLayer = L.geoJson(countries, { style: baseStyle, onEachFeature: countriesOnEachFeature }).addTo(map);
+  }
 }
 
 
@@ -2953,6 +2505,10 @@ initializeMap();
 
 
 socket.on('stateSnapshot', onStateSnapshot);
+socket.on('castle:interlude', function (payload) {
+  hideQuestion();
+  showCastleInterlude(payload || {});
+});
 socket.on('question:start', function (question) {
   showQuestion(question);
   renderAllTerritories();

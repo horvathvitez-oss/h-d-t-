@@ -32,6 +32,8 @@ const MCQ_TIME_LIMIT_MS = 18000;
 const GUESS_TIME_LIMIT_MS = 18000;
 const REMAINDER_GUESS_CUTOFF = 4;
 const REMAINDER_GUESS_MAX_REWARD = 2;
+const CASTLE_SIEGE_INTRO_DELAY_MS = 1800;
+const CASTLE_TOWER_INTERLUDE_DELAY_MS = 1700;
 
 
 const NAPOLEON_CONTINENT_BONUS = 800;
@@ -996,6 +998,18 @@ async function handleSelectAttackTarget(room, socket, tid) {
 
 
   gameLog(room, `${attacker.name} megtámadta ${territory.tname} területét. Védő: ${defender.name}.`);
+  if (castle) {
+    emitCastleInterlude(room, {
+      type: 'siege-intro',
+      attackerPid: attacker.pid,
+      defenderPid: defender.pid,
+      targetTid: tid,
+      targetName: territory.tname,
+      castleStage: 1,
+      hp: castle.hp,
+    });
+    await wait(CASTLE_SIEGE_INTRO_DELAY_MS);
+  }
   await startBattleMcq(room, {
     attackerPid: attacker.pid,
     defenderPid: defender.pid,
@@ -1670,8 +1684,16 @@ async function resolveSuccessfulAttack(room, context) {
   await persistGame(room);
   emitSnapshot(room);
 
-
-
+  emitCastleInterlude(room, {
+    type: 'tower-fall',
+    attackerPid: attacker.pid,
+    defenderPid: defender.pid,
+    targetTid: context.targetTid,
+    targetName: getTerritoryByTid(room, context.targetTid).tname,
+    castleStage: context.castleStage + 1,
+    hp: castle.hp,
+  });
+  await wait(CASTLE_TOWER_INTERLUDE_DELAY_MS);
 
   await startBattleMcq(room, {
     attackerPid: attacker.pid,
