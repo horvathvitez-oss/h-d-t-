@@ -671,6 +671,7 @@ async function maybeStartGame(room) {
   gameLog(room, `A játék elindult. Bázisválasztás következik. Kezd: ${starter.name}.`);
   sendStatus(room, `Bázisválasztás: ${starter.name} választ bázist.`);
   room.namespace.emit('matchStarted', { gameid: room.gameid });
+  emitSnapshot(room);
 }
 
 
@@ -2571,7 +2572,7 @@ function emitSnapshot(room, socket = null) {
   });
 
   if (!socket) {
-    scheduleBotStateEvaluation(room);
+    queueBotStateEvaluation(room);
   }
 }
 
@@ -3247,6 +3248,10 @@ function queueBotStateEvaluation(room) {
   scheduleBotTask(room, 'bot:state-eval', getRandomDelay(700, 1500), async () => {
     await runBotTurnIfNeeded(room);
   });
+}
+
+function scheduleBotStateEvaluation(room) {
+  queueBotStateEvaluation(room);
 }
 
 function queueBotQuestionAnswers(room) {
