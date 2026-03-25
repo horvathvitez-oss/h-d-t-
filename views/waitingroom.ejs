@@ -73,7 +73,7 @@
         <section class="waiting-room-hero">
           <div class="waiting-room-kicker">Host váró</div>
           <h1>Várd meg, amíg mindenki belép</h1>
-          <p>A meccs akkor indítható, ha pontosan 3 játékos van bent.</p>
+          <p>A meccs akkor indítható, ha pontosan 3 játékos van bent. Ha ketten vagytok, a host hozzáadhat 1 ChatGPT Botot.</p>
 
 
 
@@ -86,6 +86,7 @@
 
           <div class="waiting-room-actions">
             <button id="copyCodeButton" class="btn btn-default btn-lg parchment-btn-secondary" type="button">Kód másolása</button>
+            <button id="addBotButton" class="btn btn-default btn-lg parchment-btn-secondary" type="button" disabled>ChatGPT Bot hozzáadása</button>
             <button id="startButton" class="btn btn-primary btn-lg parchment-btn-primary" type="button" disabled>Meccs indítása</button>
           </div>
 
@@ -109,6 +110,7 @@
           <div class="waiting-room-card-title" style="margin-top:22px;">Szabály</div>
           <ul class="waiting-room-bullet">
             <li>Pontosan 3 játékos szükséges.</li>
+            <li>Ha csak ketten vagytok, a host 1 ChatGPT Botot adhat hozzá.</li>
             <li>Csak a host indíthatja el a meccset.</li>
             <li>Indítás után mindenki automatikusan belép a meccsbe.</li>
           </ul>
@@ -116,7 +118,7 @@
 
 
 
-          <p class="waiting-room-note">Ha valaki nem tud csatlakozni, ellenőrizze, hogy ugyanazt a kódot írta be.</p>
+          <p class="waiting-room-note">A ChatGPT Bot arra való, hogy 2 emberrel is el lehessen indítani a 3 fős meccset. Ha valaki nem tud csatlakozni, ellenőrizze, hogy ugyanazt a kódot írta be.</p>
         </aside>
       </div>
     </div>
@@ -140,87 +142,173 @@
     var gameid = '<%= gameid %>';
     var username = '<%= username %>';
     var socket = io('/lobby');
-
-
-
+    var gameSocket = io('/' + gameid);
 
     var colorByIndex = ['#a95f4f', '#6d8660', '#d7cfbd'];
+    var latestLobbyState = null;
+    var latestGameState = null;
+    var BOT_NAME = 'ChatGPT Bot';
 
+    function getRequiredPlayerCount() {
+      if (latestGameState && latestGameState.game && latestGameState.game.howmany) {
+        return Number(latestGameState.game.howmany) || 3;
+      }
+      return 3;
+    }
 
+    function getHostName() {
+      if (latestLobbyState && latestLobbyState.host) return latestLobbyState.host;
+      if (latestGameState && Array.isArray(latestGameState.players) && latestGameState.players.length) {
+        return latestGameState.players[0].name;
+      }
+      return username;
+    }
 
+    function getDisplayPlayers() {
+      if (latestGameState && Array.isArray(latestGameState.players)) {
+        return latestGameState.players
+          .filter(function(player) { return player.name && player.name !== 'x'; })
+          .sort(function(a, b) { return a.pid - b.pid; })
+          .map(function(player) {
+            return {
+              name: player.name,
+              isBot: !!player.isBot || player.name === BOT_NAME
+            };
+          });
+      }
 
-    function renderPlayers(lobby) {
+      if (latestLobbyState && Array.isArray(latestLobbyState.players)) {
+        return latestLobbyState.players.map(function(playerName) {
+          return { name: playerName, isBot: playerName === BOT_NAME };
+        });
+      }
+
+      return [];
+    }
+
+    function buildMirrorPlayerNames() {
+      if (latestLobbyState && Array.isArray(latestLobbyState.players) && latestLobbyState.players.length) {
+        return latestLobbyState.players.slice();
+      }
+      return getDisplayPlayers().filter(function(player) { return !player.isBot; }).map(function(player) { return player.name; });
+    }
+
+    function updateWaitingStatus(message) {
+      document.getElementById('waitingStatus').textContent = message;
+    }
+
+    function renderPlayers() {
       var list = document.getElementById('playersList');
-      list.innerHTML = (lobby.players || []).map(function(playerName, index) {
-        var role = playerName === lobby.host ? 'Host' : 'Játékos';
+      var players = getDisplayPlayers();
+      var hostName = getHostName();
+      var requiredPlayers = getRequiredPlayerCount();
+      var humanCount = players.filter(function(player) { return !player.isBot; }).length;
+      var hasBot = players.some(function(player) { return player.isBot; });
+      var phase = latestGameState && latestGameState.game ? latestGameState.game.phase : 'WAITING_FOR_PLAYERS';
+
+      list.innerHTML = players.map(function(player, index) {
+        var role = player.name === hostName ? 'Host' : (player.isBot ? 'ChatGPT Bot' : 'Játékos');
+        var roleClass = player.isBot ? ' waiting-room-player-role--bot' : '';
         return [
           '<div class="waiting-room-player">',
           '<span class="waiting-room-player-dot" style="background:' + (colorByIndex[index] || '#b69f79') + '"></span>',
           '<div>',
-          '<div class="waiting-room-player-name">' + playerName + '</div>',
-          '<div class="waiting-room-player-role">' + role + '</div>',
+          '<div class="waiting-room-player-name">' + player.name + '</div>',
+          '<div class="waiting-room-player-role' + roleClass + '">' + role + '</div>',
           '</div>',
           '</div>'
         ].join('');
       }).join('');
 
+      document.getElementById('startButton').disabled = !(phase === 'WAITING_FOR_PLAYERS' && players.length === requiredPlayers && username === hostName);
+      document.getElementById('addBotButton').disabled = !(phase === 'WAITING_FOR_PLAYERS' && username === hostName && !hasBot && humanCount === requiredPlayers - 1 && players.length === requiredPlayers - 1);
 
+      if (phase !== 'WAITING_FOR_PLAYERS') {
+        updateWaitingStatus('A meccs indul, átirányítás...');
+        return;
+      }
 
+      if (!hasBot && humanCount === requiredPlayers - 1) {
+        updateWaitingStatus(players.length + '/' + requiredPlayers + ' játékos bent van. Ha ketten vagytok, a host most hozzáadhat 1 ChatGPT Botot.');
+        return;
+      }
 
-      document.getElementById('startButton').disabled = !(lobby.canStart && username === lobby.host);
-      document.getElementById('waitingStatus').textContent = lobby.players.length + '/3 játékos bent van.';
+      updateWaitingStatus(players.length + '/' + requiredPlayers + ' játékos bent van.');
     }
 
+    function syncWaitingRoomToGame() {
+      if (!gameSocket || !gameSocket.connected || !latestLobbyState) return;
+      gameSocket.emit('syncWaitingRoomPlayers', {
+        username: username,
+        players: latestLobbyState.players || []
+      });
+    }
 
-
-
- socket.on('connect', function() {
-  socket.emit('joinLobby', { gameid: gameid, username: username });
-});
-
-
-    socket.on('lobbyState', function(lobby) {
-      renderPlayers(lobby);
-      document.getElementById('waitingError').textContent = '';
+    socket.on('connect', function() {
+      socket.emit('joinLobby', { gameid: gameid, username: username });
     });
 
+    gameSocket.on('connect', function() {
+      syncWaitingRoomToGame();
+    });
 
+    socket.on('lobbyState', function(lobby) {
+      latestLobbyState = lobby;
+      renderPlayers();
+      document.getElementById('waitingError').textContent = '';
+      syncWaitingRoomToGame();
+    });
 
+    gameSocket.on('stateSnapshot', function(snapshot) {
+      latestGameState = snapshot;
+      renderPlayers();
+      document.getElementById('waitingError').textContent = '';
+      if (snapshot && snapshot.game && snapshot.game.phase && snapshot.game.phase !== 'WAITING_FOR_PLAYERS') {
+        window.location.href = '/game/' + gameid;
+      }
+    });
 
     socket.on('matchStarted', function(payload) {
       window.location.href = '/game/' + payload.gameid;
     });
 
-
-
+    gameSocket.on('matchStarted', function(payload) {
+      window.location.href = '/game/' + payload.gameid;
+    });
 
     socket.on('lobbyClosed', function() {
       window.location.href = '/lobby';
     });
 
-
-
-
     socket.on('lobbyError', function(payload) {
       document.getElementById('waitingError').textContent = payload.message || 'Hiba történt.';
     });
 
-
-
-
-    document.getElementById('startButton').addEventListener('click', function() {
-      socket.emit('startMatch', { gameid: gameid, username: username });
+    gameSocket.on('serverstatus', function(messages) {
+      if (!messages || !messages.length) return;
+      updateWaitingStatus(messages[messages.length - 1]);
     });
 
+    document.getElementById('startButton').addEventListener('click', function() {
+      gameSocket.emit('hostStartMatch', {
+        username: username,
+        players: buildMirrorPlayerNames()
+      });
+    });
 
-
+    document.getElementById('addBotButton').addEventListener('click', function() {
+      gameSocket.emit('addBotPlayer', {
+        username: username,
+        players: buildMirrorPlayerNames()
+      });
+    });
 
     document.getElementById('copyCodeButton').addEventListener('click', function() {
       var value = document.getElementById('lobbyCode').textContent.trim();
       if (navigator.clipboard && navigator.clipboard.writeText) {
         navigator.clipboard.writeText(value);
       }
-      document.getElementById('waitingStatus').textContent = 'A kód kimásolva: ' + value;
+      updateWaitingStatus('A kód kimásolva: ' + value);
     });
   </script>
 
@@ -259,7 +347,7 @@
     document.addEventListener('click', startLobbyMusic, { once: true, capture: true });
     document.addEventListener('keydown', startLobbyMusic, { once: true, capture: true });
 
-    Array.prototype.slice.call(document.querySelectorAll('#copyCodeButton, #startButton')).forEach(function (item) {
+    Array.prototype.slice.call(document.querySelectorAll('#copyCodeButton, #addBotButton, #startButton')).forEach(function (item) {
       item.addEventListener('click', function () {
         playButtonClickSound();
       });

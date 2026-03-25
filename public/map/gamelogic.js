@@ -144,6 +144,11 @@ function getActiveAttackPreview(tid) {
   return currentQuestionData.context.attackerPid;
 }
 
+function territoryHasSzechenyiCasino(tid) {
+  var territory = getTerritoryByTid(tid);
+  return Boolean(territory && typeof territory.szechenyiCasinoOwnerPid === 'number' && territory.szechenyiCasinoOwnerPid === territory.ownsto);
+}
+
 
 
 
@@ -152,6 +157,9 @@ function buildTerritoryOverlayHtml(tid) {
   var castle = getCastleByTid(tid);
   if (castle) {
     parts.push('<div class="castle-pill"><span class="castle-pill-icon">♜</span><span>' + castle.hp + '</span></div>');
+  }
+  if (territoryHasSzechenyiCasino(tid)) {
+    parts.push('<div class="pending-selection-badge pending-selection-badge--casino">★</div>');
   }
 
 
@@ -399,6 +407,20 @@ function getCharacterDefinition(id) {
   return id && CHARACTER_DEFS[id] ? CHARACTER_DEFS[id] : null;
 }
 
+function buildCharacterDraftVisualHtml(id, name) {
+  if (id === 'kossuth') {
+    return '<span class="character-draft-card-image-wrap character-draft-card-image-wrap--szechenyi"><span class="character-draft-card-emblem">Sz</span></span>';
+  }
+  return '<span class="character-draft-card-image-wrap"><img class="character-draft-card-image" src="' + escapeHtml(CHARACTER_IMAGE_BY_ID[id]) + '" alt="' + escapeHtml(name) + '" loading="lazy"></span>';
+}
+
+function buildCharacterTrayVisualHtml(id, name) {
+  if (id === 'kossuth') {
+    return '<span class="character-tray-image character-tray-image--szechenyi"><span class="character-tray-emblem">Sz</span></span>';
+  }
+  return '<img class="character-tray-image" src="' + escapeHtml(CHARACTER_IMAGE_BY_ID[id]) + '" alt="' + escapeHtml(name) + '" loading="lazy">';
+}
+
 function ensureCharacterUi() {
   if (!document.getElementById('character-draft-modal')) {
     var modal = document.createElement('div');
@@ -434,11 +456,11 @@ function renderCharacterDraftModal() {
   var options = document.getElementById('character-draft-options');
   if (title) title.textContent = currentPlayer ? (getPlayerDisplayName(currentPlayer) + ' választ') : 'Karakterválasztás';
   if (subtitle) subtitle.textContent = USER && currentPid === USER.pid ? 'Válassz egy karaktert.' : 'Várj, amíg a soron lévő játékos választ.';
-  var available = (state.game.availableCharacterIds || []).filter(function (id) { return id !== 'kossuth'; });
+  var available = (state.game.availableCharacterIds || []).slice();
   options.innerHTML = available.map(function (id) {
     var def = getCharacterDefinition(id);
     if (!def) return '';
-    return '<button type="button" class="character-draft-card' + (USER && currentPid === USER.pid ? '' : ' is-disabled') + '" data-character-id="' + escapeHtml(id) + '" ' + (USER && currentPid === USER.pid ? '' : 'disabled') + '><span class="character-draft-card-image-wrap"><img class="character-draft-card-image" src="' + escapeHtml(CHARACTER_IMAGE_BY_ID[id]) + '" alt="' + escapeHtml(def.name) + '" loading="lazy"></span><span class="character-draft-card-body"><span class="character-draft-card-name">' + escapeHtml(def.name) + '</span><span class="character-draft-card-desc">' + escapeHtml(def.shortDescription) + '</span></span></button>';
+    return '<button type="button" class="character-draft-card' + (USER && currentPid === USER.pid ? '' : ' is-disabled') + '" data-character-id="' + escapeHtml(id) + '" ' + (USER && currentPid === USER.pid ? '' : 'disabled') + '>' + buildCharacterDraftVisualHtml(id, def.name) + '<span class="character-draft-card-body"><span class="character-draft-card-name">' + escapeHtml(def.name) + '</span><span class="character-draft-card-desc">' + escapeHtml(def.shortDescription) + '</span></span></button>';
   }).join('');
   Array.prototype.slice.call(options.querySelectorAll('[data-character-id]')).forEach(function (button) {
     button.addEventListener('click', function () {
@@ -455,12 +477,12 @@ function renderCharacterTray() {
   ensureCharacterUi();
   var tray = document.getElementById('character-tray');
   if (!tray) return;
-  var cards = state.players.filter(function (player) { return !!player.characterId && player.characterId !== 'kossuth'; }).sort(function (a, b) { return a.pid - b.pid; });
+  var cards = state.players.filter(function (player) { return !!player.characterId; }).sort(function (a, b) { return a.pid - b.pid; });
   tray.innerHTML = cards.map(function (player) {
     var def = getCharacterDefinition(player.characterId);
     var isOwn = Boolean(USER) && USER.pid === player.pid;
     if (!def) return '';
-    return '<button type="button" class="character-tray-card' + (isOwn ? ' is-own' : ' is-readonly') + '" data-character-tray="' + player.pid + '" ' + (isOwn ? '' : 'aria-disabled="true"') + '><span class="character-tray-color" style="background:' + getOwnerColor(player.pid) + '"></span><img class="character-tray-image" src="' + escapeHtml(CHARACTER_IMAGE_BY_ID[player.characterId]) + '" alt="' + escapeHtml(def.name) + '" loading="lazy"><span class="character-tray-text"><span class="character-tray-name">' + escapeHtml(def.name) + '</span><span class="character-tray-owner">' + escapeHtml(getPlayerDisplayName(player)) + '</span></span>' + (isOwn ? ('<span class="character-tray-detail">' + escapeHtml(def.fullDescription) + '</span>') : '') + '</button>';
+    return '<button type="button" class="character-tray-card' + (isOwn ? ' is-own' : ' is-readonly') + '" data-character-tray="' + player.pid + '" ' + (isOwn ? '' : 'aria-disabled="true"') + '><span class="character-tray-color" style="background:' + getOwnerColor(player.pid) + '"></span>' + buildCharacterTrayVisualHtml(player.characterId, def.name) + '<span class="character-tray-text"><span class="character-tray-name">' + escapeHtml(def.name) + '</span><span class="character-tray-owner">' + escapeHtml(getPlayerDisplayName(player)) + '</span></span>' + (isOwn ? ('<span class="character-tray-detail">' + escapeHtml(def.fullDescription) + '</span>') : '') + '</button>';
   }).join('');
   Array.prototype.slice.call(tray.querySelectorAll('.character-tray-card.is-own')).forEach(function (card) {
     card.addEventListener('click', function () {
@@ -712,7 +734,8 @@ kozepsuliHelp: new Audio(SOUND_BASE + '/kozepsulineked_help.mp3'),
 expansionSelectablePick: new Audio(SOUND_BASE + '/expansion_select_pick.mp3'),
 napoleonEurope: new Audio(SOUND_BASE + '/napoleon_europe.mp3'),
 brutusMirror: new Audio(SOUND_BASE + '/brutus_mirror.mp3'),
-characterSelect: new Audio(SOUND_BASE + '/character_select.mp3')
+characterSelect: new Audio(SOUND_BASE + '/character_select.mp3'),
+szechenyiCasino: new Audio(SOUND_BASE + '/territory_capture.mp3')
 };
 
 
@@ -733,7 +756,7 @@ var CHARACTER_IMAGE_BY_ID = {
 };
 var CHARACTER_DEFS = {
   einstein: { id: 'einstein', name: 'Einstein', shortDescription: '6 segítséged van 3 helyett.', fullDescription: 'Einsteinként 6 KÖZÉPSULINEKED HELP-et kapsz a meccs teljes hosszára.' },
-  kossuth: { id: 'kossuth', name: 'Kossuth', shortDescription: 'Kaszinózhatsz a foglalási köröd előtt.', fullDescription: 'A foglalási köröd elején aktiválhatod a kaszinót: siker esetén extra pont, kudarc esetén pontvesztés.' },
+  kossuth: { id: 'kossuth', name: 'Széchényi', shortDescription: 'A Széchényi Kaszinót kérdés előtt aktiválhatod.', fullDescription: 'A kérdés előtt aktiválhatod a Széchényi Kaszinót. Ha ezzel szerzel területet, a bónusz +200 pont területenként és az így szerzett terület arannyá válik. Sikertelen próbálkozás esetén -200 pont jár.' },
   napoleon: { id: 'napoleon', name: 'Napóleon', shortDescription: 'Ha tied egész Európa, +800 pontot kapsz.', fullDescription: 'Western Europe, Middle Europe, Southern Europe, Northern Europe, Ukraine, Scandinavia és Great Britain egyesítése +800 pontot ér.' },
   brutus: { id: 'brutus', name: 'Brutus', shortDescription: '3 tükröző battle-szabotázsod van.', fullDescription: 'Battle kérdésnél 3 alkalommal tükrözheted az ellenfél kérdéskártyáját.' }
 };
@@ -1047,6 +1070,18 @@ function canUseKozepsuliHelp(question) {
   );
 }
 
+function canUseKossuthGamble(question) {
+  return Boolean(
+    question &&
+    question.context &&
+    question.context.canUseKossuthGamble &&
+    USER &&
+    question.participants &&
+    question.participants.indexOf(USER.pid) !== -1 &&
+    !hasSubmittedCurrentQuestion
+  );
+}
+
 function triggerQuestionActionEffect(kind, payload) {
   var panel = getQuestionPanel();
   if (!panel) return;
@@ -1070,7 +1105,7 @@ function triggerQuestionActionEffect(kind, payload) {
     }
   }, 1800);
 
-  var buttonClass = kind === 'help' ? '.question-help-button' : '.question-sabotage-button';
+  var buttonClass = kind === 'help' ? '.question-help-button' : (kind === 'brutus' ? '.question-brutus-button' : (kind === 'kossuth' ? '.question-kossuth-button' : '.question-sabotage-button'));
   var button = panel.querySelector(buttonClass);
   if (button) {
     button.classList.add('is-triggered');
@@ -1140,7 +1175,9 @@ function applyQuestionVisualMode(question) {
   if (!panel) return;
   panel.classList.toggle('is-ultra-hard', Boolean(question && question.isUltra));
   var brutusActive = Boolean(question && question.context && Number.isInteger(USER && USER.pid) && question.context.brutusMirrorTargetPid === USER.pid);
+  var kossuthActive = Boolean(question && question.context && question.context.kossuthGambleArmed && USER && question.participants && question.participants.indexOf(USER.pid) !== -1);
   panel.classList.toggle('is-brutus-mirror', brutusActive);
+  panel.classList.toggle('is-kossuth-gamble', kossuthActive);
 }
 
 
@@ -1152,6 +1189,7 @@ function renderQuestionActions(question) {
   var sabotageGroup = null;
   var brutusGroup = null;
   var helpGroup = null;
+  var kossuthGroup = null;
 
   if (canUseUltraSabotage(question)) {
     sabotageGroup = document.createElement('div');
@@ -1221,6 +1259,36 @@ function renderQuestionActions(question) {
     brutusGroup.appendChild(brutusCounter);
   }
 
+
+  if (canUseKossuthGamble(question)) {
+    kossuthGroup = document.createElement('div');
+    kossuthGroup.className = 'question-action-group question-action-group--kossuth';
+
+    var kossuthButton = document.createElement('button');
+    kossuthButton.type = 'button';
+    kossuthButton.className = 'question-action-button question-kossuth-button';
+    kossuthButton.textContent = 'SZÉCHÉNYI KASZINÓ';
+    kossuthButton.addEventListener('click', function () {
+      kossuthButton.disabled = true;
+      triggerQuestionActionEffect('kossuth');
+      socket.emit('activateKossuthGamble');
+      var note = element('question-note');
+      if (note) {
+        note.textContent = 'Széchényi Kaszinó aktiválva...';
+        note.classList.remove('question-note-help');
+      }
+    });
+
+    var kossuthCounter = document.createElement('div');
+    kossuthCounter.className = 'question-action-counter question-kossuth-counter';
+    kossuthCounter.textContent = question.context && question.context.flow === 'BATTLE'
+      ? 'ATTACK BÓNUSZ'
+      : 'FOGLALÁSI BÓNUSZ';
+
+    kossuthGroup.appendChild(kossuthButton);
+    kossuthGroup.appendChild(kossuthCounter);
+  }
+
   if (canUseKozepsuliHelp(question)) {
     helpGroup = document.createElement('div');
     helpGroup.className = 'question-action-group question-action-group--help';
@@ -1266,6 +1334,9 @@ function renderQuestionActions(question) {
   }
   if (brutusGroup) {
     host.appendChild(brutusGroup);
+  }
+  if (kossuthGroup) {
+    host.appendChild(kossuthGroup);
   }
   if (helpGroup) {
     host.appendChild(helpGroup);
@@ -1362,6 +1433,9 @@ function showQuestion(question) {
 
   note.classList.remove('question-note-help');
   note.textContent = canAnswer ? 'Válaszolj időben. A szerver értékel.' : 'Néző vagy ennél a kérdésnél.';
+  if (question.context && question.context.kossuthGambleArmed && canAnswer) {
+    note.textContent = 'Széchényi Kaszinó aktív: sikeres területszerzésnél bónusz, kudarc esetén -200 pont.';
+  }
   if (question.isUltra) {
     note.textContent = canAnswer ? 'ULTRA HARD kérdés aktív. Koncentrálj.' : 'Az egyik játékos ULTRA HARD kérdést kapott.';
   }
@@ -1917,8 +1991,9 @@ function buildLayerStyle(tid) {
   if (!territory) return null;
 
   var castle = getCastleByTid(tid);
-  var ownerFill = territory.ownsto >= 0 ? getOwnerColor(territory.ownsto) : UNOWNED_FILL;
-  var ownerStroke = territory.ownsto >= 0 ? getOwnerStroke(territory.ownsto) : UNOWNED_STROKE;
+  var hasSzechenyiCasino = territoryHasSzechenyiCasino(tid);
+  var ownerFill = territory.ownsto >= 0 ? (hasSzechenyiCasino ? '#d6a93a' : getOwnerColor(territory.ownsto)) : UNOWNED_FILL;
+  var ownerStroke = territory.ownsto >= 0 ? (hasSzechenyiCasino ? '#fff0b2' : getOwnerStroke(territory.ownsto)) : UNOWNED_STROKE;
 
   var style = {
     weight: castle ? 4 : 2,
@@ -1961,6 +2036,12 @@ function buildLayerStyle(tid) {
       style.dashArray = '3 5';
       style.className = 'territory-unselectable';
     }
+  }
+
+  if (hasSzechenyiCasino) {
+    style.weight = Math.max(style.weight, 4.2);
+    style.fillOpacity = territory.ownsto >= 0 ? 0.94 : style.fillOpacity;
+    style.className = ((style.className ? style.className + ' ' : '') + 'territory-szechenyi-casino').trim();
   }
 
   var napoleonEuropeActive = state.game && Number.isInteger(state.game.napoleonEuropeOwnerPid) && Array.isArray(state.game.napoleonEuropeTerritoryTids) && state.game.napoleonEuropeTerritoryTids.indexOf(tid) !== -1;
@@ -2607,6 +2688,23 @@ socket.on('question:start', function (question) {
   hideCastleCinematic(true);
   showQuestion(question);
   renderAllTerritories();
+});
+
+socket.on('kossuthGambleActivated', function (payload) {
+  playOneShot(soundPlayers.szechenyiCasino);
+  if (currentQuestionData && payload && payload.questionId === currentQuestionData.id && USER && typeof payload.byPid === 'number' && USER.pid === payload.byPid) {
+    triggerQuestionActionEffect('kossuth', payload);
+    currentQuestionData.context = currentQuestionData.context || {};
+    currentQuestionData.context.kossuthGambleArmed = true;
+    currentQuestionData.context.canUseKossuthGamble = false;
+    applyQuestionVisualMode(currentQuestionData);
+    renderQuestionActions(currentQuestionData);
+    var note = element('question-note');
+    if (note) {
+      note.textContent = 'Széchényi Kaszinó aktív: arany kérdéskártya, sikeres területszerzésnél bónusz, kudarc esetén -200 pont.';
+      note.classList.remove('question-note-help');
+    }
+  }
 });
 
 socket.on('brutusMirrorActivated', function (payload) {

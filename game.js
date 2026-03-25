@@ -35,6 +35,9 @@ const REMAINDER_GUESS_MAX_REWARD = 2;
 const CASTLE_SIEGE_INTRO_MS = 2800;
 const CASTLE_TOWER_DOWN_MS = 2500;
 const CASTLE_DESTROYED_MS = 3200;
+const CHATGPT_BOT_NAME = 'ChatGPT Bot';
+const BOT_MC_CORRECT_PROBABILITY = 0.4;
+const BOT_GUESS_EXACT_PROBABILITY = 0.1;
 
 
 const NAPOLEON_CONTINENT_BONUS = 800;
@@ -48,9 +51,9 @@ const CHARACTERS = {
   },
   kossuth: {
     id: 'kossuth',
-    name: 'Kossuth',
-    shortDescription: 'Kaszinózhatsz a foglalási köröd előtt.',
-    fullDescription: 'A köröd elején aktiválhatod a kaszinót. Sikeres foglalásnál a területenkénti 200 pont fölé még +200-at kapsz, sikertelen kör esetén -200 pont jár.',
+    name: 'Széchényi',
+    shortDescription: 'A Széchényi Kaszinót aktiválhatod kérdés előtt.',
+    fullDescription: 'A kérdés előtt aktiválhatod a Széchényi Kaszinót. Ha ezzel szerzel területet, területenként +200 pont jár és az adott terület arannyá válik. Ha a próbálkozásod kudarcba fullad, -200 pontot kapsz.',
     image: '/images/character-kossuth.png',
   },
   napoleon: {
@@ -124,6 +127,7 @@ module.exports = function createGame(io, rawGameId, creatorUsername, howmany, ma
     usedGuessIds: new Set(),
     usedUltraHardIds: new Set(),
     questionRuntime: null,
+    botTimers: new Map(),
   };
 
 
@@ -208,6 +212,30 @@ function attachNamespaceHandlers(room) {
         await handleJoinGame(room, socket, String(data.username || '').trim());
       } catch (error) {
         console.error('joingame error:', error);
+      }
+    });
+
+    socket.on('syncWaitingRoomPlayers', async (data = {}) => {
+      try {
+        await handleSyncWaitingRoomPlayers(room, socket, data);
+      } catch (error) {
+        console.error('syncWaitingRoomPlayers error:', error);
+      }
+    });
+
+    socket.on('addBotPlayer', async (data = {}) => {
+      try {
+        await handleAddBotPlayer(room, socket, data);
+      } catch (error) {
+        console.error('addBotPlayer error:', error);
+      }
+    });
+
+    socket.on('hostStartMatch', async (data = {}) => {
+      try {
+        await handleHostStartMatch(room, socket, data);
+      } catch (error) {
+        console.error('hostStartMatch error:', error);
       }
     });
 
@@ -397,6 +425,171 @@ async function handleJoinGame(room, socket, username) {
 
 
 
+
+function emitServerError(socket, message) {
+  if (!socket || !message) return;
+  socket.emit('serverstatus', [message]);
+}
+
+function getHumanWaitingNamesFromLobbyPayload(room, rawPlayers) {
+  const seen = new Set();
+  const cleaned = [];
+  (Array.isArray(rawPlayers) ? rawPlayers : []).forEach((value) => {
+    const name = String(value || '').trim();
+    if (!name || name === 'x' || name === CHATGPT_BOT_NAME || seen.has(name)) {
+      return;
+    }
+    seen.add(name);
+    cleaned.push(name);
+  });
+
+  if (!cleaned.includes(room.creatorUsername)) {
+    cleaned.unshift(room.creatorUsername);
+  }
+
+  return cleaned.slice(0, room.howmany);
+}
+
+function applyWaitingRoomMirror(room, lobbyPlayerNames) {
+  if (!room || !room.game || room.game.phase !== PHASES.WAITING) return false;
+
+  const names = getHumanWaitingNamesFromLobbyPayload(room, lobbyPlayerNames);
+  const creatorPresent = names.includes(room.creatorUsername);
+  const otherHumans = names.filter((name) => name !== room.creatorUsername);
+  let changed = false;
+
+  room.players.forEach((player) => {
+    if (player.pid === 0) {
+      if (player.name !== room.creatorUsername) {
+        player.name = room.creatorUsername;
+        changed = true;
+      }
+      if (player.isBot) {
+        player.isBot = false;
+        changed = true;
+      }
+      if (player.connected !== creatorPresent) {
+        player.connected = creatorPresent;
+        changed = true;
+      }
+      return;
+    }
+
+    if (player.isBot) {
+      if (!player.connected) {
+        player.connected = true;
+        changed = true;
+      }
+      return;
+    }
+
+    const nextHumanName = otherHumans.shift() || 'x';
+    const shouldBeConnected = nextHumanName !== 'x';
+    if (player.name !== nextHumanName) {
+      player.name = nextHumanName;
+      changed = true;
+    }
+    if (player.connected !== shouldBeConnected) {
+      player.connected = shouldBeConnected;
+      changed = true;
+    }
+    if (player.isBot) {
+      player.isBot = false;
+      changed = true;
+    }
+  });
+
+  return changed;
+}
+
+async function handleSyncWaitingRoomPlayers(room, socket, data = {}) {
+  if (!room || !room.game || room.game.phase !== PHASES.WAITING) return;
+  const changed = applyWaitingRoomMirror(room, data.players);
+  if (!changed) return;
+  await persistAllPlayers(room);
+  await refreshGamePlayerNames(room);
+  emitSnapshot(room);
+}
+
+async function handleAddBotPlayer(room, socket, data = {}) {
+  if (!room || !room.game || room.game.phase !== PHASES.WAITING) {
+    emitServerError(socket, 'Botot csak a váróteremben lehet hozzáadni.');
+    return;
+  }
+
+  const requesterName = String((data && data.username) || socket.currentUsername || '').trim();
+  if (!requesterName || requesterName !== room.creatorUsername) {
+    emitServerError(socket, 'Csak a host adhat hozzá botot.');
+    return;
+  }
+
+  applyWaitingRoomMirror(room, data.players);
+
+  if (room.players.some((player) => player.isBot)) {
+    emitServerError(socket, 'Ebben a szobában már van ChatGPT Bot.');
+    return;
+  }
+
+  const humanPlayers = room.players.filter((player) => player.name !== 'x' && !player.isBot);
+  if (humanPlayers.length !== room.howmany - 1) {
+    emitServerError(socket, 'A ChatGPT Botot akkor lehet hozzáadni, ha már minden emberi hely betelt, és pontosan 1 slot maradt üresen.');
+    return;
+  }
+
+  const openSlot = room.players.find((player) => player.name === 'x' && !player.isBot);
+  if (!openSlot) {
+    emitServerError(socket, 'Nincs szabad hely a ChatGPT Bot számára.');
+    return;
+  }
+
+  openSlot.name = CHATGPT_BOT_NAME;
+  openSlot.isBot = true;
+  openSlot.connected = true;
+  openSlot.eliminated = false;
+  openSlot.active = true;
+  openSlot.characterId = null;
+  openSlot.score = 0;
+  openSlot.defenseBonus = 0;
+  openSlot.castleCaptureBonus = 0;
+  openSlot.kossuthScoreModifier = 0;
+  openSlot.napoleonEuropeBonus = 0;
+
+  await persistPlayer(room, openSlot);
+  await refreshGamePlayerNames(room);
+  gameLog(room, `${CHATGPT_BOT_NAME} csatlakozott a szobához.`);
+  sendStatus(room, `${CHATGPT_BOT_NAME} bekerült a váróterembe. Most már 2 ember + 1 bot felállással is indulhat a meccs.`);
+  emitSnapshot(room);
+}
+
+async function handleHostStartMatch(room, socket, data = {}) {
+  if (!room || !room.game) return;
+  const requesterName = String((data && data.username) || socket.currentUsername || '').trim();
+  if (!requesterName || requesterName !== room.creatorUsername) {
+    emitServerError(socket, 'Csak a host indíthatja el a meccset.');
+    return;
+  }
+  if (room.game.phase !== PHASES.WAITING) {
+    if (room.game.phase !== PHASES.FINISHED) {
+      room.namespace.emit('matchStarted', { gameid: room.gameid });
+    }
+    return;
+  }
+
+  applyWaitingRoomMirror(room, data.players);
+  await persistAllPlayers(room);
+  await refreshGamePlayerNames(room);
+
+  const filledPlayers = room.players.filter((player) => player.name !== 'x');
+  if (filledPlayers.length !== room.howmany) {
+    emitServerError(socket, `A meccshez pontosan ${room.howmany} játékos kell.`);
+    emitSnapshot(room);
+    return;
+  }
+
+  await maybeStartGame(room);
+  emitSnapshot(room);
+}
+
 async function handleDisconnect(room, socket) {
   const username = socket.currentUsername;
   if (!username) {
@@ -477,6 +670,7 @@ async function maybeStartGame(room) {
   const starter = getPlayerByPid(room, room.game.currentplayer);
   gameLog(room, `A játék elindult. Bázisválasztás következik. Kezd: ${starter.name}.`);
   sendStatus(room, `Bázisválasztás: ${starter.name} választ bázist.`);
+  room.namespace.emit('matchStarted', { gameid: room.gameid });
 }
 
 
@@ -666,7 +860,7 @@ async function startExpansionRound(room, firstRound = false) {
   room.game.reservedTerritories = [];
   room.game.expansionRequiredByPid = {};
   room.game.expansionReadyByPid = {};
-  room.game.kossuthGambleArmedByPid = Object.fromEntries(room.players.map((player) => [player.pid, false]));
+  resetKossuthGamble(room);
   room.game.activeQuestion = null;
   room.game.currentplayer = getNextExpansionSelectionPid(room, -1);
   await persistGame(room);
@@ -863,6 +1057,7 @@ async function startBattleRound(room, roundNumber) {
 
   room.game.phase = PHASES.BATTLE_SELECTION;
   room.game.battleRound = roundNumber;
+  resetKossuthGamble(room);
   room.game.battleTurnIndex = 0;
   room.game.currentOrder = room.game.orderCycle[(roundNumber - 1) % room.game.orderCycle.length] || [];
   room.game.currentplayer = getNextExpansionSelectionPid(room, -1);
@@ -1270,19 +1465,28 @@ async function resolveExpansionQuestion(room, question) {
     const selectedTids = Array.isArray(selectedTidsRaw)
       ? selectedTidsRaw
       : (selectedTidsRaw != null ? [selectedTidsRaw] : []);
+    const gambleArmed = isKossuthGambleArmed(room, pid);
 
     if (!selectedTids.length) {
+      if (gambleArmed) {
+        const delta = applyKossuthGambleFailure(player);
+        clearKossuthGamble(room, pid);
+        resultLines.push(`${player.name} Széchényi Kaszinója nem hozott területet: ${formatKossuthGambleDelta(delta)} pont.`);
+      }
       return;
     }
 
     if (question.answers[pid].correct) {
       const capturedNames = [];
+      const capturedTerritories = [];
       selectedTids.forEach((tid) => {
         const territory = getTerritoryByTid(room, tid);
         if (!territory || territory.ownsto !== -1) {
           return;
         }
         territory.ownsto = pid;
+        territory.szechenyiCasinoOwnerPid = gambleArmed ? pid : null;
+        capturedTerritories.push(territory);
         capturedNames.push(territory.tname);
       });
 
@@ -1290,6 +1494,14 @@ async function resolveExpansionQuestion(room, question) {
         resultLines.push(`${player.name} helyesen válaszolt, megszerezte: ${capturedNames[0]}.`);
       } else if (capturedNames.length > 1) {
         resultLines.push(`${player.name} helyesen válaszolt, megszerezte: ${capturedNames.join(', ')}.`);
+      }
+
+      if (gambleArmed) {
+        const delta = awardKossuthGambleSuccess(player, capturedTerritories.length);
+        clearKossuthGamble(room, pid);
+        if (delta > 0) {
+          resultLines.push(`${player.name} Széchényi Kaszinó bónusza: ${formatKossuthGambleDelta(delta)} pont.`);
+        }
       }
     } else {
       const missedNames = selectedTids.map((tid) => {
@@ -1302,6 +1514,12 @@ async function resolveExpansionQuestion(room, question) {
       } else if (missedNames.length > 1) {
         resultLines.push(`${player.name} nem szerezte meg: ${missedNames.join(', ')}.`);
       }
+
+      if (gambleArmed) {
+        const delta = applyKossuthGambleFailure(player);
+        clearKossuthGamble(room, pid);
+        resultLines.push(`${player.name} Széchényi Kaszinója elbukott: ${formatKossuthGambleDelta(delta)} pont.`);
+      }
     }
   });
 
@@ -1309,6 +1527,7 @@ async function resolveExpansionQuestion(room, question) {
 
 
   rebuildPlayerTerritories(room);
+  syncSzechenyiCasinoTerritories(room);
   recalculateScores(room);
   await persistAllTerritories(room);
   await persistAllPlayers(room);
@@ -1405,8 +1624,26 @@ async function resolveExpansionRemainderGuess(room, question) {
     const capturedTerritories = availableTerritories.slice(0, REMAINDER_GUESS_MAX_REWARD);
     capturedTerritories.forEach((territory) => {
       territory.ownsto = winner.pid;
+      territory.szechenyiCasinoOwnerPid = isKossuthGambleArmed(room, winner.pid) ? winner.pid : null;
+    });
+    const winnerUsedGamble = isKossuthGambleArmed(room, winner.pid);
+    if (winnerUsedGamble) {
+      const delta = awardKossuthGambleSuccess(winner, capturedTerritories.length);
+      clearKossuthGamble(room, winner.pid);
+      if (delta > 0) {
+        resultLines.push(`${winner.name} Széchényi Kaszinó bónusza: ${formatKossuthGambleDelta(delta)} pont.`);
+      }
+    }
+    question.participants.forEach((pid) => {
+      if (pid === winner.pid) return;
+      if (!isKossuthGambleArmed(room, pid)) return;
+      const player = getPlayerByPid(room, pid);
+      const delta = applyKossuthGambleFailure(player);
+      clearKossuthGamble(room, pid);
+      resultLines.push(`${player.name} Széchényi Kaszinója elbukott: ${formatKossuthGambleDelta(delta)} pont.`);
     });
     rebuildPlayerTerritories(room);
+    syncSzechenyiCasinoTerritories(room);
     recalculateScores(room);
     await Promise.all(capturedTerritories.map((territory) => persistTerritory(room, territory)));
     await persistAllPlayers(room);
@@ -1416,6 +1653,17 @@ async function resolveExpansionRemainderGuess(room, question) {
     } else if (capturedNames.length > 1) {
       resultLines.push(`${winner.name} szerezte meg a maradék területeket: ${capturedNames.join(', ')}.`);
     }
+  } else {
+    question.participants.forEach((pid) => {
+      if (!isKossuthGambleArmed(room, pid)) return;
+      const player = getPlayerByPid(room, pid);
+      const delta = applyKossuthGambleFailure(player);
+      clearKossuthGamble(room, pid);
+      resultLines.push(`${player.name} Széchényi Kaszinója elbukott: ${formatKossuthGambleDelta(delta)} pont.`);
+    });
+    syncSzechenyiCasinoTerritories(room);
+    recalculateScores(room);
+    await persistAllPlayers(room);
   }
 
 
@@ -1574,8 +1822,15 @@ async function resolveSuccessfulAttack(room, context) {
 
   if (!context.isCastle) {
     const territory = getTerritoryByTid(room, context.targetTid);
+    const gambleArmed = isKossuthGambleArmed(room, attacker.pid);
     territory.ownsto = attacker.pid;
+    territory.szechenyiCasinoOwnerPid = gambleArmed ? attacker.pid : null;
+    if (gambleArmed) {
+      awardKossuthGambleSuccess(attacker, 1);
+      clearKossuthGamble(room, attacker.pid);
+    }
     rebuildPlayerTerritories(room);
+    syncSzechenyiCasinoTerritories(room);
     recalculateScores(room);
     await persistTerritory(room, territory);
     await persistAllPlayers(room);
@@ -1585,7 +1840,11 @@ async function resolveSuccessfulAttack(room, context) {
 
     const line = `${attacker.name} elfoglalta ${territory.tname} területét ${defender.name} játékostól.`;
     gameLog(room, line);
-    room.namespace.emit('battle:result', { message: line });
+    room.namespace.emit('battle:result', {
+      message: line,
+      gambleDelta: gambleArmed ? TERRITORY_SCORE : 0,
+      gamblePid: gambleArmed ? attacker.pid : null,
+    });
 
 
 
@@ -1619,6 +1878,8 @@ async function resolveSuccessfulAttack(room, context) {
 
 
   if (castle.hp <= 0) {
+    const gambleArmed = isKossuthGambleArmed(room, attacker.pid);
+    const capturedTerritories = [];
     castle.active = false;
     castle.hp = 0;
     defender.eliminated = true;
@@ -1632,13 +1893,21 @@ async function resolveSuccessfulAttack(room, context) {
     room.territories.forEach((territoryItem) => {
       if (territoryItem.ownsto === defender.pid) {
         territoryItem.ownsto = attacker.pid;
+        territoryItem.szechenyiCasinoOwnerPid = gambleArmed ? attacker.pid : null;
+        capturedTerritories.push(territoryItem);
       }
     });
+
+    if (gambleArmed) {
+      awardKossuthGambleSuccess(attacker, capturedTerritories.length);
+      clearKossuthGamble(room, attacker.pid);
+    }
 
 
 
 
     rebuildPlayerTerritories(room);
+    syncSzechenyiCasinoTerritories(room);
     recalculateScores(room);
     await persistAllTerritories(room);
     await persistAllPlayers(room);
@@ -1649,7 +1918,11 @@ async function resolveSuccessfulAttack(room, context) {
 
     const line = `${attacker.name} lerombolta ${defender.name} várát, megszerezte az összes területét, és ${defender.name} kiesett.`;
     gameLog(room, line);
-    room.namespace.emit('battle:result', { message: line });
+    room.namespace.emit('battle:result', {
+      message: line,
+      gambleDelta: gambleArmed ? capturedTerritories.length * TERRITORY_SCORE : 0,
+      gamblePid: gambleArmed ? attacker.pid : null,
+    });
 
 
 
@@ -1681,7 +1954,7 @@ async function resolveSuccessfulAttack(room, context) {
 
   const line = `${attacker.name} újabb tornyot rombolt le ${defender.name} várából. Maradék életerő: ${castle.hp}.`;
   gameLog(room, line);
-  room.namespace.emit('battle:result', { message: line });
+  room.namespace.emit('battle:result', { message: line, gambleArmed: isKossuthGambleArmed(room, attacker.pid), gamblePid: attacker.pid });
   room.game.activeQuestion = null;
   await persistGame(room);
   emitSnapshot(room);
@@ -1712,6 +1985,12 @@ async function resolveSuccessfulAttack(room, context) {
 
 async function resolveSuccessfulDefense(room, { attacker, defender, isCastle, castleStage }) {
   defender.defenseBonus = (defender.defenseBonus || 0) + DEFENSE_BONUS;
+  let gambleDelta = 0;
+  if (attacker && isKossuthGambleArmed(room, attacker.pid)) {
+    gambleDelta = applyKossuthGambleFailure(attacker);
+    clearKossuthGamble(room, attacker.pid);
+  }
+  syncSzechenyiCasinoTerritories(room);
   recalculateScores(room);
   await persistAllPlayers(room);
 
@@ -1722,7 +2001,7 @@ async function resolveSuccessfulDefense(room, { attacker, defender, isCastle, ca
     ? `${defender.name} sikeresen megvédte a várát a ${castleStage}. ostromkérdésnél.`
     : `${defender.name} sikeresen megvédte a területét ${attacker.name} ellen.`;
   gameLog(room, line);
-  room.namespace.emit('battle:result', { message: line });
+  room.namespace.emit('battle:result', { message: line, gambleDelta, gamblePid: attacker ? attacker.pid : null });
 
 
 
@@ -1931,6 +2210,7 @@ function rebuildPlayerTerritories(room) {
 
 
 function recalculateScores(room) {
+  syncSzechenyiCasinoTerritories(room);
   syncNapoleonEuropeState(room);
   room.players.forEach((player) => {
     const territoryCount = room.territories.filter((territory) => territory.ownsto === player.pid).length;
@@ -1964,6 +2244,69 @@ function getBrutusMirrorRemainingForPid(room, pid) {
   if (!room || !room.game || !Number.isInteger(pid)) return 0;
   const byPid = room.game.brutusMirrorRemainingByPid || {};
   return Math.max(0, Number(byPid[pid]) || 0);
+}
+
+function isKossuthGambleArmed(room, pid) {
+  if (!room || !room.game || !Number.isInteger(pid)) return false;
+  const armedMap = room.game.kossuthGambleArmedByPid || {};
+  return Boolean(armedMap[pid]);
+}
+
+function resetKossuthGamble(room) {
+  if (!room || !room.game) return;
+  room.game.kossuthGambleArmedByPid = Object.fromEntries(
+    room.players.map((player) => [player.pid, false])
+  );
+}
+
+function armKossuthGamble(room, pid) {
+  if (!room || !room.game || !Number.isInteger(pid)) return;
+  if (!room.game.kossuthGambleArmedByPid || typeof room.game.kossuthGambleArmedByPid !== 'object') {
+    resetKossuthGamble(room);
+  }
+  room.game.kossuthGambleArmedByPid[pid] = true;
+}
+
+function clearKossuthGamble(room, pid) {
+  if (!room || !room.game || !Number.isInteger(pid)) return;
+  if (!room.game.kossuthGambleArmedByPid || typeof room.game.kossuthGambleArmedByPid !== 'object') {
+    resetKossuthGamble(room);
+  }
+  room.game.kossuthGambleArmedByPid[pid] = false;
+}
+
+function awardKossuthGambleSuccess(player, capturedCount) {
+  const reward = Math.max(0, Number(capturedCount) || 0) * TERRITORY_SCORE;
+  if (!player || reward <= 0) return 0;
+  player.kossuthScoreModifier = (player.kossuthScoreModifier || 0) + reward;
+  return reward;
+}
+
+function applyKossuthGambleFailure(player) {
+  if (!player) return 0;
+  player.kossuthScoreModifier = (player.kossuthScoreModifier || 0) - TERRITORY_SCORE;
+  return -TERRITORY_SCORE;
+}
+
+function markTerritoriesForSzechenyiCasino(territories, ownerPid) {
+  (territories || []).forEach((territory) => {
+    if (!territory) return;
+    territory.szechenyiCasinoOwnerPid = Number.isInteger(ownerPid) ? ownerPid : null;
+  });
+}
+
+function syncSzechenyiCasinoTerritories(room) {
+  (room.territories || []).forEach((territory) => {
+    if (!territory) return;
+    if (!Number.isInteger(territory.szechenyiCasinoOwnerPid) || territory.ownsto !== territory.szechenyiCasinoOwnerPid) {
+      territory.szechenyiCasinoOwnerPid = null;
+    }
+  });
+}
+
+function formatKossuthGambleDelta(delta) {
+  if (!delta) return '';
+  return delta > 0 ? `+${delta}` : `${delta}`;
 }
 
 function getNapoleonRequiredEuropeNames(room) {
@@ -2212,6 +2555,7 @@ function emitSnapshot(room, socket = null) {
       defenseBonus: player.defenseBonus || 0,
       connected: Boolean(player.connected),
       eliminated: Boolean(player.eliminated),
+      isBot: Boolean(player.isBot),
       castleCaptureBonus: player.castleCaptureBonus || 0,
       characterId: player.characterId || null,
       characterName: player.characterId && CHARACTERS[player.characterId] ? CHARACTERS[player.characterId].name : null,
@@ -2225,6 +2569,10 @@ function emitSnapshot(room, socket = null) {
       active: castle.active,
     })),
   });
+
+  if (!socket) {
+    scheduleBotStateEvaluation(room);
+  }
 }
 
 
@@ -2248,13 +2596,24 @@ function publicQuestionContext(room, context, pid = null) {
     !helpUsedForQuestion
   );
 
+  const kossuthArmed = isKossuthGambleArmed(room, pid);
+  const canUseKossuthGamble = Boolean(
+    question &&
+    Array.isArray(question.participants) &&
+    question.participants.includes(pid) &&
+    getCharacterIdForPid(room, pid) === 'kossuth' &&
+    !hasAnswered &&
+    !kossuthArmed
+  );
+
   if (context.flow === 'EXPANSION') {
     return {
       flow: 'EXPANSION',
       kozepsuliHelpRemaining: helpRemaining,
       kozepsuliHelpRemainingTotal: getTotalKozepsuliHelpRemaining(room),
       canUseKozepsuliHelp,
-      kossuthGambleArmed: Boolean(room.game && room.game.kossuthGambleArmedByPid && room.game.kossuthGambleArmedByPid[pid]),
+      kossuthGambleArmed: kossuthArmed,
+      canUseKossuthGamble,
     };
   }
 
@@ -2281,6 +2640,17 @@ function publicQuestionContext(room, context, pid = null) {
     Object.keys(question.answers || {}).length === 0
   );
 
+  const canUseBattleKossuthGamble = Boolean(
+    question &&
+    Array.isArray(question.participants) &&
+    question.participants.includes(pid) &&
+    Number.isInteger(context.attackerPid) &&
+    context.attackerPid === pid &&
+    getCharacterIdForPid(room, pid) === 'kossuth' &&
+    !hasAnswered &&
+    !kossuthArmed
+  );
+
   return {
     flow: 'BATTLE',
     isCastle: Boolean(context.isCastle),
@@ -2289,6 +2659,8 @@ function publicQuestionContext(room, context, pid = null) {
     duelType: context.duelType || 'PRIMARY',
     attackerPid: Number.isInteger(context.attackerPid) ? context.attackerPid : null,
     defenderPid: Number.isInteger(context.defenderPid) ? context.defenderPid : null,
+    kossuthGambleArmed: kossuthArmed,
+    canUseKossuthGamble: canUseBattleKossuthGamble,
     ultraSabotageRemaining: sabotageRemaining,
     ultraSabotageRemainingTotal: getTotalUltraSabotageRemaining(room),
     ultraSabotageUsed: Boolean(runtime.ultraSabotageUsed),
@@ -2346,6 +2718,7 @@ function emitQuestionStart(room) {
       socket.emit('question:start', payload);
     }
   });
+  queueBotQuestionAnswers(room);
 }
 
 function buildBattleResolvedPayloadForPid(room, question, pid) {
@@ -2592,6 +2965,51 @@ async function handleActivateKozepsuliHelp(room, socket) {
 }
 
 
+
+async function handleActivateKossuthGamble(room, socket) {
+  const player = getPlayerByUsername(room, socket.currentUsername);
+  const question = room.game && room.game.activeQuestion;
+
+  if (!player || !question) return;
+  if (!Array.isArray(question.participants) || !question.participants.includes(player.pid)) {
+    socket.emit('serverstatus', ['Csak az aktuális kérdés résztvevői használhatják a Széchényi Kaszinót.']);
+    return;
+  }
+  if (getCharacterIdForPid(room, player.pid) !== 'kossuth') {
+    socket.emit('serverstatus', ['A Széchényi Kaszinót csak Széchényi használhatja.']);
+    return;
+  }
+  if (Date.now() > question.deadline) {
+    socket.emit('serverstatus', ['Lejárt az idő.']);
+    return;
+  }
+  if (question.answers[player.pid]) {
+    socket.emit('serverstatus', ['Válasz után már nem aktiválhatod a Széchényi Kaszinót.']);
+    return;
+  }
+  if (question.context && question.context.flow === 'BATTLE' && Number.isInteger(question.context.attackerPid) && question.context.attackerPid !== player.pid) {
+    socket.emit('serverstatus', ['Battle közben csak a támadó aktiválhatja a Széchényi Kaszinót.']);
+    return;
+  }
+  if (isKossuthGambleArmed(room, player.pid)) {
+    socket.emit('serverstatus', ['A Széchényi Kaszinó már aktív nálad.']);
+    return;
+  }
+
+  armKossuthGamble(room, player.pid);
+  await persistGame(room);
+
+  emitQuestionStart(room);
+  room.namespace.emit('kossuthGambleActivated', {
+    questionId: question.id,
+    byPid: player.pid,
+    byName: player.name,
+  });
+
+  sendStatus(room, `${player.name} aktiválta a Széchényi Kaszinót.`);
+  gameLog(room, `${player.name} aktiválta a Széchényi Kaszinót.`);
+}
+
 async function handleActivateBrutusMirror(room, socket) {
   const player = getPlayerByUsername(room, socket.currentUsername);
   const question = room.game && room.game.activeQuestion;
@@ -2786,6 +3204,160 @@ function drawGuessQuestion(room) {
 
 
 
+
+function isBotPlayer(player) {
+  return Boolean(player && player.isBot && player.name === CHATGPT_BOT_NAME);
+}
+
+function createBotSocket(player) {
+  return {
+    currentUsername: player && player.name ? player.name : CHATGPT_BOT_NAME,
+    emit: function () {},
+  };
+}
+
+function getRandomDelay(minMs, maxMs) {
+  const min = Math.max(0, Number(minMs) || 0);
+  const max = Math.max(min, Number(maxMs) || min);
+  return min + Math.floor(Math.random() * (max - min + 1));
+}
+
+function scheduleBotTask(room, key, ms, callback) {
+  if (!room.botTimers || !(room.botTimers instanceof Map)) {
+    room.botTimers = new Map();
+  }
+  if (room.botTimers.has(key)) {
+    clearTimeout(room.botTimers.get(key));
+  }
+  const timer = setTimeout(async () => {
+    room.botTimers.delete(key);
+    try {
+      await callback();
+    } catch (error) {
+      console.error('Bot task failed:', error);
+    }
+  }, Math.max(0, Number(ms) || 0));
+  room.botTimers.set(key, timer);
+}
+
+function queueBotStateEvaluation(room) {
+  if (!room || !room.game) return;
+  const bots = room.players.filter((player) => isBotPlayer(player) && !player.eliminated);
+  if (!bots.length) return;
+  scheduleBotTask(room, 'bot:state-eval', getRandomDelay(700, 1500), async () => {
+    await runBotTurnIfNeeded(room);
+  });
+}
+
+function queueBotQuestionAnswers(room) {
+  const question = room && room.game ? room.game.activeQuestion : null;
+  if (!question) return;
+  question.participants.forEach((pid) => {
+    const player = getPlayerByPid(room, pid);
+    if (!isBotPlayer(player)) return;
+    scheduleBotTask(room, `bot:answer:${question.id}:${pid}`, getRandomDelay(1200, 3200), async () => {
+      await runBotQuestionAnswer(room, question.id, pid);
+    });
+  });
+}
+
+function getAvailableBaseTargets(room) {
+  return room.territories
+    .filter((territory) => territory.ownsto === -1)
+    .filter((territory) => !room.castles.some((castle) => {
+      if (!castle.active) return false;
+      const castleTerritory = getTerritoryByTid(room, castle.tid);
+      return castleTerritory && castleTerritory.neighbors.includes(territory.tid);
+    }))
+    .map((territory) => territory.tid);
+}
+
+function chooseRandomValue(values) {
+  if (!Array.isArray(values) || !values.length) return null;
+  return values[Math.floor(Math.random() * values.length)];
+}
+
+function buildBotGuessValue(exactAnswer) {
+  if (Math.random() < BOT_GUESS_EXACT_PROBABILITY) {
+    return exactAnswer;
+  }
+
+  const numericExact = Number(exactAnswer);
+  const magnitude = Math.max(3, Math.round(Math.abs(numericExact) * 0.25));
+  const offset = Math.max(1, Math.floor(Math.random() * magnitude) + 1);
+  const direction = Math.random() < 0.5 ? -1 : 1;
+  let guess = numericExact + direction * offset;
+  if (guess === numericExact) {
+    guess = numericExact + offset + 1;
+  }
+  if (numericExact >= 0 && guess < 0) {
+    guess = numericExact + offset;
+  }
+  return Number.isInteger(numericExact) ? Math.round(guess) : guess;
+}
+
+async function runBotQuestionAnswer(room, expectedQuestionId, pid) {
+  if (!room || !room.game || !room.game.activeQuestion) return;
+  const question = room.game.activeQuestion;
+  if (question.id !== expectedQuestionId) return;
+  if (!question.participants.includes(pid) || question.answers[pid]) return;
+  const player = getPlayerByPid(room, pid);
+  if (!isBotPlayer(player) || player.eliminated) return;
+
+  if (question.type === 'mcq') {
+    const localQuestion = getQuestionVariantForPid(room, pid) || question;
+    const correctIndex = Number(localQuestion.correctOptionIndex);
+    let selectedIndex = correctIndex;
+    if (Math.random() >= BOT_MC_CORRECT_PROBABILITY) {
+      const wrongOptions = [0, 1, 2, 3].filter((index) => index !== correctIndex);
+      selectedIndex = chooseRandomValue(wrongOptions);
+    }
+    await handleSubmitAnswer(room, createBotSocket(player), { selectedIndex });
+    return;
+  }
+
+  await handleSubmitAnswer(room, createBotSocket(player), { guess: buildBotGuessValue(question.exactAnswer) });
+}
+
+async function runBotTurnIfNeeded(room) {
+  if (!room || !room.game || room.game.gamefinish || room.game.activeQuestion) return;
+  const currentPid = room.game.currentplayer;
+  if (!Number.isInteger(currentPid) || currentPid < 0) return;
+  const player = getPlayerByPid(room, currentPid);
+  if (!isBotPlayer(player) || player.eliminated || !player.connected) return;
+
+  if (room.game.phase === PHASES.BASE_SELECTION) {
+    const targetTid = chooseRandomValue(getAvailableBaseTargets(room));
+    if (Number.isInteger(targetTid)) {
+      await handleSelectBase(room, createBotSocket(player), targetTid);
+    }
+    return;
+  }
+
+  if (room.game.phase === PHASES.CHARACTER_SELECTION) {
+    const choice = chooseRandomValue((room.game.availableCharacterIds || []).slice());
+    if (choice) {
+      await handleSelectCharacter(room, createBotSocket(player), choice);
+    }
+    return;
+  }
+
+  if (room.game.phase === PHASES.EXPANSION_SELECTION) {
+    const targetTid = chooseRandomValue(getExpansionSelectableTargets(room, player.pid));
+    if (Number.isInteger(targetTid)) {
+      await handleSelectExpansionTarget(room, createBotSocket(player), targetTid);
+    }
+    return;
+  }
+
+  if (room.game.phase === PHASES.BATTLE_SELECTION) {
+    const targetTid = chooseRandomValue(getAttackableTargets(room, player.pid));
+    if (Number.isInteger(targetTid)) {
+      await handleSelectAttackTarget(room, createBotSocket(player), targetTid);
+    }
+  }
+}
+
 function clearQuestionTimer(room) {
   if (room.questionTimer) {
     clearTimeout(room.questionTimer);
@@ -2810,6 +3382,7 @@ function createInitialPlayers(gameid, creatorUsername, howmany) {
       active: true,
       eliminated: false,
       connected: false,
+      isBot: false,
     });
   }
   return players;
@@ -2949,7 +3522,7 @@ function createOrderCycle(playerIds) {
 
 
 function createMapTerritories(gameid, maplevel) {
-  const T = (tid, continent, tname, neighbors) => ({ gameid, tid, continent, tname, neighbors, ownsto: -1 });
+  const T = (tid, continent, tname, neighbors) => ({ gameid, tid, continent, tname, neighbors, ownsto: -1, szechenyiCasinoOwnerPid: null });
 
 
 

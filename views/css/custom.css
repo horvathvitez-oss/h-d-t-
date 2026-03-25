@@ -2032,6 +2032,19 @@ body.parchment-screen::before {
   letter-spacing: 0.08em;
 }
 
+.waiting-room-player-role--bot {
+  color: #8a6117;
+  font-weight: 800;
+}
+
+#addBotButton {
+  border-color: rgba(138, 97, 23, 0.38);
+}
+
+#addBotButton:disabled {
+  opacity: 0.7;
+}
+
 
 .waiting-room-status {
   margin-top: 16px;
@@ -5230,6 +5243,8 @@ body.game-screen .leaflet-interactive.territory-selectable-battle-hover {
 .character-draft-card.is-disabled { opacity:.58; cursor:default; }
 .character-draft-card-image-wrap { width:70px; height:70px; border-radius:16px; overflow:hidden; flex:0 0 auto; background: rgba(255,255,255,0.08); }
 .character-draft-card-image { width:100%; height:100%; object-fit:cover; display:block; }
+.character-draft-card-image-wrap--szechenyi { display:flex; align-items:center; justify-content:center; background: radial-gradient(circle at 30% 30%, rgba(255,232,173,0.94), rgba(197,132,24,0.95)); border:1px solid rgba(255,240,196,0.38); }
+.character-draft-card-emblem, .character-tray-emblem { display:inline-flex; align-items:center; justify-content:center; width:100%; height:100%; font-size:28px; font-weight:900; letter-spacing:-0.04em; color:#2c1b0a; text-shadow:0 1px 0 rgba(255,255,255,0.25); }
 .character-draft-card-name { display:block; font-size:18px; font-weight:800; }
 .character-draft-card-desc { display:block; margin-top:4px; font-size:13px; line-height:1.45; color: rgba(255,255,255,0.84); }
 
@@ -5244,6 +5259,8 @@ body.game-screen .leaflet-interactive.territory-selectable-battle-hover {
 }
 .character-tray-color { position:absolute; left:0; top:0; bottom:0; width:8px; }
 .character-tray-image { position:absolute; left:14px; top:12px; width:32px; height:32px; object-fit:cover; border-radius:10px; }
+.character-tray-image--szechenyi { display:flex; align-items:center; justify-content:center; background: radial-gradient(circle at 30% 30%, rgba(255,232,173,0.96), rgba(197,132,24,0.95)); border:1px solid rgba(255,240,196,0.38); overflow:hidden; }
+.character-tray-image--szechenyi .character-tray-emblem { font-size:18px; }
 .character-tray-text { display:block; }
 .character-tray-name { display:block; font-size:15px; font-weight:800; }
 .character-tray-owner { display:block; font-size:11px; letter-spacing:.06em; text-transform:uppercase; color: rgba(246,239,223,0.66); }
@@ -5251,6 +5268,10 @@ body.game-screen .leaflet-interactive.territory-selectable-battle-hover {
 .character-tray-card.is-open .character-tray-detail { display:block; }
 .character-tray-action { margin-top:10px; border:none; border-radius:12px; padding:10px 12px; font-weight:800; font-size:12px; letter-spacing:.06em; }
 .character-tray-action--kossuth { background: linear-gradient(135deg,#f2d08d,#b87923); color:#2b1b0c; }
+.question-kossuth-button { background: linear-gradient(135deg, #f5d98d, #d39a1c); color:#2b1b0c; box-shadow:0 0 0 1px rgba(255,232,173,0.24) inset, 0 12px 24px rgba(185,124,18,0.26); }
+.question-kossuth-button:hover { background: linear-gradient(135deg, #ffe8a9, #e3ab27); }
+.question-kossuth-counter { color:#f3dca0; }
+.question-action-group--kossuth .question-action-button { box-shadow:0 0 0 1px rgba(255,232,173,0.24) inset, 0 12px 24px rgba(185,124,18,0.26); }
 
 .player-mini-stat--score { position: relative; overflow: visible; }
 .player-score-delta {
@@ -5261,6 +5282,26 @@ body.game-screen .leaflet-interactive.territory-selectable-battle-hover {
 .player-score-delta.is-negative { background: rgba(255, 87, 105, 0.16); color:#ff98aa; border:1px solid rgba(255,127,141,0.42); }
 @keyframes scoreDeltaRise { 0% { opacity:0; transform:translateY(10px) scale(.94);} 15%{opacity:1; transform:translateY(0) scale(1);} 80%{opacity:1;} 100%{opacity:0; transform:translateY(-18px) scale(1.02);} }
 
+#question-modal .question-panel.is-kossuth-gamble {
+  background: linear-gradient(180deg, rgba(80, 49, 5, 0.98), rgba(42, 24, 4, 0.98));
+  border-color: rgba(244, 199, 85, 0.78);
+  box-shadow: 0 0 0 1px rgba(255,224,134,0.24) inset, 0 0 32px rgba(235,186,62,0.22), 0 20px 46px rgba(0,0,0,0.36);
+}
+#question-modal .question-panel.is-kossuth-gamble::before {
+  content:'';
+  position:absolute;
+  inset:0;
+  pointer-events:none;
+  background: radial-gradient(circle at top, rgba(255,226,140,0.18), rgba(255,226,140,0) 55%);
+}
+#question-modal .question-panel.is-kossuth-gamble .question-context,
+#question-modal .question-panel.is-kossuth-gamble .question-prompt,
+#question-modal .question-panel.is-kossuth-gamble .question-timer,
+#question-modal .question-panel.is-kossuth-gamble .question-note,
+#question-modal .question-panel.is-kossuth-gamble .question-option,
+#question-modal .question-panel.is-kossuth-gamble .question-unit {
+  color:#fff4d7;
+}
 #question-modal .question-panel.is-brutus-mirror {
   background: linear-gradient(180deg, rgba(39, 11, 58, 0.96), rgba(20, 8, 34, 0.96));
   border-color: rgba(183, 109, 255, 0.72);
@@ -5279,6 +5320,14 @@ body.game-screen .leaflet-interactive.territory-selectable-battle-hover {
 .question-brutus-counter { color:#d9b8ff; }
 .question-action-group--brutus .question-action-button { box-shadow:0 0 0 1px rgba(204,162,255,0.22) inset, 0 12px 22px rgba(107,48,190,0.22); }
 
+.territory-szechenyi-casino {
+  filter: drop-shadow(0 0 8px rgba(255, 217, 102, 0.72)) drop-shadow(0 0 20px rgba(211, 154, 28, 0.28));
+}
+.pending-selection-badge--casino {
+  background: linear-gradient(135deg, #f4d981, #cc8c12);
+  color: #2b1b0c;
+  border-color: rgba(255,241,194,0.86);
+}
 .territory-napoleon-europe {
   filter: drop-shadow(0 0 7px rgba(115, 198, 255, 0.55)) drop-shadow(0 0 16px rgba(73, 130, 255, 0.24));
 }
@@ -5299,9 +5348,6 @@ body.game-screen .leaflet-interactive.territory-selectable-battle-hover {
 
 
 /* === CHARACTER CLIENT FIXES: RESPONSIVE + OWN DETAIL ONLY + HIDE KOSSUTH UI === */
-.character-draft-card[data-character-id="kossuth"] {
-  display: none !important;
-}
 
 .character-tray-card.is-readonly {
   cursor: default;
@@ -5373,6 +5419,14 @@ body.game-screen .leaflet-interactive.territory-selectable-battle-hover {
   }
 }
 
+.territory-szechenyi-casino {
+  filter: drop-shadow(0 0 8px rgba(255, 217, 102, 0.72)) drop-shadow(0 0 20px rgba(211, 154, 28, 0.28));
+}
+.pending-selection-badge--casino {
+  background: linear-gradient(135deg, #f4d981, #cc8c12);
+  color: #2b1b0c;
+  border-color: rgba(255,241,194,0.86);
+}
 .territory-napoleon-europe {
   animation: napoleonEuropePulse 1.9s ease-in-out infinite;
   filter: drop-shadow(0 0 8px rgba(115, 198, 255, 0.48)) drop-shadow(0 0 18px rgba(73, 130, 255, 0.22));
