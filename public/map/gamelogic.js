@@ -456,7 +456,7 @@ function renderCharacterDraftModal() {
   var options = document.getElementById('character-draft-options');
   if (title) title.textContent = currentPlayer ? (getPlayerDisplayName(currentPlayer) + ' választ') : 'Karakterválasztás';
   if (subtitle) subtitle.textContent = USER && currentPid === USER.pid ? 'Válassz egy karaktert.' : 'Várj, amíg a soron lévő játékos választ.';
-  var available = (state.game.availableCharacterIds || []).slice();
+  var available = (state.game.availableCharacterIds || []).filter(function (id) { return id !== 'kossuth'; }).slice();
   options.innerHTML = available.map(function (id) {
     var def = getCharacterDefinition(id);
     if (!def) return '';
