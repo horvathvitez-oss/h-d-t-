@@ -10,29 +10,29 @@
   <link rel="stylesheet" href="/views/css/pace.css">
   <link rel="stylesheet" href="/views/css/custom.css">
 
-  <script src="/views/js/jquery-2.1.3.min.js"></script>
-  <script src="/views/js/bootstrap.min.js"></script>
-  <script src="/views/js/pace.min.js"></script>
-  <script src="/views/js/modernizr.custom.js"></script>
+  <script defer src="/views/js/jquery-2.1.3.min.js"></script>
+  <script defer src="/views/js/bootstrap.min.js"></script>
+  <script defer src="/views/js/pace.min.js"></script>
+  <script defer src="/views/js/modernizr.custom.js"></script>
 </head>
 <body class="parchment-screen app-shell-screen lobby-screen-modern" data-sound-base="/sounds">
   <div class="parchment-overlay"></div>
 
   <div class="lobby-side-ads" aria-label="Középsulineked promóciós panelek">
-    <a class="lobby-side-ad lobby-side-ad-left" href="https://kozepsulineked.com/products/30-napos-elofizetes-kozepsulineked" target="_blank" rel="noopener noreferrer sponsored">
-      <video class="lobby-side-ad-video" autoplay muted loop playsinline preload="metadata">
-        <source src="/videos/lobby-side-promo.mp4" type="video/mp4">
-      </video>
+    <a class="lobby-side-ad lobby-side-ad-left lobby-side-ad-static" href="https://kozepsulineked.com/products/30-napos-elofizetes-kozepsulineked" target="_blank" rel="noopener noreferrer sponsored">
+      <span class="lobby-side-ad-badge">AJÁNLOTT</span>
+      <span class="lobby-side-ad-title">KÖZÉPSULINEKED.COM</span>
+      <span class="lobby-side-ad-copy">Érettségi felkészülés, gyors ismétlés, több tárgy egy helyen.</span>
+      <span class="lobby-side-ad-caption">30 NAPOS ELŐFIZETÉS</span>
       <span class="lobby-side-ad-overlay"></span>
-      <span class="lobby-side-ad-caption">KÖZÉPSULINEKED.COM</span>
     </a>
 
-    <a class="lobby-side-ad lobby-side-ad-right" href="https://kozepsulineked.com/products/30-napos-elofizetes-kozepsulineked" target="_blank" rel="noopener noreferrer sponsored">
-      <video class="lobby-side-ad-video" autoplay muted loop playsinline preload="metadata">
-        <source src="/videos/lobby-side-promo.mp4" type="video/mp4">
-      </video>
+    <a class="lobby-side-ad lobby-side-ad-right lobby-side-ad-static" href="https://kozepsulineked.com/products/30-napos-elofizetes-kozepsulineked" target="_blank" rel="noopener noreferrer sponsored">
+      <span class="lobby-side-ad-badge">SEGÍTSÉG</span>
+      <span class="lobby-side-ad-title">NEM MENNEK A KÉRDÉSEK?</span>
+      <span class="lobby-side-ad-copy">Nyisd meg külön lapon, és készülj célzottan a játék közben előforduló témákra.</span>
+      <span class="lobby-side-ad-caption">MEGNÉZEM</span>
       <span class="lobby-side-ad-overlay"></span>
-      <span class="lobby-side-ad-caption">30 NAPOS ELŐFIZETÉS</span>
     </a>
   </div>
 
@@ -157,9 +157,20 @@
 
   <script>
     var SOUND_BASE = document.body.getAttribute('data-sound-base') || '/sounds';
-    var lobbyBgAudio = new Audio(SOUND_BASE + '/lobby_bg.mp3');
-    var buttonClickAudio = new Audio(SOUND_BASE + '/button_click.mp3');
-    lobbyBgAudio.loop = true;
+    var lobbyBgAudio = null;
+    var buttonClickAudio = null;
+
+    function ensureLobbyAudio() {
+      if (!lobbyBgAudio) {
+        lobbyBgAudio = new Audio(SOUND_BASE + '/lobby_bg.mp3');
+        lobbyBgAudio.loop = true;
+        lobbyBgAudio.preload = 'none';
+      }
+      if (!buttonClickAudio) {
+        buttonClickAudio = new Audio(SOUND_BASE + '/button_click.mp3');
+        buttonClickAudio.preload = 'none';
+      }
+    }
 
     function safePlay(audio) {
       if (!audio) return;
@@ -170,12 +181,15 @@
     }
 
     function startLobbyMusic() {
+      ensureLobbyAudio();
       safePlay(lobbyBgAudio);
     }
 
     function playButtonClickSound() {
+      ensureLobbyAudio();
       try {
         var clone = buttonClickAudio.cloneNode();
+        clone.preload = 'none';
         safePlay(clone);
       } catch (e) {
         buttonClickAudio.currentTime = 0;
@@ -193,6 +207,6 @@
     });
   </script>
 
-  <script src="/views/js/script.js"></script>
+  <script defer src="/views/js/script.js"></script>
 </body>
 </html>

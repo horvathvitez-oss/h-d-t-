@@ -3765,12 +3765,63 @@ body.lobby-screen-modern .parchment-app-container {
 }
 
 .lobby-side-ad-video {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  pointer-events: none;
+  display: none;
+}
+
+.lobby-side-ad-static {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 18px 16px 20px;
+  color: #f8ecd3;
+  text-decoration: none;
+  background:
+    radial-gradient(circle at 20% 18%, rgba(255, 207, 112, 0.24), transparent 34%),
+    linear-gradient(180deg, rgba(53, 31, 18, 0.96) 0%, rgba(23, 13, 8, 0.96) 100%);
+}
+
+.lobby-side-ad-left.lobby-side-ad-static {
+  background:
+    radial-gradient(circle at 24% 16%, rgba(255, 208, 126, 0.26), transparent 36%),
+    linear-gradient(180deg, rgba(70, 42, 24, 0.96) 0%, rgba(24, 14, 9, 0.98) 100%);
+}
+
+.lobby-side-ad-right.lobby-side-ad-static {
+  background:
+    radial-gradient(circle at 72% 14%, rgba(255, 195, 92, 0.2), transparent 34%),
+    linear-gradient(180deg, rgba(58, 34, 21, 0.96) 0%, rgba(20, 12, 8, 0.98) 100%);
+}
+
+.lobby-side-ad-badge {
+  display: inline-flex;
+  align-self: flex-start;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: rgba(255, 222, 161, 0.14);
+  border: 1px solid rgba(255, 223, 171, 0.18);
+  color: rgba(255, 237, 196, 0.94);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.lobby-side-ad-title {
+  display: block;
+  font-size: clamp(20px, 2vw, 26px);
+  line-height: 1.05;
+  font-weight: 900;
+  letter-spacing: 0.02em;
+  text-shadow: 0 3px 12px rgba(0,0,0,0.28);
+}
+
+.lobby-side-ad-copy {
+  display: block;
+  font-size: 13px;
+  line-height: 1.5;
+  color: rgba(248, 236, 211, 0.82);
+  max-width: 20ch;
 }
 
 .lobby-side-ad-overlay {
@@ -5646,5 +5697,28 @@ body.castle-cinematic-active #game-shell {
   .castle-cinematic-tower {
     width: 62px;
     height: 82px;
+  }
+}
+
+
+@media (max-width: 1200px) {
+  body.lobby-screen-modern {
+    padding-left: 18px;
+    padding-right: 18px;
+  }
+
+  .lobby-side-ads {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-data: reduce) {
+  .lobby-side-ads {
+    display: none;
+  }
+
+  .top-promo-strip-track,
+  .game-top-promo-strip-track {
+    animation: none;
   }
 }
