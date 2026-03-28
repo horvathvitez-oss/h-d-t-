@@ -19,7 +19,18 @@
   <div class="parchment-overlay"></div>
 
   <div class="lobby-side-ads" aria-label="Középsulineked promóciós panelek">
-    <a class="lobby-side-ad lobby-side-ad-left lobby-side-ad-static" href="https://kozepsulineked.com/products/30-napos-elofizetes-kozepsulineked" target="_blank" rel="noopener noreferrer sponsored">
+    <a class="lobby-side-ad lobby-side-ad-left" href="https://kozepsulineked.com/products/30-napos-elofizetes-kozepsulineked" target="_blank" rel="noopener noreferrer sponsored">
+      <video
+        class="lobby-side-ad-video"
+        muted
+        loop
+        playsinline
+        preload="none"
+        poster="/images/lobby-side-promo-poster.webp"
+        aria-hidden="true"
+      >
+        <source src="/videos/lobby-side-promo.mp4" type="video/mp4">
+      </video>
       <span class="lobby-side-ad-badge">AJÁNLOTT</span>
       <span class="lobby-side-ad-title">KÖZÉPSULINEKED.COM</span>
       <span class="lobby-side-ad-copy">Érettségi felkészülés, gyors ismétlés, több tárgy egy helyen.</span>
@@ -27,35 +38,25 @@
       <span class="lobby-side-ad-overlay"></span>
     </a>
 
-  <div class="lobby-side-ads" aria-label="Középsulineked promóciós panelek">
-
-  <div class="lobby-side-ad lobby-side-ad-left">
-    <video
-      class="lobby-side-ad-video"
-      muted
-      loop
-      playsinline
-      preload="none"
-      poster="/images/lobby-side-promo-poster.webp"
-    >
-      <source src="/videos/lobby-side-promo.mp4" type="video/mp4">
-    </video>
+    <a class="lobby-side-ad lobby-side-ad-right" href="https://kozepsulineked.com/products/30-napos-elofizetes-kozepsulineked" target="_blank" rel="noopener noreferrer sponsored">
+      <video
+        class="lobby-side-ad-video"
+        muted
+        loop
+        playsinline
+        preload="none"
+        poster="/images/lobby-side-promo-poster.webp"
+        aria-hidden="true"
+      >
+        <source src="/videos/lobby-side-promo.mp4" type="video/mp4">
+      </video>
+      <span class="lobby-side-ad-badge">SEGÍTSÉG</span>
+      <span class="lobby-side-ad-title">NEM MENNEK A KÉRDÉSEK?</span>
+      <span class="lobby-side-ad-copy">Nyisd meg külön lapon, és készülj célzottan a játék közben előforduló témákra.</span>
+      <span class="lobby-side-ad-caption">MEGNÉZEM</span>
+      <span class="lobby-side-ad-overlay"></span>
+    </a>
   </div>
-
-  <div class="lobby-side-ad lobby-side-ad-right">
-    <video
-      class="lobby-side-ad-video"
-      muted
-      loop
-      playsinline
-      preload="none"
-      poster="/images/lobby-side-promo-poster.webp"
-    >
-      <source src="/videos/lobby-side-promo.mp4" type="video/mp4">
-    </video>
-  </div>
-
-</div>
 
   <div class="top-promo-strip">
     <div class="top-promo-strip-track">
@@ -311,19 +312,37 @@
       });
     }
   </script>
-<script>
-  const videos = document.querySelectorAll('.lobby-side-ad-video');
 
-  const observer = new IntersectionObserver(entries => {
-    entries.forEach(entry => {
-      if (entry.isIntersecting) {
-        entry.target.play().catch(() => {});
+  <script>
+    (function () {
+      var videos = Array.prototype.slice.call(document.querySelectorAll('.lobby-side-ad-video'));
+      if (!videos.length) return;
+
+      function safeStart(video) {
+        if (!video || video.dataset.started === '1') return;
+        video.dataset.started = '1';
+        try {
+          var p = video.play();
+          if (p && typeof p.catch === 'function') p.catch(function () {});
+        } catch (e) {}
       }
-    });
-  });
 
-  videos.forEach(v => observer.observe(v));
-</script>
+      if ('IntersectionObserver' in window) {
+        var observer = new IntersectionObserver(function (entries) {
+          entries.forEach(function (entry) {
+            if (entry.isIntersecting) safeStart(entry.target);
+          });
+        }, { threshold: 0.2 });
+
+        videos.forEach(function (video) {
+          observer.observe(video);
+        });
+      } else {
+        videos.forEach(safeStart);
+      }
+    })();
+  </script>
+
   <script defer src="/views/js/script.js"></script>
 </body>
 </html>
