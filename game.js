@@ -47,31 +47,31 @@ const CHARACTERS = {
     name: 'Einstein',
     shortDescription: '6 segítséged van 3 helyett.',
     fullDescription: 'Einsteinként összesen 6 KÖZÉPSULINEKED HELP-et használhatsz a meccs során.',
-    image: '/images/character-einstein.png',
+    image: '/images/character-einstein.webp',
   },
   kossuth: {
     id: 'kossuth',
     name: 'Széchényi',
     shortDescription: 'A Széchényi Kaszinót aktiválhatod kérdés előtt.',
     fullDescription: 'A kérdés előtt aktiválhatod a Széchényi Kaszinót. Ha ezzel szerzel területet, területenként +200 pont jár és az adott terület arannyá válik. Ha a próbálkozásod kudarcba fullad, -200 pontot kapsz.',
-    image: '/images/character-kossuth.png',
+    image: '/images/character-kossuth.webp',
   },
   napoleon: {
     id: 'napoleon',
     name: 'Napóleon',
     shortDescription: 'Ha tied egész Európa, +800 pontot kapsz.',
     fullDescription: 'Ha tied Western Europe, Middle Europe, Southern Europe, Northern Europe, Ukraine, Scandinavia és Great Britain, +800 pontod lesz addig, amíg a szövetség él.',
-    image: '/images/character-napoleon.png',
+    image: '/images/character-napoleon.webp',
   },
   brutus: {
     id: 'brutus',
     name: 'Brutus',
     shortDescription: '3 tükröző szabotázsod van battle phase-ben.',
     fullDescription: 'Battle kérdésnél 3 alkalommal lila, tükrözött kérdéskártyát adhatsz az ellenfelednek.',
-    image: '/images/character-brutus.png',
+    image: '/images/character-brutus.webp',
   },
 };
-const CHARACTER_ORDER = ['einstein', 'kossuth', 'napoleon', 'brutus'];
+const CHARACTER_ORDER = ['einstein', 'napoleon', 'brutus'];
 const NAPOLEON_EUROPE_NAMES = [
   'western europe',
   'middle europe',
@@ -782,6 +782,11 @@ async function handleSelectCharacter(room, socket, characterId) {
   if (room.game.phase !== PHASES.CHARACTER_SELECTION) return;
   if (room.game.currentplayer !== player.pid) {
     socket.emit('serverstatus', ['Most nem te választasz karaktert.']);
+    return;
+  }
+
+  if (characterId === 'kossuth') {
+    socket.emit('serverstatus', ['Ez a karakter jelenleg nem választható.']);
     return;
   }
   if (!CHARACTERS[characterId]) {

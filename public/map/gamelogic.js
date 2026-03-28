@@ -746,13 +746,13 @@ soundPlayers.questionTimer.loop = true;
 
 var GAME_CORNER_PROMO_LINK = 'https://kozepsulineked.com/products/30-napos-elofizetes-kozepsulineked';
 var GAME_CORNER_PROMO_VIDEO = '/videos/game-corner-promo.mp4';
-var QUESTION_HELP_ART_SRC = '/images/question-help-king.png';
-var QUESTION_SABOTAGE_ART_SRC = '/images/question-sabotage-clown.png';
+var QUESTION_HELP_ART_SRC = '/images/question-help-king.webp';
+var QUESTION_SABOTAGE_ART_SRC = '/images/question-sabotage-clown.webp';
 var CHARACTER_IMAGE_BY_ID = {
-  einstein: '/images/character-einstein.png',
-  kossuth: '/images/character-kossuth.png',
-  napoleon: '/images/character-napoleon.png',
-  brutus: '/images/character-brutus.png'
+  einstein: '/images/character-einstein.webp',
+  kossuth: '/images/character-kossuth.webp',
+  napoleon: '/images/character-napoleon.webp',
+  brutus: '/images/character-brutus.webp'
 };
 var CHARACTER_DEFS = {
   einstein: { id: 'einstein', name: 'Einstein', shortDescription: '6 segítséged van 3 helyett.', fullDescription: 'Einsteinként 6 KÖZÉPSULINEKED HELP-et kapsz a meccs teljes hosszára.' },
