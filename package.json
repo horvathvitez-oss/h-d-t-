@@ -27,7 +27,7 @@
     "express-session": "^1.15.6",
     "mongodb": "^3.0.5",
     "mongoose": "^5.0.12",
-    "nodemailer": "^6.9.14",
+    "nodemailer": "^6.10.1",
     "session": "^0.1.0",
     "socket.io": "^4.8.3",
     "ws": "8.18.3"
