@@ -1,5 +1,6 @@
 module.exports = function(app, io, db) {
   var express = require('express');
+  var nodemailer = require('nodemailer');
   var router = express.Router();
 
   app.use('/get_map/public/map/', express.static(__dirname + '/public/map/'));
@@ -17,6 +18,25 @@ module.exports = function(app, io, db) {
 
   require('./lobby')(io, db);
 
+  var FEATURE_REQUEST_TO = 'kozepsulineked@gmail.com';
+
+  function getSuggestionTransport() {
+    var gmailUser = String(process.env.GMAIL_USER || '').trim();
+    var gmailPassword = String(process.env.GMAIL_APP_PASSWORD || '').replace(/\s+/g, '');
+
+    if (!gmailUser || !gmailPassword) {
+      return null;
+    }
+
+    return nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        user: gmailUser,
+        pass: gmailPassword
+      }
+    });
+  }
+
   function withAuthenticatedUser(req, res, onSuccess) {
     User.findById(req.session.userId).exec(function(error, user) {
       if (error || user === null) {
@@ -32,9 +52,116 @@ module.exports = function(app, io, db) {
     return gameutil;
   }
 
-  router.get('/lobby', function(req, res) {
+  function isValidEmail(value) {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value || '').trim());
+  }
+
+  function normalizeSuggestionMessage(value) {
+    return String(value || '')
+      .replace(/\r\n/g, '\n')
+      .replace(/\r/g, '\n')
+      .trim();
+  }
+
+  function getSuggestionFlash(code) {
+    if (code === 'success') {
+      return {
+        type: 'success',
+        text: 'Köszönjük! A javaslatodat elküldtük nekünk emailben.'
+      };
+    }
+
+    if (code === 'invalid') {
+      return {
+        type: 'error',
+        text: 'Írj legalább 10 karakteres, legfeljebb 2000 karakteres javaslatot.'
+      };
+    }
+
+    if (code === 'rate_limited') {
+      return {
+        type: 'error',
+        text: 'Kérlek várj 1 percet a következő üzenet előtt.'
+      };
+    }
+
+    if (code === 'unavailable') {
+      return {
+        type: 'error',
+        text: 'Az emailküldés még nincs beállítva a szerveren.'
+      };
+    }
+
+    if (code === 'error') {
+      return {
+        type: 'error',
+        text: 'Hiba történt küldés közben. Próbáld újra egy kicsit később.'
+      };
+    }
+
+    return null;
+  }
+
+router.get('/lobby', function(req, res) {
+  withAuthenticatedUser(req, res, function(user) {
+    res.render('lobby', {
+      username: user.username,
+      email: user.email || '',
+      suggestionFlash: null
+    });
+  });
+});
+
+  router.post('/lobby/feature-request', function(req, res) {
     withAuthenticatedUser(req, res, function(user) {
-      res.render('lobby', { username: user.username });
+      var honeypot = String((req.body.website || '')).trim();
+      var message = normalizeSuggestionMessage(req.body.message);
+      var now = Date.now();
+      var transporter = getSuggestionTransport();
+
+      if (honeypot) {
+        return res.redirect('/lobby?suggestion=success');
+      }
+
+      if (!message || message.length < 10 || message.length > 2000) {
+        return res.redirect('/lobby?suggestion=invalid');
+      }
+
+      if (req.session.lastFeatureRequestAt && (now - req.session.lastFeatureRequestAt) < 60000) {
+        return res.redirect('/lobby?suggestion=rate_limited');
+      }
+
+      if (!transporter) {
+        return res.redirect('/lobby?suggestion=unavailable');
+      }
+
+      var replyTo = isValidEmail(user.email) ? String(user.email).trim() : String(process.env.GMAIL_USER || '').trim();
+      var textLines = [
+        'Új javaslat érkezett a HÓDÍTÓ lobbyból.',
+        '',
+        'Felhasználónév: ' + user.username,
+        'Felhasználó emailje: ' + (user.email || 'nincs megadva'),
+        'Időpont: ' + new Date(now).toISOString(),
+        '',
+        'Javaslat:',
+        message
+      ];
+
+      transporter.sendMail({
+        from: 'HÓDÍTÓ javaslatküldő <' + String(process.env.GMAIL_USER || '').trim() + '>',
+        to: FEATURE_REQUEST_TO,
+        replyTo: replyTo,
+        subject: '[HÓDÍTÓ] Új lobby javaslat - ' + user.username,
+        text: textLines.join('\n')
+      }, function(error) {
+        if (error) {
+          console.log('Feature request email error:', error);
+          return res.redirect('/lobby?suggestion=error');
+        }
+
+        req.session.lastFeatureRequestAt = now;
+        return res.redirect('/lobby?suggestion=success');
+      });
     });
   });
 
