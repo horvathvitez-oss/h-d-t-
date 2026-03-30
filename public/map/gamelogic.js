@@ -696,8 +696,8 @@ function renderMcqAnswers(payload) {
 var PLAYER_FILL_COLORS = ['#a95f4f', '#6d8660', '#d7cfbd'];
 var PLAYER_STROKE_COLORS = ['#5e2f20', '#334b31', '#7c7464'];
 var PLAYER_NAMES_FALLBACK = ['Piros', 'Zöld', 'Fehér'];
-var UNOWNED_FILL = '#eec05e';
-var UNOWNED_STROKE = '#806d06a9';
+var UNOWNED_FILL = '#805905';
+var UNOWNED_STROKE = '#f0de44e3';
 
 
 var SOUND_BASE = document.body.getAttribute('data-sound-base') || '/sounds';
