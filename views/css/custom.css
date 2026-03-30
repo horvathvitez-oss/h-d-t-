@@ -6192,19 +6192,37 @@ body.game-screen .leaflet-interactive.territory-selectable-battle-hover {
 
 
 /* =========================
-   FINAL FIXED TOPOGRAPHY MAP OVERRIDE
+   FIXED SCREENSHOT MAP BACKGROUND
    ========================= */
+
 body.game-screen,
 body.game-screen #game-shell {
-  background: #000 !important;
+  background: #0b0d10 !important;
 }
 
 #sea-vanta,
-body.game-screen #sea-vanta,
+body.game-screen #sea-vanta {
+  display: block !important;
+  position: absolute !important;
+  inset: 0 !important;
+  z-index: 0 !important;
+  pointer-events: none !important;
+  overflow: hidden !important;
+  background-color: transparent !important;
+  background-image: url('../../../public/map/img/topography_full_map_fixed.png') !important;
+  background-repeat: no-repeat !important;
+  background-position: center center !important;
+  background-size: 100% 100% !important;
+}
+
+#sea-vanta::before,
+#sea-vanta::after,
+body.game-screen #sea-vanta::before,
+body.game-screen #sea-vanta::after,
 .map-vignette,
 body.game-screen .map-vignette {
   display: none !important;
-  background: none !important;
+  content: none !important;
 }
 
 #map,
@@ -6219,12 +6237,16 @@ body.game-screen .leaflet-overlay-pane svg {
 }
 
 body.game-screen .leaflet-interactive {
-  stroke: #c59a60 !important;
-  stroke-width: 3.2px !important;
+  stroke: #caa06b !important;
+  stroke-width: 3.6px !important;
   stroke-opacity: 1 !important;
-  stroke-dasharray: none !important;
   stroke-linejoin: round !important;
   stroke-linecap: round !important;
+}
+
+body.game-screen .leaflet-interactive.territory-unselectable {
+  opacity: 1 !important;
+  filter: none !important;
 }
 
 body.game-screen .leaflet-interactive.territory-selectable,
@@ -6234,12 +6256,6 @@ body.game-screen .leaflet-interactive.territory-selectable-adjacent,
 body.game-screen .leaflet-interactive.territory-selectable-fallback,
 body.game-screen .leaflet-interactive.territory-selectable-hover,
 body.game-screen .leaflet-interactive.territory-selectable-battle-hover {
-  stroke: #e1c28e !important;
-  stroke-width: 4.1px !important;
+  stroke: #e3bf8a !important;
   stroke-opacity: 1 !important;
-}
-
-body.game-screen .leaflet-interactive.territory-unselectable {
-  opacity: 1 !important;
-  filter: none !important;
 }
