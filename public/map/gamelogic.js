@@ -693,11 +693,11 @@ function renderMcqAnswers(payload) {
   }, 4900);
 }
 
-var PLAYER_FILL_COLORS = ['#a95f4f', '#6d8660', '#d7cfbd'];
-var PLAYER_STROKE_COLORS = ['#5e2f20', '#334b31', '#7c7464'];
+var PLAYER_FILL_COLORS = ['#cf4a42', '#4e9a58', '#eee2cf'];
+var PLAYER_STROKE_COLORS = ['#7d2f27', '#2f6137', '#9d927e'];
 var PLAYER_NAMES_FALLBACK = ['Piros', 'Zöld', 'Fehér'];
-var UNOWNED_FILL = '#bea263';
-var UNOWNED_STROKE = '#634d25';
+var UNOWNED_FILL = '#c3a06a';
+var UNOWNED_STROKE = '#8d6a3b';
 
 
 var SOUND_BASE = document.body.getAttribute('data-sound-base') || '/sounds';
@@ -978,13 +978,57 @@ function createGameCornerPromo() {
   return promo;
 }
 
+var FIXED_MAP_CENTER = [28.741448555784725, 8.891923835419139];
+var FIXED_MAP_ZOOM = 1.7329522517480276;
+var TOPOGRAPHY_IMAGE_PATH = '../../../public/map/img/topography_full_map.png';
+var TOPOGRAPHY_IMAGE_BOUNDS = [
+  [-64.90903306380865, -137.69497786440783],
+  [81.07864553003454, 155.47882553524613]
+];
+var topographyOverlay = null;
+var suppressFixedMapEnforce = false;
+
 var map = L.map('map', {
   zoomControl: false,
   attributionControl: false,
   zoomSnap: 0,
   zoomDelta: 0.25
-}).setView([43.8476, 18.3564], 2);
-L.control.zoom({ position: 'bottomright' }).addTo(map);
+}).setView(FIXED_MAP_CENTER, FIXED_MAP_ZOOM);
+
+map.createPane('oceanPane');
+map.getPane('oceanPane').style.zIndex = 250;
+map.getPane('oceanPane').style.pointerEvents = 'none';
+
+function enforceFixedMapView() {
+  if (suppressFixedMapEnforce) return;
+  var center = map.getCenter();
+  var zoom = map.getZoom();
+  if (
+    Math.abs(center.lat - FIXED_MAP_CENTER[0]) > 1e-9 ||
+    Math.abs(center.lng - FIXED_MAP_CENTER[1]) > 1e-9 ||
+    Math.abs(zoom - FIXED_MAP_ZOOM) > 1e-9
+  ) {
+    suppressFixedMapEnforce = true;
+    map.setView(FIXED_MAP_CENTER, FIXED_MAP_ZOOM, { animate: false });
+    suppressFixedMapEnforce = false;
+  }
+}
+
+function lockMapInteractions() {
+  map.options.minZoom = FIXED_MAP_ZOOM;
+  map.options.maxZoom = FIXED_MAP_ZOOM;
+  map.dragging.disable();
+  map.touchZoom.disable();
+  map.doubleClickZoom.disable();
+  map.scrollWheelZoom.disable();
+  map.boxZoom.disable();
+  map.keyboard.disable();
+  if (map.tap) map.tap.disable();
+  enforceFixedMapView();
+}
+
+map.on('moveend zoomend resize', enforceFixedMapView);
+lockMapInteractions();
 
 
 
@@ -1633,7 +1677,7 @@ function countriesOnEachFeature(feature, layer) {
       var selectableBattle = Boolean(state.game && state.game.phase === 'BATTLE_SELECTION' && state.game.currentplayer === USER.pid && isSelectableAttack(tid));
       if (selectableExpansion || selectableBattle) {
         baseStyle.weight = Math.max(baseStyle.weight || 2, selectableBattle ? 8 : 7);
-        baseStyle.fillOpacity = Math.min((baseStyle.fillOpacity || 0.7) + (selectableBattle ? 0.07 : 0.06), 0.98);
+        baseStyle.fillOpacity = Math.min((baseStyle.fillOpacity || 0.5) + (selectableBattle ? 0.06 : 0.05), 0.82);
         baseStyle.color = selectableBattle ? '#ffe8ad' : '#fff8de';
         e.target.setStyle(baseStyle);
         if (e.target._path && e.target._path.classList) {
@@ -1643,7 +1687,7 @@ function countriesOnEachFeature(feature, layer) {
         if (e.target.bringToFront) e.target.bringToFront();
       } else {
         baseStyle.weight = Math.max(baseStyle.weight || 2, 3);
-        baseStyle.fillOpacity = Math.min((baseStyle.fillOpacity || 0.7) + 0.03, 0.9);
+        baseStyle.fillOpacity = Math.min((baseStyle.fillOpacity || 0.5) + 0.03, 0.72);
         e.target.setStyle(baseStyle);
       }
     },
@@ -1998,11 +2042,11 @@ function buildLayerStyle(tid) {
   var ownerStroke = territory.ownsto >= 0 ? (hasSzechenyiCasino ? '#fff0b2' : getOwnerStroke(territory.ownsto)) : UNOWNED_STROKE;
 
   var style = {
-    weight: castle ? 4 : 2,
+    weight: castle ? 4.6 : 3.2,
     opacity: 1,
-    color: ownerStroke,
-    dashArray: castle ? '' : '4 4',
-    fillOpacity: territory.ownsto >= 0 ? 0.9 : 0.58,
+    color: '#c59a60',
+    dashArray: '',
+    fillOpacity: territory.ownsto >= 0 ? 0.62 : 0.38,
     fillColor: ownerFill,
   };
 
@@ -2011,7 +2055,7 @@ function buildLayerStyle(tid) {
     style.weight = 4;
     style.color = '#f3d8a3';
     style.fillColor = lightenHex(ownerFill, 0.18);
-    style.fillOpacity = 0.72;
+    style.fillOpacity = 0.56;
     style.dashArray = '';
   }
 
@@ -2025,7 +2069,7 @@ function buildLayerStyle(tid) {
       style.fillColor = expansionHighlight.adjacentSelectable
         ? lightenHex(getOwnerColor(USER.pid), 0.26)
         : rgba(getOwnerColor(USER.pid), 0.8);
-      style.fillOpacity = expansionHighlight.adjacentSelectable ? 0.92 : 0.8;
+      style.fillOpacity = expansionHighlight.adjacentSelectable ? 0.74 : 0.62;
       style.dashArray = '';
       style.className = expansionHighlight.adjacentSelectable
         ? 'territory-selectable territory-selectable-adjacent territory-elevated'
@@ -2034,7 +2078,7 @@ function buildLayerStyle(tid) {
       style.weight = 1.8;
       style.color = 'rgba(111,84,58,0.62)';
       style.fillColor = expansionHighlight.adjacentCount ? 'rgba(143,116,82,0.44)' : rgba(UNOWNED_FILL, 0.68);
-      style.fillOpacity = expansionHighlight.adjacentCount ? 0.42 : 0.52;
+      style.fillOpacity = expansionHighlight.adjacentCount ? 0.34 : 0.42;
       style.dashArray = '3 5';
       style.className = 'territory-unselectable';
     }
@@ -2042,7 +2086,7 @@ function buildLayerStyle(tid) {
 
   if (hasSzechenyiCasino) {
     style.weight = Math.max(style.weight, 4.2);
-    style.fillOpacity = territory.ownsto >= 0 ? 0.94 : style.fillOpacity;
+    style.fillOpacity = territory.ownsto >= 0 ? 0.68 : style.fillOpacity;
     style.className = ((style.className ? style.className + ' ' : '') + 'territory-szechenyi-casino').trim();
   }
 
@@ -2051,7 +2095,7 @@ function buildLayerStyle(tid) {
     style.weight = Math.max(style.weight, 4.5);
     style.color = '#9fd4ff';
     style.fillColor = territory.ownsto >= 0 ? '#4f7ed6' : '#3b5ea8';
-    style.fillOpacity = territory.ownsto >= 0 ? 0.88 : 0.72;
+    style.fillOpacity = territory.ownsto >= 0 ? 0.66 : 0.46;
     style.className = ((style.className ? style.className + ' ' : '') + 'territory-napoleon-europe').trim();
   }
 
@@ -2059,7 +2103,7 @@ function buildLayerStyle(tid) {
     style.weight = 6.5;
     style.color = '#ffe2a2';
     style.fillColor = rgba(getOwnerColor(USER.pid), 0.82);
-    style.fillOpacity = 0.88;
+    style.fillOpacity = 0.72;
     style.dashArray = '';
     style.className = 'territory-selectable territory-selectable-battle territory-elevated';
   }
@@ -2640,15 +2684,27 @@ function onStateSnapshot(payload) {
 
 
 
+
+function ensureTopographyOverlay() {
+  if (topographyOverlay && map.hasLayer(topographyOverlay)) {
+    map.removeLayer(topographyOverlay);
+  }
+  topographyOverlay = L.imageOverlay(TOPOGRAPHY_IMAGE_PATH, TOPOGRAPHY_IMAGE_BOUNDS, {
+    interactive: false,
+    opacity: 1,
+    pane: 'oceanPane'
+  }).addTo(map);
+}
+
 function initializeMap() {
   function baseStyle() {
     return {
       fillColor: UNOWNED_FILL,
-      weight: 2,
+      weight: 3.2,
       opacity: 1,
-      color: UNOWNED_STROKE,
-      dashArray: '4 4',
-      fillOpacity: 0.58,
+      color: '#c59a60',
+      dashArray: '',
+      fillOpacity: 0.38,
     };
   }
 
@@ -2664,6 +2720,10 @@ function initializeMap() {
   } else {
     countriesLayer = L.geoJson(countries, { style: baseStyle, onEachFeature: countriesOnEachFeature }).addTo(map);
   }
+
+  ensureTopographyOverlay();
+  if (countriesLayer && countriesLayer.bringToFront) countriesLayer.bringToFront();
+  lockMapInteractions();
 }
 
 
