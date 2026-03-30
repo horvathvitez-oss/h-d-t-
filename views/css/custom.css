@@ -6057,3 +6057,44 @@ body.game-screen #map,
 .leaflet-container {
   background: transparent !important;
 }
+
+/* ===== GPT FINAL SEA CLEANUP ===== */
+#game-shell,
+body.game-screen #game-shell {
+  background: transparent !important;
+}
+
+#sea-vanta,
+body.game-screen #sea-vanta {
+  background: #0056b1 !important;
+}
+
+#sea-vanta::before,
+#sea-vanta::after {
+  display: none !important;
+  content: none !important;
+}
+
+#sea-vanta .vanta-canvas,
+#sea-vanta canvas {
+  mix-blend-mode: normal !important;
+  opacity: 1 !important;
+}
+
+#map,
+body.game-screen #map,
+#map .leaflet-container,
+.leaflet-container {
+  background: transparent !important;
+}
+
+.map-vignette,
+body.game-screen .map-vignette {
+  background: none !important;
+}
+
+body.game-screen .log-card,
+body.game-screen .compact-log-card,
+#gamelog {
+  display: none !important;
+}
