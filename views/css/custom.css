@@ -6138,3 +6138,54 @@ body.game-screen .map-vignette {
   display: none !important;
   background: none !important;
 }
+
+
+/* =========================
+   GPT FINAL MAP LOCK + OCEAN OVERLAY
+   ========================= */
+body.game-screen,
+body.game-screen #game-shell {
+  background: #0056b1 !important;
+}
+
+#sea-vanta,
+body.game-screen #sea-vanta,
+.map-vignette,
+body.game-screen .map-vignette {
+  display: none !important;
+}
+
+#map,
+body.game-screen #map,
+#map .leaflet-container,
+.leaflet-container {
+  background: transparent !important;
+}
+
+body.game-screen .leaflet-overlay-pane svg {
+  filter: none !important;
+}
+
+body.game-screen .leaflet-interactive {
+  stroke: #c59a60 !important;
+  stroke-width: 3.2px !important;
+  stroke-opacity: 1 !important;
+  stroke-linejoin: round !important;
+  stroke-linecap: round !important;
+}
+
+body.game-screen .leaflet-interactive.territory-unselectable {
+  opacity: 1 !important;
+  filter: none !important;
+}
+
+body.game-screen .leaflet-interactive.territory-selectable,
+body.game-screen .leaflet-interactive.territory-selectable-battle,
+body.game-screen .leaflet-interactive.territory-elevated,
+body.game-screen .leaflet-interactive.territory-selectable-adjacent,
+body.game-screen .leaflet-interactive.territory-selectable-fallback,
+body.game-screen .leaflet-interactive.territory-selectable-hover,
+body.game-screen .leaflet-interactive.territory-selectable-battle-hover {
+  stroke: #e0bf89 !important;
+  stroke-opacity: 1 !important;
+}
