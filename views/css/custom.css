@@ -1023,7 +1023,7 @@ body.game-screen {
   margin: 0;
   overflow: hidden;
   font-family: 'Lato', sans-serif;
-  background: #061018;
+  background: #5193c9;
 }
 
 
@@ -1033,7 +1033,7 @@ body.game-screen {
   height: 100vh;
   overflow: hidden;
   background:
-    radial-gradient(circle at center, rgba(218, 198, 155, 0.08), rgba(5, 16, 24, 0.82) 62%),
+    radial-gradient(circle at center, rgba(105, 97, 139, 0.08), rgba(5, 16, 24, 0.82) 62%),
     #09131a;
 }
 
@@ -1048,8 +1048,8 @@ body.game-screen {
   background:
     radial-gradient(circle at 22% 18%, rgba(182, 225, 237, 0.18) 0%, rgba(182, 225, 237, 0) 24%),
     radial-gradient(circle at 76% 26%, rgba(121, 191, 216, 0.14) 0%, rgba(121, 191, 216, 0) 26%),
-    radial-gradient(circle at 50% 70%, rgba(69, 126, 168, 0.18) 0%, rgba(69, 126, 168, 0) 32%),
-    linear-gradient(180deg, #2f7da3 0%, #24698f 18%, #1b577a 38%, #134764 62%, #0d3550 82%, #08253c 100%);
+    radial-gradient(circle at 50% 70%, rgba(69, 126, 168, 0.18) 0%, rgba(69, 127, 168, 0.877) 32%),
+    linear-gradient(180deg, #2f7da3 0%, #24698f 18%, #1b577a 38%, #245874 62%, #0d3550 82%, #2c85ce 100%);
 }
 
 
