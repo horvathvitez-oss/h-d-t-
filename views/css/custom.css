@@ -6051,3 +6051,9 @@ body.castle-cinematic-active #game-shell {
     min-height: 120px;
   }
 }
+#map,
+body.game-screen #map,
+#map .leaflet-container,
+.leaflet-container {
+  background: transparent !important;
+}
