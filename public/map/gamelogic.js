@@ -981,6 +981,8 @@ function createGameCornerPromo() {
 var map = L.map('map', {
   zoomControl: false,
   attributionControl: false,
+  zoomSnap: 0,
+  zoomDelta: 0.25
 }).setView([43.8476, 18.3564], 2);
 L.control.zoom({ position: 'bottomright' }).addTo(map);
 
