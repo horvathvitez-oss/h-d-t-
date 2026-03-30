@@ -22,9 +22,6 @@
   <script src="/socket.io/socket.io.js"></script>
   <script src="https://code.jquery.com/jquery-3.3.1.min.js"></script>
 
-  <script src="../../../public/map/lib/leaflet/vanta/three.min.js"></script>
-  <script src="../../../public/map/lib/leaflet/vanta/vanta.waves.min.js"></script>
-
 
 
 
@@ -124,53 +121,6 @@
   </div>
 
 
-
-
   <script src="../../../public/map/gamelogic.js"></script>
-
-  <script>
-    (function () {
-      var seaEffect = null;
-
-      function initSeaVanta() {
-        var sea = document.getElementById('sea-vanta');
-        if (!sea || typeof VANTA === 'undefined' || !VANTA.WAVES || typeof THREE === 'undefined') {
-          return;
-        }
-
-        if (seaEffect && typeof seaEffect.destroy === 'function') {
-          seaEffect.destroy();
-        }
-
-        seaEffect = VANTA.WAVES({
-          el: sea,
-          THREE: THREE,
-          mouseControls: false,
-          touchControls: false,
-          gyroControls: false,
-          color: 0x56b1,
-          shininess: 21,
-          waveHeight: 40,
-          waveSpeed: 0.95,
-          zoom: 0.7
-        });
-
-        window.__hoditoSeaVanta = seaEffect;
-      }
-
-      if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', initSeaVanta);
-      } else {
-        initSeaVanta();
-      }
-
-      window.addEventListener('resize', function () {
-        if (window.__hoditoSeaVanta && typeof window.__hoditoSeaVanta.resize === 'function') {
-          window.__hoditoSeaVanta.resize();
-        }
-      });
-    })();
-  </script>
-
 </body>
 </html>

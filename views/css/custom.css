@@ -6098,3 +6098,43 @@ body.game-screen .compact-log-card,
 #gamelog {
   display: none !important;
 }
+
+/* =========================
+   PNG SEA BACKGROUND
+   ========================= */
+
+body.game-screen #game-shell {
+  background: transparent !important;
+}
+
+#sea-vanta,
+body.game-screen #sea-vanta {
+  background-color: #0056b1 !important;
+  background-image: url('../../../public/map/img/sea_fable_tile.png') !important;
+  background-position: center center !important;
+  background-repeat: repeat !important;
+  background-size: 1024px 1024px !important;
+  animation: none !important;
+  isolation: auto !important;
+}
+
+#sea-vanta::before,
+#sea-vanta::after,
+#sea-vanta .vanta-canvas,
+#sea-vanta canvas {
+  display: none !important;
+  content: none !important;
+}
+
+#map,
+body.game-screen #map,
+#map .leaflet-container,
+.leaflet-container {
+  background: transparent !important;
+}
+
+.map-vignette,
+body.game-screen .map-vignette {
+  display: none !important;
+  background: none !important;
+}
