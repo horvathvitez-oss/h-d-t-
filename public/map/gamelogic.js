@@ -995,6 +995,8 @@ var map = L.map('map', {
   zoomControl: false,
   attributionControl: false,
   maxBoundsViscosity: 1.0,
+  zoomSnap: 0.1,
+  zoomDelta: 0.25,
 }).setView(MAP_BACKGROUND_CALIBRATION.center, MAP_BACKGROUND_CALIBRATION.zoom);
 L.control.zoom({ position: 'bottomright' }).addTo(map);
 
@@ -1031,34 +1033,47 @@ function ensureBackgroundImageOverlay() {
   return backgroundImageOverlay;
 }
 
-function getResponsiveBackgroundCoverZoom() {
+function getResponsiveBackgroundHeightFitZoom() {
   var bounds = getBackgroundCalibrationBounds();
-  var coverZoom = map.getBoundsZoom(bounds, true, L.point(0, 0));
-  if (!Number.isFinite(coverZoom)) {
+  var north = bounds.getNorth();
+  var south = bounds.getSouth();
+  var centerLng = bounds.getCenter().lng;
+  var topPoint = map.project(L.latLng(north, centerLng), 0);
+  var bottomPoint = map.project(L.latLng(south, centerLng), 0);
+  var projectedHeightAtZoomZero = Math.abs(bottomPoint.y - topPoint.y);
+  var viewportHeight = Math.max(map.getSize().y, 1);
+
+  if (!projectedHeightAtZoomZero || !Number.isFinite(projectedHeightAtZoomZero)) {
     return MAP_BACKGROUND_CALIBRATION.zoom;
   }
-  return coverZoom;
+
+  var heightFitZoom = Math.log(viewportHeight / projectedHeightAtZoomZero) / Math.LN2;
+  if (!Number.isFinite(heightFitZoom)) {
+    return MAP_BACKGROUND_CALIBRATION.zoom;
+  }
+
+  return Math.round((heightFitZoom + 0.05) * 10) / 10;
 }
 
 function applyResponsiveBackgroundConstraints(options) {
   var settings = options || {};
   var bounds = getBackgroundCalibrationBounds();
-  var coverZoom = getResponsiveBackgroundCoverZoom();
+  var heightFitZoom = getResponsiveBackgroundHeightFitZoom();
   var center = bounds.getCenter();
 
-  map.setMinZoom(coverZoom);
+  map.setMinZoom(heightFitZoom);
   map.setMaxBounds(bounds);
 
   if (settings.resetView) {
-    map.setView(center, coverZoom, {
+    map.setView(center, heightFitZoom, {
       animate: false,
       reset: true
     });
     return;
   }
 
-  if (map.getZoom() < coverZoom) {
-    map.setZoom(coverZoom, { animate: false });
+  if (map.getZoom() < heightFitZoom) {
+    map.setZoom(heightFitZoom, { animate: false });
   }
   map.panInsideBounds(bounds, { animate: false });
 }
