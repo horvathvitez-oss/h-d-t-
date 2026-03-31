@@ -14,6 +14,19 @@ var questionCountdownInterval = null;
 var questionRevealTimer = null;
 var castleCinematicTimer = null;
 var castleCinematicCleanupTimer = null;
+var backgroundImageOverlay = null;
+var mapResizeInvalidateTimer = null;
+
+var MAP_BACKGROUND_IMAGE_URL = '/public/map/assets/map-background-7680x3552.png';
+var MAP_BACKGROUND_IMAGE_NAME = 'map-background-7680x3552.png';
+var MAP_BACKGROUND_CALIBRATION = {
+  zoom: 0,
+  center: [49.38237278700955, 14.765625000000002],
+  bounds: [
+    [-89.63280173566288, -642.65625],
+    [89.9497069855649, 672.1875000000001]
+  ]
+};
 
 
 
@@ -981,8 +994,61 @@ function createGameCornerPromo() {
 var map = L.map('map', {
   zoomControl: false,
   attributionControl: false,
-}).setView([43.8476, 18.3564], 2);
+  minZoom: MAP_BACKGROUND_CALIBRATION.zoom,
+}).setView(MAP_BACKGROUND_CALIBRATION.center, MAP_BACKGROUND_CALIBRATION.zoom);
 L.control.zoom({ position: 'bottomright' }).addTo(map);
+
+function ensureBackgroundImagePane() {
+  if (!map.getPane('backgroundImagePane')) {
+    map.createPane('backgroundImagePane');
+    var pane = map.getPane('backgroundImagePane');
+    pane.classList.add('leaflet-background-image-pane');
+    pane.style.zIndex = 250;
+    pane.style.pointerEvents = 'none';
+  }
+  return map.getPane('backgroundImagePane');
+}
+
+function ensureBackgroundImageOverlay() {
+  ensureBackgroundImagePane();
+  if (backgroundImageOverlay) return backgroundImageOverlay;
+
+  backgroundImageOverlay = L.imageOverlay(MAP_BACKGROUND_IMAGE_URL, MAP_BACKGROUND_CALIBRATION.bounds, {
+    pane: 'backgroundImagePane',
+    interactive: false,
+    opacity: 1,
+    className: 'leaflet-background-image'
+  }).addTo(map);
+
+  backgroundImageOverlay.once('error', function () {
+    console.warn('A háttérkép nem töltődött be. Tedd ide: ' + MAP_BACKGROUND_IMAGE_URL + ' (' + MAP_BACKGROUND_IMAGE_NAME + ')');
+  });
+
+  return backgroundImageOverlay;
+}
+
+function applyResponsiveInitialMapView() {
+  map.setView(MAP_BACKGROUND_CALIBRATION.center, MAP_BACKGROUND_CALIBRATION.zoom, {
+    animate: false,
+    reset: true
+  });
+}
+
+function invalidateMapSizeSoon() {
+  if (mapResizeInvalidateTimer) {
+    clearTimeout(mapResizeInvalidateTimer);
+  }
+  mapResizeInvalidateTimer = setTimeout(function () {
+    map.invalidateSize({ pan: false, animate: false });
+  }, 80);
+}
+
+window.addEventListener('resize', invalidateMapSizeSoon);
+window.addEventListener('orientationchange', invalidateMapSizeSoon);
+
+ensureBackgroundImageOverlay();
+applyResponsiveInitialMapView();
+invalidateMapSizeSoon();
 
 
 
@@ -993,7 +1059,7 @@ L.control.zoom({ position: 'bottomright' }).addTo(map);
 
 var questionModal = buildQuestionModal();
 var castleCinematicOverlay = ensureCastleCinematicOverlay();
-var gameCornerPromo = createGameCornerPromo();
+var gameCornerPromo = null;
 ensureCharacterUi();
 
 
@@ -2639,6 +2705,8 @@ function onStateSnapshot(payload) {
 
 
 function initializeMap() {
+  ensureBackgroundImageOverlay();
+
   function baseStyle() {
     return {
       fillColor: UNOWNED_FILL,
