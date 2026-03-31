@@ -693,11 +693,11 @@ function renderMcqAnswers(payload) {
   }, 4900);
 }
 
-var PLAYER_FILL_COLORS = ['#d84b43', '#43a653', '#f0ebe0'];
-var PLAYER_STROKE_COLORS = ['#8d3528', '#2d6e38', '#b6aa94'];
+var PLAYER_FILL_COLORS = ['#a95f4f', '#6d8660', '#d7cfbd'];
+var PLAYER_STROKE_COLORS = ['#5e2f20', '#334b31', '#7c7464'];
 var PLAYER_NAMES_FALLBACK = ['Piros', 'Zöld', 'Fehér'];
-var UNOWNED_FILL = '#b39768';
-var UNOWNED_STROKE = '#8e7348';
+var UNOWNED_FILL = '#b69f79';
+var UNOWNED_STROKE = '#5a442d';
 
 
 var SOUND_BASE = document.body.getAttribute('data-sound-base') || '/sounds';
@@ -978,36 +978,11 @@ function createGameCornerPromo() {
   return promo;
 }
 
-var FIXED_MAP_CENTER = [28.741448555784725, 8.891923835419139];
-var FIXED_MAP_ZOOM = 1.7329522517480276;
-
 var map = L.map('map', {
   zoomControl: false,
   attributionControl: false,
-  zoomSnap: 0,
-  zoomDelta: 0.25,
-  dragging: false,
-  scrollWheelZoom: false,
-  doubleClickZoom: false,
-  boxZoom: false,
-  keyboard: false,
-  touchZoom: false,
-  tap: false,
-  inertia: false,
-  minZoom: FIXED_MAP_ZOOM,
-  maxZoom: FIXED_MAP_ZOOM
-}).setView(FIXED_MAP_CENTER, FIXED_MAP_ZOOM);
-
-map.dragging.disable();
-map.scrollWheelZoom.disable();
-map.doubleClickZoom.disable();
-map.boxZoom.disable();
-map.keyboard.disable();
-map.touchZoom.disable();
-if (map.tap) map.tap.disable();
-map.setMinZoom(FIXED_MAP_ZOOM);
-map.setMaxZoom(FIXED_MAP_ZOOM);
-map.setView(FIXED_MAP_CENTER, FIXED_MAP_ZOOM, { animate: false, reset: true });
+}).setView([43.8476, 18.3564], 2);
+L.control.zoom({ position: 'bottomright' }).addTo(map);
 
 
 
@@ -2025,7 +2000,7 @@ function buildLayerStyle(tid) {
     opacity: 1,
     color: ownerStroke,
     dashArray: castle ? '' : '4 4',
-    fillOpacity: territory.ownsto >= 0 ? 0.62 : 0.28,
+    fillOpacity: territory.ownsto >= 0 ? 0.9 : 0.58,
     fillColor: ownerFill,
   };
 
@@ -2034,7 +2009,7 @@ function buildLayerStyle(tid) {
     style.weight = 4;
     style.color = '#f3d8a3';
     style.fillColor = lightenHex(ownerFill, 0.18);
-    style.fillOpacity = 0.54;
+    style.fillOpacity = 0.72;
     style.dashArray = '';
   }
 
@@ -2048,7 +2023,7 @@ function buildLayerStyle(tid) {
       style.fillColor = expansionHighlight.adjacentSelectable
         ? lightenHex(getOwnerColor(USER.pid), 0.26)
         : rgba(getOwnerColor(USER.pid), 0.8);
-      style.fillOpacity = expansionHighlight.adjacentSelectable ? 0.78 : 0.64;
+      style.fillOpacity = expansionHighlight.adjacentSelectable ? 0.92 : 0.8;
       style.dashArray = '';
       style.className = expansionHighlight.adjacentSelectable
         ? 'territory-selectable territory-selectable-adjacent territory-elevated'
@@ -2057,7 +2032,7 @@ function buildLayerStyle(tid) {
       style.weight = 1.8;
       style.color = 'rgba(111,84,58,0.62)';
       style.fillColor = expansionHighlight.adjacentCount ? 'rgba(143,116,82,0.44)' : rgba(UNOWNED_FILL, 0.68);
-      style.fillOpacity = expansionHighlight.adjacentCount ? 0.26 : 0.32;
+      style.fillOpacity = expansionHighlight.adjacentCount ? 0.42 : 0.52;
       style.dashArray = '3 5';
       style.className = 'territory-unselectable';
     }
@@ -2065,7 +2040,7 @@ function buildLayerStyle(tid) {
 
   if (hasSzechenyiCasino) {
     style.weight = Math.max(style.weight, 4.2);
-    style.fillOpacity = territory.ownsto >= 0 ? 0.68 : style.fillOpacity;
+    style.fillOpacity = territory.ownsto >= 0 ? 0.94 : style.fillOpacity;
     style.className = ((style.className ? style.className + ' ' : '') + 'territory-szechenyi-casino').trim();
   }
 
@@ -2074,7 +2049,7 @@ function buildLayerStyle(tid) {
     style.weight = Math.max(style.weight, 4.5);
     style.color = '#9fd4ff';
     style.fillColor = territory.ownsto >= 0 ? '#4f7ed6' : '#3b5ea8';
-    style.fillOpacity = territory.ownsto >= 0 ? 0.66 : 0.34;
+    style.fillOpacity = territory.ownsto >= 0 ? 0.88 : 0.72;
     style.className = ((style.className ? style.className + ' ' : '') + 'territory-napoleon-europe').trim();
   }
 
@@ -2082,7 +2057,7 @@ function buildLayerStyle(tid) {
     style.weight = 6.5;
     style.color = '#ffe2a2';
     style.fillColor = rgba(getOwnerColor(USER.pid), 0.82);
-    style.fillOpacity = 0.72;
+    style.fillOpacity = 0.88;
     style.dashArray = '';
     style.className = 'territory-selectable territory-selectable-battle territory-elevated';
   }
@@ -2671,7 +2646,7 @@ function initializeMap() {
       opacity: 1,
       color: UNOWNED_STROKE,
       dashArray: '4 4',
-      fillOpacity: 0.28,
+      fillOpacity: 0.58,
     };
   }
 
