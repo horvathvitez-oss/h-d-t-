@@ -994,9 +994,13 @@ function createGameCornerPromo() {
 var map = L.map('map', {
   zoomControl: false,
   attributionControl: false,
-  minZoom: MAP_BACKGROUND_CALIBRATION.zoom,
+  maxBoundsViscosity: 1.0,
 }).setView(MAP_BACKGROUND_CALIBRATION.center, MAP_BACKGROUND_CALIBRATION.zoom);
 L.control.zoom({ position: 'bottomright' }).addTo(map);
+
+function getBackgroundCalibrationBounds() {
+  return L.latLngBounds(MAP_BACKGROUND_CALIBRATION.bounds);
+}
 
 function ensureBackgroundImagePane() {
   if (!map.getPane('backgroundImagePane')) {
@@ -1013,7 +1017,7 @@ function ensureBackgroundImageOverlay() {
   ensureBackgroundImagePane();
   if (backgroundImageOverlay) return backgroundImageOverlay;
 
-  backgroundImageOverlay = L.imageOverlay(MAP_BACKGROUND_IMAGE_URL, MAP_BACKGROUND_CALIBRATION.bounds, {
+  backgroundImageOverlay = L.imageOverlay(MAP_BACKGROUND_IMAGE_URL, getBackgroundCalibrationBounds(), {
     pane: 'backgroundImagePane',
     interactive: false,
     opacity: 1,
@@ -1027,28 +1031,58 @@ function ensureBackgroundImageOverlay() {
   return backgroundImageOverlay;
 }
 
-function applyResponsiveInitialMapView() {
-  map.setView(MAP_BACKGROUND_CALIBRATION.center, MAP_BACKGROUND_CALIBRATION.zoom, {
-    animate: false,
-    reset: true
-  });
+function getResponsiveBackgroundMinZoom() {
+  var bounds = getBackgroundCalibrationBounds();
+  var minZoom = map.getBoundsZoom(bounds, false, L.point(0, 0));
+  if (!Number.isFinite(minZoom)) {
+    return MAP_BACKGROUND_CALIBRATION.zoom;
+  }
+  return minZoom;
 }
 
-function invalidateMapSizeSoon() {
+function applyResponsiveBackgroundConstraints(options) {
+  var settings = options || {};
+  var bounds = getBackgroundCalibrationBounds();
+  var minZoom = getResponsiveBackgroundMinZoom();
+
+  map.setMinZoom(minZoom);
+  map.setMaxBounds(bounds);
+
+  if (settings.resetView) {
+    map.fitBounds(bounds, {
+      animate: false,
+      paddingTopLeft: [0, 0],
+      paddingBottomRight: [0, 0]
+    });
+    return;
+  }
+
+  if (map.getZoom() < minZoom) {
+    map.setZoom(minZoom, { animate: false });
+  }
+  map.panInsideBounds(bounds, { animate: false });
+}
+
+function invalidateMapSizeSoon(options) {
+  var settings = options || {};
   if (mapResizeInvalidateTimer) {
     clearTimeout(mapResizeInvalidateTimer);
   }
   mapResizeInvalidateTimer = setTimeout(function () {
     map.invalidateSize({ pan: false, animate: false });
+    applyResponsiveBackgroundConstraints({ resetView: Boolean(settings.resetView) });
   }, 80);
 }
 
-window.addEventListener('resize', invalidateMapSizeSoon);
-window.addEventListener('orientationchange', invalidateMapSizeSoon);
+window.addEventListener('resize', function () {
+  invalidateMapSizeSoon({ resetView: false });
+});
+window.addEventListener('orientationchange', function () {
+  invalidateMapSizeSoon({ resetView: false });
+});
 
 ensureBackgroundImageOverlay();
-applyResponsiveInitialMapView();
-invalidateMapSizeSoon();
+invalidateMapSizeSoon({ resetView: true });
 
 
 
