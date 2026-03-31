@@ -1031,34 +1031,34 @@ function ensureBackgroundImageOverlay() {
   return backgroundImageOverlay;
 }
 
-function getResponsiveBackgroundMinZoom() {
+function getResponsiveBackgroundCoverZoom() {
   var bounds = getBackgroundCalibrationBounds();
-  var minZoom = map.getBoundsZoom(bounds, false, L.point(0, 0));
-  if (!Number.isFinite(minZoom)) {
+  var coverZoom = map.getBoundsZoom(bounds, true, L.point(0, 0));
+  if (!Number.isFinite(coverZoom)) {
     return MAP_BACKGROUND_CALIBRATION.zoom;
   }
-  return minZoom;
+  return coverZoom;
 }
 
 function applyResponsiveBackgroundConstraints(options) {
   var settings = options || {};
   var bounds = getBackgroundCalibrationBounds();
-  var minZoom = getResponsiveBackgroundMinZoom();
+  var coverZoom = getResponsiveBackgroundCoverZoom();
+  var center = bounds.getCenter();
 
-  map.setMinZoom(minZoom);
+  map.setMinZoom(coverZoom);
   map.setMaxBounds(bounds);
 
   if (settings.resetView) {
-    map.fitBounds(bounds, {
+    map.setView(center, coverZoom, {
       animate: false,
-      paddingTopLeft: [0, 0],
-      paddingBottomRight: [0, 0]
+      reset: true
     });
     return;
   }
 
-  if (map.getZoom() < minZoom) {
-    map.setZoom(minZoom, { animate: false });
+  if (map.getZoom() < coverZoom) {
+    map.setZoom(coverZoom, { animate: false });
   }
   map.panInsideBounds(bounds, { animate: false });
 }
