@@ -505,6 +505,39 @@ function applyNapoleonEuropeState() {
   }
 }
 
+function clearScoreDeltaTimers(pid) {
+  var timers = scoreDeltaRenderTimersByPid[pid];
+  if (!timers || !timers.length) return;
+  while (timers.length) {
+    clearTimeout(timers.pop());
+  }
+}
+
+function scheduleScoreDeltaRender(pid, visibleAt, expiresAt) {
+  clearScoreDeltaTimers(pid);
+  scoreDeltaRenderTimersByPid[pid] = [];
+
+  function queue(at) {
+    var wait = Math.max(0, at - Date.now());
+    scoreDeltaRenderTimersByPid[pid].push(setTimeout(function () {
+      renderPlayerCards();
+    }, wait));
+  }
+
+  queue(visibleAt + 20);
+  queue(expiresAt + 20);
+}
+
+function getScoreDeltaDisplayDelay() {
+  if (questionModal && questionModal.classList && questionModal.classList.contains('is-open')) {
+    return 5200;
+  }
+  if (activeQuestionId || currentQuestionData) {
+    return 5200;
+  }
+  return 0;
+}
+
 function updateScoreDeltas(previousPlayers, nextPlayers) {
   previousScoreByPid = previousScoreByPid || {};
   latestScoreDeltaByPid = latestScoreDeltaByPid || {};
@@ -512,7 +545,17 @@ function updateScoreDeltas(previousPlayers, nextPlayers) {
     var prev = Object.prototype.hasOwnProperty.call(previousScoreByPid, player.pid) ? previousScoreByPid[player.pid] : player.score;
     var delta = player.score - prev;
     if (delta !== 0) {
-      latestScoreDeltaByPid[player.pid] = { value: delta, at: Date.now() };
+      var now = Date.now();
+      var delay = getScoreDeltaDisplayDelay();
+      var visibleAt = now + delay;
+      var expiresAt = visibleAt + 3200;
+      latestScoreDeltaByPid[player.pid] = {
+        value: delta,
+        at: now,
+        visibleAt: visibleAt,
+        expiresAt: expiresAt
+      };
+      scheduleScoreDeltaRender(player.pid, visibleAt, expiresAt);
     }
     previousScoreByPid[player.pid] = player.score;
   });
@@ -521,7 +564,9 @@ function updateScoreDeltas(previousPlayers, nextPlayers) {
 function getActiveScoreDelta(pid) {
   var entry = latestScoreDeltaByPid[pid];
   if (!entry) return null;
-  if (Date.now() - entry.at > 2600) return null;
+  var now = Date.now();
+  if (now < (entry.visibleAt || entry.at || 0)) return null;
+  if (now > (entry.expiresAt || ((entry.at || 0) + 2600))) return null;
   return entry;
 }
 
@@ -710,6 +755,7 @@ lastSnapshotSeen: false
 };
 var previousScoreByPid = {};
 var latestScoreDeltaByPid = {};
+var scoreDeltaRenderTimersByPid = {};
 var lastNapoleonEuropeOwnerPid = null;
 
 
@@ -2215,13 +2261,7 @@ function renderPlayerCards() {
 
 
       var castleTowers = castle ? castle.hp : 0;
-
-
-
-
-
-
-
+      var activeDelta = getActiveScoreDelta(player.pid);
 
       return [
         '<div class="' + classes.join(' ') + '">',
@@ -2233,7 +2273,7 @@ function renderPlayerCards() {
         '<div class="player-sub">' + escapeHtml(status) + '</div>',
         '</div>',
         '<div class="player-mini-stats">',
-        '<span class="player-mini-stat player-mini-stat--score"><strong>' + player.score + '</strong><em>PONT</em>' + (getActiveScoreDelta(player.pid) ? ('<span class="player-score-delta ' + (getActiveScoreDelta(player.pid).value > 0 ? 'is-positive' : 'is-negative') + '">' + (getActiveScoreDelta(player.pid).value > 0 ? '+' : '') + getActiveScoreDelta(player.pid).value + '</span>') : '') + '</span>',
+        '<span class="player-mini-stat player-mini-stat--score"><strong>' + player.score + '</strong><em>PONT</em>' + (activeDelta ? ('<span class="player-score-delta ' + (activeDelta.value > 0 ? 'is-positive' : 'is-negative') + '">' + (activeDelta.value > 0 ? '+' : '') + activeDelta.value + '</span>') : '') + '</span>',
         '<span class="player-mini-stat"><strong>' + player.territories.length + '</strong><em>TER.</em></span>',
         '<span class="player-mini-stat"><strong>' + castleTowers + '</strong><em>TORONY</em></span>',
         '</div>',
