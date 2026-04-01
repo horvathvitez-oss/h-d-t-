@@ -26,7 +26,7 @@
         muted
         loop
         playsinline
-        preload="auto"
+        preload="metadata"
         aria-hidden="true"
         disablepictureinpicture
       >
@@ -42,7 +42,7 @@
         muted
         loop
         playsinline
-        preload="auto"
+        preload="metadata"
         aria-hidden="true"
         disablepictureinpicture
       >
@@ -281,55 +281,50 @@
     });
   </script>
 
-  <script>
-    (function () {
-      var videos = Array.prototype.slice.call(document.querySelectorAll('.lobby-side-ad-video'));
-      if (!videos.length) return;
+  
+<script>
+  (function () {
+    var videos = Array.prototype.slice.call(document.querySelectorAll('.lobby-side-ad-video'));
+    if (!videos.length) return;
 
-      function harden(video) {
-        video.controls = false;
-        video.muted = true;
-        video.setAttribute('controlsList', 'nodownload noplaybackrate noremoteplayback nofullscreen');
-        video.setAttribute('disablepictureinpicture', '');
-      }
+    function harden(video) {
+      video.controls = false;
+      video.muted = true;
+      video.defaultMuted = true;
+      video.playsInline = true;
+      video.setAttribute('controlsList', 'nodownload noplaybackrate noremoteplayback nofullscreen');
+      video.setAttribute('disablepictureinpicture', '');
+    }
 
-      function safeStart(video) {
-        if (!video) return;
-        harden(video);
-        try {
-          video.load();
-        } catch (e) {}
-        try {
-          var p = video.play();
-          if (p && typeof p.catch === 'function') p.catch(function () {});
-        } catch (e) {}
-      }
-
-      videos.forEach(function (video) {
-        harden(video);
-        video.addEventListener('canplay', function () { safeStart(video); });
-        video.addEventListener('loadeddata', function () { safeStart(video); });
-      });
-
-      if ('IntersectionObserver' in window) {
-        var observer = new IntersectionObserver(function (entries) {
-          entries.forEach(function (entry) {
-            if (entry.isIntersecting) safeStart(entry.target);
+    function safeStart(video) {
+      if (!video || video.dataset.started === '1') return;
+      harden(video);
+      video.dataset.started = '1';
+      try {
+        var p = video.play();
+        if (p && typeof p.catch === 'function') {
+          p.catch(function () {
+            video.dataset.started = '0';
           });
-        }, { threshold: 0.2 });
-
-        videos.forEach(function (video) {
-          observer.observe(video);
-        });
-      } else {
-        videos.forEach(safeStart);
+        }
+      } catch (e) {
+        video.dataset.started = '0';
       }
+    }
 
-      window.addEventListener('load', function () {
-        videos.forEach(safeStart);
-      });
-    })();
-  </script>
+    videos.forEach(function (video) {
+      harden(video);
+    });
+
+    window.addEventListener('load', function () {
+      videos.forEach(safeStart);
+    });
+
+    document.addEventListener('visibilitychange', function () {
+      if (!document.hidden) videos.forEach(safeStart);
+    });
+  })();
+</script>
 
   <script defer src="/views/js/script.js"></script>
 </body>
