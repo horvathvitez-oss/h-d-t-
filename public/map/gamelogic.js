@@ -14,19 +14,6 @@ var questionCountdownInterval = null;
 var questionRevealTimer = null;
 var castleCinematicTimer = null;
 var castleCinematicCleanupTimer = null;
-var backgroundImageOverlay = null;
-var mapResizeInvalidateTimer = null;
-
-var MAP_BACKGROUND_IMAGE_URL = '/public/map/assets/map-background-7680x3552.png';
-var MAP_BACKGROUND_IMAGE_NAME = 'map-background-7680x3552.png';
-var MAP_BACKGROUND_CALIBRATION = {
-  zoom: 0,
-  center: [49.38237278700955, 14.765625000000002],
-  bounds: [
-    [-89.63280173566288, -642.65625],
-    [89.9497069855649, 672.1875000000001]
-  ]
-};
 
 
 
@@ -994,110 +981,8 @@ function createGameCornerPromo() {
 var map = L.map('map', {
   zoomControl: false,
   attributionControl: false,
-  maxBoundsViscosity: 1.0,
-  zoomSnap: 0.1,
-  zoomDelta: 0.25,
-}).setView(MAP_BACKGROUND_CALIBRATION.center, MAP_BACKGROUND_CALIBRATION.zoom);
+}).setView([43.8476, 18.3564], 2);
 L.control.zoom({ position: 'bottomright' }).addTo(map);
-
-function getBackgroundCalibrationBounds() {
-  return L.latLngBounds(MAP_BACKGROUND_CALIBRATION.bounds);
-}
-
-function ensureBackgroundImagePane() {
-  if (!map.getPane('backgroundImagePane')) {
-    map.createPane('backgroundImagePane');
-    var pane = map.getPane('backgroundImagePane');
-    pane.classList.add('leaflet-background-image-pane');
-    pane.style.zIndex = 250;
-    pane.style.pointerEvents = 'none';
-  }
-  return map.getPane('backgroundImagePane');
-}
-
-function ensureBackgroundImageOverlay() {
-  ensureBackgroundImagePane();
-  if (backgroundImageOverlay) return backgroundImageOverlay;
-
-  backgroundImageOverlay = L.imageOverlay(MAP_BACKGROUND_IMAGE_URL, getBackgroundCalibrationBounds(), {
-    pane: 'backgroundImagePane',
-    interactive: false,
-    opacity: 1,
-    className: 'leaflet-background-image'
-  }).addTo(map);
-
-  backgroundImageOverlay.once('error', function () {
-    console.warn('A háttérkép nem töltődött be. Tedd ide: ' + MAP_BACKGROUND_IMAGE_URL + ' (' + MAP_BACKGROUND_IMAGE_NAME + ')');
-  });
-
-  return backgroundImageOverlay;
-}
-
-function getResponsiveBackgroundHeightFitZoom() {
-  var bounds = getBackgroundCalibrationBounds();
-  var north = bounds.getNorth();
-  var south = bounds.getSouth();
-  var centerLng = bounds.getCenter().lng;
-  var topPoint = map.project(L.latLng(north, centerLng), 0);
-  var bottomPoint = map.project(L.latLng(south, centerLng), 0);
-  var projectedHeightAtZoomZero = Math.abs(bottomPoint.y - topPoint.y);
-  var viewportHeight = Math.max(map.getSize().y, 1);
-
-  if (!projectedHeightAtZoomZero || !Number.isFinite(projectedHeightAtZoomZero)) {
-    return MAP_BACKGROUND_CALIBRATION.zoom;
-  }
-
-  var heightFitZoom = Math.log(viewportHeight / projectedHeightAtZoomZero) / Math.LN2;
-  if (!Number.isFinite(heightFitZoom)) {
-    return MAP_BACKGROUND_CALIBRATION.zoom;
-  }
-
-  return Math.round((heightFitZoom + 0.05) * 10) / 10;
-}
-
-function applyResponsiveBackgroundConstraints(options) {
-  var settings = options || {};
-  var bounds = getBackgroundCalibrationBounds();
-  var heightFitZoom = getResponsiveBackgroundHeightFitZoom();
-  var center = bounds.getCenter();
-
-  map.setMinZoom(heightFitZoom);
-  map.setMaxBounds(bounds);
-
-  if (settings.resetView) {
-    map.setView(center, heightFitZoom, {
-      animate: false,
-      reset: true
-    });
-    return;
-  }
-
-  if (map.getZoom() < heightFitZoom) {
-    map.setZoom(heightFitZoom, { animate: false });
-  }
-  map.panInsideBounds(bounds, { animate: false });
-}
-
-function invalidateMapSizeSoon(options) {
-  var settings = options || {};
-  if (mapResizeInvalidateTimer) {
-    clearTimeout(mapResizeInvalidateTimer);
-  }
-  mapResizeInvalidateTimer = setTimeout(function () {
-    map.invalidateSize({ pan: false, animate: false });
-    applyResponsiveBackgroundConstraints({ resetView: Boolean(settings.resetView) });
-  }, 80);
-}
-
-window.addEventListener('resize', function () {
-  invalidateMapSizeSoon({ resetView: false });
-});
-window.addEventListener('orientationchange', function () {
-  invalidateMapSizeSoon({ resetView: false });
-});
-
-ensureBackgroundImageOverlay();
-invalidateMapSizeSoon({ resetView: true });
 
 
 
@@ -1108,7 +993,7 @@ invalidateMapSizeSoon({ resetView: true });
 
 var questionModal = buildQuestionModal();
 var castleCinematicOverlay = ensureCastleCinematicOverlay();
-var gameCornerPromo = null;
+var gameCornerPromo = createGameCornerPromo();
 ensureCharacterUi();
 
 
@@ -2754,8 +2639,6 @@ function onStateSnapshot(payload) {
 
 
 function initializeMap() {
-  ensureBackgroundImageOverlay();
-
   function baseStyle() {
     return {
       fillColor: UNOWNED_FILL,
