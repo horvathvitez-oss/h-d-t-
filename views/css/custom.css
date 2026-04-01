@@ -6966,3 +6966,101 @@ body.lobby-v3 .lobby-v3-code-input::placeholder {
     line-height: 1.34;
   }
 }
+
+
+/* =========================
+   INGAME PLAYER BANNER CLEANUP
+   ========================= */
+body.game-screen .player-card.player-card-sword {
+  background: #050505 !important;
+  border: 1px solid rgba(255,255,255,0.08) !important;
+  box-shadow: 0 14px 26px rgba(0,0,0,0.42) !important;
+}
+
+body.game-screen .player-card.player-card-sword::before {
+  inset: 5px 8px 5px 34px !important;
+  background: rgba(255,255,255,0.03) !important;
+  border: 1px solid rgba(255,255,255,0.04) !important;
+}
+
+body.game-screen .player-card-gem {
+  border-color: rgba(255,255,255,0.55) !important;
+  box-shadow: 0 10px 18px rgba(0,0,0,0.34), inset 0 1px 0 rgba(255,255,255,0.12) !important;
+}
+
+body.game-screen .player-name {
+  color: #ffffff !important;
+}
+
+body.game-screen .player-sub {
+  color: rgba(255,255,255,0.58) !important;
+}
+
+body.game-screen .player-mini-stat {
+  background: rgba(255,255,255,0.04) !important;
+  border: 1px solid rgba(255,255,255,0.08) !important;
+}
+
+body.game-screen .player-mini-stat strong {
+  color: #ffffff !important;
+  font-size: 13px !important;
+}
+
+body.game-screen .player-mini-stat em {
+  color: rgba(255,255,255,0.52) !important;
+}
+
+body.game-screen .player-card.is-me {
+  box-shadow: 0 16px 30px rgba(0,0,0,0.48), 0 0 0 1px rgba(255,255,255,0.08) !important;
+}
+
+.player-mini-stat--score {
+  position: relative;
+  overflow: visible;
+}
+
+.player-score-delta {
+  position: absolute;
+  top: -34px;
+  left: 50%;
+  right: auto;
+  transform: translateX(-50%);
+  min-width: 54px;
+  text-align: center;
+  font-size: 18px;
+  font-weight: 900;
+  line-height: 1;
+  padding: 8px 12px;
+  border-radius: 999px;
+  box-shadow: 0 14px 26px rgba(0,0,0,0.28);
+  animation: scoreDeltaRiseDelayed 3.2s ease forwards;
+  z-index: 12;
+}
+
+.player-score-delta.is-positive {
+  background: rgba(84, 245, 154, 0.22) !important;
+  color: #b7ffd1 !important;
+  border: 1px solid rgba(120,255,180,0.62) !important;
+}
+
+.player-score-delta.is-negative {
+  background: rgba(255, 87, 105, 0.2) !important;
+  color: #ffc1cb !important;
+  border: 1px solid rgba(255,127,141,0.58) !important;
+}
+
+@keyframes scoreDeltaRiseDelayed {
+  0% { opacity: 0; transform: translateX(-50%) translateY(12px) scale(0.92); }
+  14% { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
+  82% { opacity: 1; transform: translateX(-50%) translateY(-4px) scale(1); }
+  100% { opacity: 0; transform: translateX(-50%) translateY(-18px) scale(1.02); }
+}
+
+@media (max-width: 767px) {
+  .player-score-delta {
+    top: -24px;
+    min-width: 42px;
+    font-size: 13px;
+    padding: 5px 8px;
+  }
+}
