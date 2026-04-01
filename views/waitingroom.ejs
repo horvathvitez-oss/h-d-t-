@@ -5,16 +5,10 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
 
-
-
-
   <link rel="stylesheet" href="/views/css/bootstrap.min.css">
   <link rel="stylesheet" href="/views/css/ionicons.min.css">
   <link rel="stylesheet" href="/views/css/pace.css">
   <link rel="stylesheet" href="/views/css/custom.css">
-
-
-
 
   <script src="/views/js/jquery-2.1.3.min.js"></script>
   <script src="/views/js/bootstrap.min.js"></script>
@@ -22,15 +16,19 @@
   <script src="/views/js/modernizr.custom.js"></script>
   <script src="/socket.io/socket.io.js"></script>
 </head>
-<body class="parchment-screen app-shell-screen lobby-screen-modern" data-sound-base="/sounds">
+<body class="parchment-screen app-shell-screen lobby-screen-modern waiting-room-v2" data-sound-base="/sounds">
   <div class="parchment-overlay"></div>
-  <div class="container parchment-app-container waiting-room-shell">
-    <br>
 
+  <div class="top-promo-strip">
+    <div class="top-promo-strip-track">
+      <span>NEM MENNEK A KÉRDÉSEK? - KÖZÉPSULINEKED.COM</span>
+      <span>NEM MENNEK A KÉRDÉSEK? - KÖZÉPSULINEKED.COM</span>
+      <span>NEM MENNEK A KÉRDÉSEK? - KÖZÉPSULINEKED.COM</span>
+    </div>
+  </div>
 
-
-
-    <header id="site-header" class="parchment-header">
+  <div class="container parchment-app-container waiting-room-shell waiting-room-v2-shell">
+    <header id="site-header" class="parchment-header waiting-room-v2-header">
       <div class="row">
         <div class="col-md-4 col-sm-5 col-xs-8">
           <div class="logo parchment-wordmark-wrap">
@@ -41,10 +39,9 @@
           </div>
         </div>
         <div class="col-md-8 col-sm-7 col-xs-4">
-          <nav class="main-nav" role="navigation">
+          <nav class="main-nav main-nav-modern" role="navigation">
             <div class="collapse navbar-collapse">
               <ul class="nav navbar-nav navbar-right">
-                <br><br>
                 <li class="cl-effect-11"><a href="/lobby" data-hover="Lobby">Lobby</a></li>
                 <li class="cl-effect-11"><a href="/profile" data-hover="Profil">Profil</a></li>
                 <li class="cl-effect-11"><a href="/logout" data-hover="Kilépés">Kilépés</a></li>
@@ -55,78 +52,48 @@
       </div>
     </header>
 
+    <main class="content-body waiting-room-v2-content">
+      <section class="waiting-room-v2-hero reveal-card">
+        <div class="waiting-room-v2-kicker">Host váró</div>
+        <h1>Várd meg, amíg mindenki belép</h1>
+        <p>A meccs akkor indítható, ha pontosan 3 játékos van bent. Ha ketten vagytok, a host hozzáadhat 1 ChatGPT Botot.</p>
 
-
-
-    <div class="top-promo-strip">
-      <div class="top-promo-strip-track">
-        <span>NEM MENNEK A KÉRDÉSEK? - KÖZÉPSULINEKED.COM</span>
-        <span>NEM MENNEK A KÉRDÉSEK? - KÖZÉPSULINEKED.COM</span>
-      </div>
-    </div>
-
-
-
-
-    <div class="content-body lobby-content-modern">
-      <div class="waiting-room-layout">
-        <section class="waiting-room-hero">
-          <div class="waiting-room-kicker">Host váró</div>
-          <h1>Várd meg, amíg mindenki belép</h1>
-          <p>A meccs akkor indítható, ha pontosan 3 játékos van bent. Ha ketten vagytok, a host hozzáadhat 1 ChatGPT Botot.</p>
-
-
-
-
+        <div class="waiting-room-v2-code-card">
+          <div class="waiting-room-v2-code-label">Lobbykód</div>
           <div class="waiting-room-code" id="lobbyCode"><%= gameid %></div>
-          <div class="waiting-room-copyhint">Ezt a 6 jegyű kódot küldd el a többieknek.</div>
+          <div class="waiting-room-copyhint">Küldd el ezt a 6 jegyű kódot a többieknek.</div>
 
-
-
-
-          <div class="waiting-room-actions">
-            <button id="copyCodeButton" class="btn btn-default btn-lg parchment-btn-secondary" type="button">Kód másolása</button>
-            <button id="addBotButton" class="btn btn-default btn-lg parchment-btn-secondary" type="button" disabled>ChatGPT Bot hozzáadása</button>
-            <button id="startButton" class="btn btn-primary btn-lg parchment-btn-primary" type="button" disabled>Meccs indítása</button>
+          <div class="waiting-room-actions waiting-room-v2-actions">
+            <button id="copyCodeButton" class="btn btn-default btn-lg waiting-room-v2-btn waiting-room-v2-btn--ghost" type="button">Kód másolása</button>
+            <button id="addBotButton" class="btn btn-default btn-lg waiting-room-v2-btn waiting-room-v2-btn--ghost" type="button" disabled>ChatGPT Bot hozzáadása</button>
+            <button id="startButton" class="btn btn-primary btn-lg waiting-room-v2-btn waiting-room-v2-btn--primary" type="button" disabled>Meccs indítása</button>
           </div>
-
-
-
 
           <div id="waitingStatus" class="waiting-room-status">Kapcsolódás a váróteremhez...</div>
           <div id="waitingError" class="waiting-room-error"></div>
-        </section>
+        </div>
+      </section>
 
-
-
-
-        <aside class="waiting-room-side">
+      <section class="waiting-room-v2-grid">
+        <aside class="waiting-room-side waiting-room-v2-card reveal-card reveal-delay-1">
           <div class="waiting-room-card-title">Játékosok</div>
           <div id="playersList" class="waiting-room-players"></div>
+        </aside>
 
-
-
-
-          <div class="waiting-room-card-title" style="margin-top:22px;">Szabály</div>
+        <aside class="waiting-room-side waiting-room-v2-card reveal-card reveal-delay-2">
+          <div class="waiting-room-card-title">Szabály</div>
           <ul class="waiting-room-bullet">
             <li>Pontosan 3 játékos szükséges.</li>
             <li>Ha csak ketten vagytok, a host 1 ChatGPT Botot adhat hozzá.</li>
             <li>Csak a host indíthatja el a meccset.</li>
             <li>Indítás után mindenki automatikusan belép a meccsbe.</li>
           </ul>
-
-
-
-
           <p class="waiting-room-note">A ChatGPT Bot arra való, hogy 2 emberrel is el lehessen indítani a 3 fős meccset. Ha valaki nem tud csatlakozni, ellenőrizze, hogy ugyanazt a kódot írta be.</p>
         </aside>
-      </div>
-    </div>
+      </section>
+    </main>
 
-
-
-
-    <footer id="site-footer">
+    <footer id="site-footer" class="waiting-room-v2-footer">
       <div class="row">
         <div class="col-md-12">
           <p class="copyright">HÓDÍTÓ</p>
@@ -135,16 +102,13 @@
     </footer>
   </div>
 
-
-
-
   <script>
     var gameid = '<%= gameid %>';
     var username = '<%= username %>';
     var socket = io('/lobby');
     var gameSocket = io('/' + gameid);
 
-    var colorByIndex = ['#a95f4f', '#6d8660', '#d7cfbd'];
+    var colorByIndex = ['#ff6a63', '#2fd37d', '#5097ff'];
     var latestLobbyState = null;
     var latestGameState = null;
     var BOT_NAME = 'ChatGPT Bot';
@@ -210,7 +174,7 @@
         var role = player.name === hostName ? 'Host' : (player.isBot ? 'ChatGPT Bot' : 'Játékos');
         var roleClass = player.isBot ? ' waiting-room-player-role--bot' : '';
         return [
-          '<div class="waiting-room-player">',
+          '<div class="waiting-room-player waiting-room-v2-player">',
           '<span class="waiting-room-player-dot" style="background:' + (colorByIndex[index] || '#b69f79') + '"></span>',
           '<div>',
           '<div class="waiting-room-player-name">' + player.name + '</div>',
@@ -311,10 +275,6 @@
       updateWaitingStatus('A kód kimásolva: ' + value);
     });
   </script>
-
-
-
-
 
   <script>
     var SOUND_BASE = document.body.getAttribute('data-sound-base') || '/sounds';

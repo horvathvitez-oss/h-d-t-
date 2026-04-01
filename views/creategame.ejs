@@ -15,73 +15,65 @@
   <script src="/views/js/pace.min.js"></script>
   <script src="/views/js/modernizr.custom.js"></script>
 </head>
-<body class="parchment-screen app-shell-screen">
-  <div class="parchment-overlay"></div>
-  <div class="container parchment-app-container">
-    <br>
+<body class="creategame-screen-v2" data-sound-base="/sounds">
+  <div class="creategame-screen-v2__glow creategame-screen-v2__glow--top"></div>
+  <div class="creategame-screen-v2__glow creategame-screen-v2__glow--bottom"></div>
 
-    <header id="site-header" class="parchment-header">
-      <div class="row">
-        <div class="col-md-4 col-sm-5 col-xs-8">
-          <div class="logo parchment-wordmark-wrap">
-            <a href="/lobby" class="parchment-wordmark-link">
-              <div class="brand-wordmark">HÓDÍTÓ</div>
-              <div class="brand-tagline">az érettségi-játék</div>
-            </a>
-          </div>
-        </div>
-        <div class="col-md-8 col-sm-7 col-xs-4">
-          <nav class="main-nav" role="navigation">
-            <div class="collapse navbar-collapse">
-              <ul class="nav navbar-nav navbar-right">
-                <br><br>
-                <li class="cl-effect-11"><a href="/lobby" data-hover="Home">Home</a></li>
-                <li class="cl-effect-11"><a href="/profile" data-hover="Profile">Profile</a></li>
-                <li class="cl-effect-11"><a href="/logout" data-hover="Logout">Logout</a></li>
-              </ul>
-            </div>
-          </nav>
-        </div>
-      </div>
-    </header>
+  <main class="creategame-screen-v2__shell">
+    <span class="creategame-screen-v2__line"></span>
 
-    <div class="promo-corner-card">
-      <div class="promo-corner-title">Nem mennek a kérdések?</div>
-      <div class="promo-corner-link">Középsulineked.com</div>
-    </div>
+    <section class="creategame-screen-v2__panel" aria-label="Meccs létrehozása">
+      <div class="creategame-screen-v2__eyebrow">Új privát lobby</div>
+      <h1>Meccs létrehozása</h1>
 
-    <div class="content-body">
-      <div class="row">
-        <div class="col-sm-8 col-md-6 col-md-offset-3">
-          <div class="settings-card parchment-panel settings-card-tight">
-            <h1>Create Match</h1>
-            <p>Private match creation for exactly 3 players. After creating one, you will receive a 6-digit lobby code.</p>
+      <form action="/creategame" method="post" class="creategame-screen-v2__actions">
+        <input type="hidden" name="maplevel" value="hard">
+        <button type="submit" class="btn btn-lg creategame-screen-v2__primary create-action-btn">Meccs létrehozása</button>
+      </form>
 
-            <form action="/creategame" method="post">
-              <input type="hidden" name="maplevel" value="hard">
+      <a href="/lobby" class="btn btn-lg creategame-screen-v2__secondary create-action-btn">Vissza</a>
+    </section>
 
-              <div class="form-group">
-                <label>Játékosok</label>
-                <input type="text" class="form-control input-lg parchment-input" value="3" disabled>
-                <div class="hint">A jelenlegi játékmód pontosan 3 játékosra van felépítve.</div>
-              </div>
+    <span class="creategame-screen-v2__line"></span>
+  </main>
 
-              <button type="submit" class="btn btn-primary btn-lg parchment-btn-primary">Create Match</button>
-              <a href="/lobby" class="btn btn-default btn-lg parchment-btn-secondary">Back</a>
-            </form>
-          </div>
-        </div>
-      </div>
-    </div>
+  <script>
+    var SOUND_BASE = document.body.getAttribute('data-sound-base') || '/sounds';
+    var buttonClickAudio = null;
 
-    <footer id="site-footer">
-      <div class="row">
-        <div class="col-md-12">
-          <p class="copyright">HÓDÍTÓ</p>
-        </div>
-      </div>
-    </footer>
-  </div>
+    function ensureCreateAudio() {
+      if (!buttonClickAudio) {
+        buttonClickAudio = new Audio(SOUND_BASE + '/button_click.mp3');
+        buttonClickAudio.preload = 'none';
+      }
+    }
+
+    function safePlay(audio) {
+      if (!audio) return;
+      try {
+        var promise = audio.play();
+        if (promise && typeof promise.catch === 'function') promise.catch(function () {});
+      } catch (e) {}
+    }
+
+    function playButtonClickSound() {
+      ensureCreateAudio();
+      try {
+        var clone = buttonClickAudio.cloneNode();
+        clone.preload = 'none';
+        safePlay(clone);
+      } catch (e) {
+        buttonClickAudio.currentTime = 0;
+        safePlay(buttonClickAudio);
+      }
+    }
+
+    Array.prototype.slice.call(document.querySelectorAll('.create-action-btn')).forEach(function(item) {
+      item.addEventListener('click', function() {
+        playButtonClickSound();
+      });
+    });
+  </script>
 
   <script src="/views/js/script.js"></script>
 </body>
