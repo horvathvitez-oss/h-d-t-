@@ -19,43 +19,35 @@
   <div class="parchment-overlay"></div>
 
   <div class="lobby-side-ads" aria-label="Középsulineked promóciós panelek">
-    <a class="lobby-side-ad lobby-side-ad-left" href="https://kozepsulineked.com/products/30-napos-elofizetes-kozepsulineked" target="_blank" rel="noopener noreferrer sponsored">
+    <a class="lobby-side-ad lobby-side-ad-left" href="https://kozepsulineked.com/products/30-napos-elofizetes-kozepsulineked" target="_blank" rel="noopener noreferrer sponsored" aria-label="Középsulineked promó videó bal oldalon">
       <video
         class="lobby-side-ad-video"
+        autoplay
         muted
         loop
         playsinline
-        preload="none"
-        poster="/images/lobby-side-promo-poster.webp"
+        preload="auto"
         aria-hidden="true"
         disablepictureinpicture
       >
         <source src="/videos/lobby-side-promo.mp4" type="video/mp4">
       </video>
-      <span class="lobby-side-ad-badge">AJÁNLOTT</span>
-      <span class="lobby-side-ad-title">KÖZÉPSULINEKED.COM</span>
-      <span class="lobby-side-ad-copy">Érettségi felkészülés, gyors ismétlés, több tárgy egy helyen.</span>
-      <span class="lobby-side-ad-caption">MEGNÉZEM</span>
       <span class="lobby-side-ad-overlay"></span>
     </a>
 
-    <a class="lobby-side-ad lobby-side-ad-right" href="https://kozepsulineked.com/products/30-napos-elofizetes-kozepsulineked" target="_blank" rel="noopener noreferrer sponsored">
+    <a class="lobby-side-ad lobby-side-ad-right" href="https://kozepsulineked.com/products/30-napos-elofizetes-kozepsulineked" target="_blank" rel="noopener noreferrer sponsored" aria-label="Középsulineked promó videó jobb oldalon">
       <video
         class="lobby-side-ad-video"
+        autoplay
         muted
         loop
         playsinline
-        preload="none"
-        poster="/images/lobby-side-promo-poster.webp"
+        preload="auto"
         aria-hidden="true"
         disablepictureinpicture
       >
         <source src="/videos/lobby-side-promo.mp4" type="video/mp4">
       </video>
-      <span class="lobby-side-ad-badge">SEGÍTSÉG</span>
-      <span class="lobby-side-ad-title">NEM MENNEK A KÉRDÉSEK?</span>
-      <span class="lobby-side-ad-copy">Kattints rá, és készülj célzottan a játék közben előkerülő témákra.</span>
-      <span class="lobby-side-ad-caption">KÖZÉPSULINEKED</span>
       <span class="lobby-side-ad-overlay"></span>
     </a>
   </div>
@@ -302,16 +294,22 @@
       }
 
       function safeStart(video) {
-        if (!video || video.dataset.started === '1') return;
-        video.dataset.started = '1';
+        if (!video) return;
         harden(video);
+        try {
+          video.load();
+        } catch (e) {}
         try {
           var p = video.play();
           if (p && typeof p.catch === 'function') p.catch(function () {});
         } catch (e) {}
       }
 
-      videos.forEach(harden);
+      videos.forEach(function (video) {
+        harden(video);
+        video.addEventListener('canplay', function () { safeStart(video); });
+        video.addEventListener('loadeddata', function () { safeStart(video); });
+      });
 
       if ('IntersectionObserver' in window) {
         var observer = new IntersectionObserver(function (entries) {
@@ -326,6 +324,10 @@
       } else {
         videos.forEach(safeStart);
       }
+
+      window.addEventListener('load', function () {
+        videos.forEach(safeStart);
+      });
     })();
   </script>
 
