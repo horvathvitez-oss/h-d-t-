@@ -15,7 +15,7 @@
   <script defer src="/views/js/pace.min.js"></script>
   <script defer src="/views/js/modernizr.custom.js"></script>
 </head>
-<body class="parchment-screen app-shell-screen lobby-screen-modern" data-sound-base="/sounds">
+<body class="parchment-screen app-shell-screen lobby-screen-modern lobby-v3" data-sound-base="/sounds">
   <div class="parchment-overlay"></div>
 
   <div class="lobby-side-ads" aria-label="Középsulineked promóciós panelek">
@@ -27,14 +27,15 @@
         playsinline
         preload="none"
         poster="/images/lobby-side-promo-poster.webp"
-        aria-hidden="true"s
+        aria-hidden="true"
+        disablepictureinpicture
       >
-        <source src="public/videos/lobby-side-promo.mp4" type="video/mp4">
+        <source src="/videos/lobby-side-promo.mp4" type="video/mp4">
       </video>
       <span class="lobby-side-ad-badge">AJÁNLOTT</span>
       <span class="lobby-side-ad-title">KÖZÉPSULINEKED.COM</span>
       <span class="lobby-side-ad-copy">Érettségi felkészülés, gyors ismétlés, több tárgy egy helyen.</span>
-      <span class="lobby-side-ad-caption">30 NAPOS ELŐFIZETÉS</span>
+      <span class="lobby-side-ad-caption">MEGNÉZEM</span>
       <span class="lobby-side-ad-overlay"></span>
     </a>
 
@@ -47,13 +48,14 @@
         preload="none"
         poster="/images/lobby-side-promo-poster.webp"
         aria-hidden="true"
+        disablepictureinpicture
       >
         <source src="/videos/lobby-side-promo.mp4" type="video/mp4">
       </video>
       <span class="lobby-side-ad-badge">SEGÍTSÉG</span>
       <span class="lobby-side-ad-title">NEM MENNEK A KÉRDÉSEK?</span>
-      <span class="lobby-side-ad-copy">Nyisd meg külön lapon, és készülj célzottan a játék közben előforduló témákra.</span>
-      <span class="lobby-side-ad-caption">MEGNÉZEM</span>
+      <span class="lobby-side-ad-copy">Kattints rá, és készülj célzottan a játék közben előkerülő témákra.</span>
+      <span class="lobby-side-ad-caption">KÖZÉPSULINEKED</span>
       <span class="lobby-side-ad-overlay"></span>
     </a>
   </div>
@@ -66,8 +68,8 @@
     </div>
   </div>
 
-  <div class="container parchment-app-container lobby-app-container">
-    <header id="site-header" class="parchment-header lobby-header-modern">
+  <div class="container parchment-app-container lobby-app-container lobby-v3-shell">
+    <header id="site-header" class="parchment-header lobby-header-modern lobby-v3-header">
       <div class="row">
         <div class="col-md-4 col-sm-5 col-xs-8">
           <div class="logo parchment-wordmark-wrap">
@@ -91,134 +93,85 @@
       </div>
     </header>
 
-    <div class="content-body lobby-content-modern">
-      <div class="row">
-        <main class="col-md-12">
-          <section class="page-intro-card page-intro-card-modern reveal-card lobby-hero-card">
-            <div class="lobby-hero-mobile-line">Új meccs vagy gyors csatlakozás • 6 jegyű kóddal</div>
-            <div class="lobby-hero-kicker">Privát 3 fős lobby</div>
-
-            <div class="lobby-hero-split">
-              <div class="lobby-hero-main">
-                <h1>Üdv, <%= username %>!</h1>
-                <p>
-                  <span class="lobby-copy-desktop">
-                    Hozz létre egy új meccset, oszd meg a 6 jegyű kódot, vagy csatlakozz azonnal egy már futó váróhoz.
-                  </span>
-                  <span class="lobby-copy-mobile">
-                    Hozz létre új meccset, vagy csatlakozz azonnal a 6 jegyű kóddal.
-                  </span>
-                </p>
-              </div>
-
-              <aside class="lobby-hero-contact" aria-label="Javaslatküldés">
-                <h3>Írj nekünk, és mi megcsináljuk!</h3>
-                <p class="lobby-hero-contact-copy">
-                  Ha írsz nekünk emailben egy javaslatot, 100% hogy megcsináljuk
-                  (amennyiben értelmesnek találjuk).
-                </p>
-
-                <% if (typeof suggestionFlash !== 'undefined' && suggestionFlash) { %>
-                  <div class="lobby-suggestion-flash lobby-suggestion-flash--<%= suggestionFlash.type %>">
-                    <%= suggestionFlash.text %>
-                  </div>
-                <% } %>
-
-                <form class="lobby-suggestion-form" action="/lobby/feature-request" method="post">
-                  <input
-                    type="text"
-                    name="website"
-                    class="lobby-honeypot"
-                    tabindex="-1"
-                    autocomplete="off"
-                    aria-hidden="true"
-                  >
-
-                  <label class="lobby-input-label" for="featureRequestMessage">Javaslatod</label>
-                  <textarea
-                    id="featureRequestMessage"
-                    name="message"
-                    class="form-control parchment-input lobby-suggestion-textarea"
-                    maxlength="2000"
-                    placeholder="Írd meg röviden, mit szeretnél a játékban vagy a lobbyban."
-                    required
-                  ></textarea>
-
-                  <div class="lobby-suggestion-footer">
-                    <div class="lobby-suggestion-meta">
-                      Vissza tudunk írni ide: <strong><%= email || 'nincs email megadva' %></strong>
-                    </div>
-                    <button
-                      id="featureRequestSubmit"
-                      type="submit"
-                      class="btn btn-success btn-lg parchment-btn-success lobby-action-btn lobby-action-btn-spark lobby-suggestion-submit"
-                    >
-                      Javaslat elküldése
-                    </button>
-                  </div>
-                </form>
-              </aside>
-            </div>
-          </section>
-        </main>
-      </div>
-
-      <div class="row lobby-card-row lobby-card-row-modern">
-        <div class="col-md-6 lobby-card-col lobby-card-col-host">
-          <section class="menu-card parchment-panel menu-card-modern lobby-choice-card reveal-card reveal-delay-1">
-            <div class="menu-card-glow"></div>
-            <div class="lobby-card-head">
-              <span class="lobby-card-kicker">Host mód</span>
-              <h2>Meccs létrehozása</h2>
-            </div>
-            <p class="lobby-card-copy">
-              <span class="lobby-copy-desktop">
-                Indíts új privát lobbít. A rendszer azonnal generál egy 6 jegyű kódot, amit továbbküldhetsz a másik két játékosnak.
-              </span>
-              <span class="lobby-copy-mobile">
-                Indíts új privát lobbít, kapj 6 jegyű kódot, és küldd tovább a többieknek.
-              </span>
-            </p>
-            <ul class="lobby-feature-list">
-              <li>Azonnali 6 jegyű meghívókód</li>
-              <li>Pontosan 3 játékosra optimalizálva</li>
-              <li>Gyors belépés a várószobába</li>
-            </ul>
-            <div class="lobby-card-actions">
-              <a href="/newgame" class="btn btn-primary btn-lg parchment-btn-primary lobby-action-btn lobby-action-btn-spark">Meccs létrehozása</a>
-            </div>
-          </section>
+    <main class="content-body lobby-v3-content">
+      <section class="lobby-v3-user-row reveal-card">
+        <div class="lobby-v3-user-badge">
+          <span class="lobby-v3-user-label">Bejelentkezve</span>
+          <strong><%= username %></strong>
         </div>
+      </section>
 
-        <div class="col-md-6 lobby-card-col lobby-card-col-join">
-          <section class="menu-card parchment-panel menu-card-modern lobby-choice-card reveal-card reveal-delay-2">
-            <div class="menu-card-glow"></div>
-            <div class="lobby-card-head">
-              <span class="lobby-card-kicker">Join mód</span>
-              <h2>Csatlakozás meccshez</h2>
-            </div>
-            <p class="lobby-card-copy">
-              <span class="lobby-copy-desktop">
-                Írd be a hosttól kapott 6 jegyű lobbykódot, és lépj be azonnal a váróba. Nem kell frissítés, nem kell új oldal.
-              </span>
-              <span class="lobby-copy-mobile">
-                Írd be a 6 jegyű kódot, és lépj be azonnal a váróba.
-              </span>
-            </p>
-            <div class="lobby-join-shell">
-              <label class="lobby-input-label" for="joinCode">Lobbykód</label>
-              <div class="lobby-join-row">
-                <input id="joinCode" type="text" class="form-control input-lg parchment-input lobby-code-input" maxlength="6" placeholder="6 jegyű lobbykód" inputmode="numeric" autocomplete="off">
-                <button id="joinButton" type="button" class="btn btn-success btn-lg parchment-btn-success lobby-action-btn lobby-action-btn-spark">Csatlakozás</button>
-              </div>
-              <div id="joinFeedback" class="join-feedback"></div>
-            </div>
-          </section>
+      <section class="lobby-v3-characters reveal-card" aria-label="Karakterek">
+        <article class="lobby-v3-character lobby-v3-character--brutus">
+          <div class="lobby-v3-character-tag">A ravasz</div>
+          <div class="lobby-v3-character-media">
+            <img src="/images/character-brutus.webp" alt="Brutus karaktere" loading="lazy">
+          </div>
+          <div class="lobby-v3-character-body">
+            <h2>Brutus</h2>
+            <p>Megzavarja az ellenfelet, és váratlan helyzeteket teremt a döntő pillanatokban.</p>
+          </div>
+        </article>
+
+        <article class="lobby-v3-character lobby-v3-character--einstein">
+          <div class="lobby-v3-character-tag">A magabiztos</div>
+          <div class="lobby-v3-character-media">
+            <img src="/images/character-einstein.webp" alt="Einstein karaktere" loading="lazy">
+          </div>
+          <div class="lobby-v3-character-body">
+            <h2>Einstein</h2>
+            <p>Stabil előnyt épít, ha pontosan, higgadtan és következetesen játszol.</p>
+          </div>
+        </article>
+
+        <article class="lobby-v3-character lobby-v3-character--napoleon">
+          <div class="lobby-v3-character-tag">A rizikós</div>
+          <div class="lobby-v3-character-media">
+            <img src="/images/character-napoleon.webp" alt="Napóleon karaktere" loading="lazy">
+          </div>
+          <div class="lobby-v3-character-body">
+            <h2>Napóleon</h2>
+            <p>Nagyot nyerhet, de igazán annak való, aki szeret éles helyzetekre rámenni.</p>
+          </div>
+        </article>
+      </section>
+
+      <section class="lobby-v3-trivia reveal-card" aria-label="Tudtad érdekességek">
+        <div class="lobby-v3-trivia-head">
+          <span class="lobby-v3-trivia-kicker">Tudtad?</span>
+          <span class="lobby-v3-trivia-meta">7 másodpercenként új érdekesség</span>
         </div>
-      </div>
-    </div>
+        <div id="didYouKnowText" class="lobby-v3-trivia-text"></div>
+        <div class="lobby-v3-trivia-progress" aria-hidden="true">
+          <span id="didYouKnowBar"></span>
+        </div>
+      </section>
 
-    <footer id="site-footer">
+      <section class="lobby-v3-actions lobby-card-row-modern">
+        <section class="menu-card parchment-panel lobby-v3-action-card lobby-v3-action-card--create reveal-card reveal-delay-1">
+          <div class="lobby-v3-action-kicker">Host mód</div>
+          <h3>Hozz létre egy meccset</h3>
+          <p>Privát, 3 fős lobby, azonnali 6 jegyű kóddal.</p>
+          <a href="/newgame" class="btn btn-primary btn-lg lobby-v3-primary-btn lobby-action-btn">Meccs létrehozása</a>
+        </section>
+
+        <section class="menu-card parchment-panel lobby-v3-action-card lobby-v3-action-card--join reveal-card reveal-delay-2">
+          <div class="lobby-v3-action-kicker">Join mód</div>
+          <h3>Csatlakozz kóddal</h3>
+          <p>Írd be a 6 jegyű lobbykódot, és lépj be azonnal a váróba.</p>
+          <div class="lobby-v3-join-shell">
+            <label class="lobby-input-label lobby-v3-input-label" for="joinCode">Lobbykód</label>
+            <div class="lobby-v3-join-row">
+              <input id="joinCode" type="text" class="form-control input-lg lobby-v3-code-input" maxlength="6" placeholder="123456" inputmode="numeric" autocomplete="off">
+              <button id="joinButton" type="button" class="btn btn-success btn-lg lobby-v3-secondary-btn lobby-action-btn">Csatlakozás</button>
+            </div>
+            <div id="joinFeedback" class="join-feedback lobby-v3-join-feedback"></div>
+          </div>
+        </section>
+      </section>
+    </main>
+
+    <footer id="site-footer" class="lobby-v3-footer">
       <div class="row">
         <div class="col-md-12">
           <p class="copyright">HÓDÍTÓ</p>
@@ -249,6 +202,39 @@
         joinByCode();
       }
     });
+  </script>
+
+  <script>
+    (function () {
+      var facts = [
+        'Történelemből az esszék pontszáma sokszor azon is múlik, mennyire tudod időrendben felépíteni az érvelést.',
+        'Magyarból az idézett szöveg pontos értése gyakran többet ér, mint egy túl bonyolult megfogalmazás.',
+        'Emelt töri érettségin a rövid és hosszú esszéknél a forráshasználat külön pontot ér.',
+        'Matekból a részpontok miatt akkor is érdemes leírni a gondolatmenetet, ha nem vagy biztos a végeredményben.',
+        'Egy jó érettségi stratégia sokszor nem a tudásod mennyiségén, hanem az időbeosztásodon áll vagy bukik.',
+        'Nyelvi érettségin a biztos nyelvtani szerkezet általában többet ér, mint a kockázatos, látványos megoldás.'
+      ];
+
+      var text = document.getElementById('didYouKnowText');
+      var bar = document.getElementById('didYouKnowBar');
+      if (!text || !bar || !facts.length) return;
+
+      var index = 0;
+      var duration = 7000;
+
+      function renderFact() {
+        text.textContent = facts[index];
+        bar.style.animation = 'none';
+        bar.offsetHeight;
+        bar.style.animation = 'lobbyTriviaProgress ' + duration + 'ms linear forwards';
+      }
+
+      renderFact();
+      setInterval(function () {
+        index = (index + 1) % facts.length;
+        renderFact();
+      }, duration);
+    })();
   </script>
 
   <script>
@@ -301,16 +287,6 @@
         playButtonClickSound();
       });
     });
-
-    var suggestionForm = document.querySelector('.lobby-suggestion-form');
-    if (suggestionForm) {
-      suggestionForm.addEventListener('submit', function() {
-        var submit = document.getElementById('featureRequestSubmit');
-        if (!submit) return;
-        submit.disabled = true;
-        submit.textContent = 'Küldés...';
-      });
-    }
   </script>
 
   <script>
@@ -318,14 +294,24 @@
       var videos = Array.prototype.slice.call(document.querySelectorAll('.lobby-side-ad-video'));
       if (!videos.length) return;
 
+      function harden(video) {
+        video.controls = false;
+        video.muted = true;
+        video.setAttribute('controlsList', 'nodownload noplaybackrate noremoteplayback nofullscreen');
+        video.setAttribute('disablepictureinpicture', '');
+      }
+
       function safeStart(video) {
         if (!video || video.dataset.started === '1') return;
         video.dataset.started = '1';
+        harden(video);
         try {
           var p = video.play();
           if (p && typeof p.catch === 'function') p.catch(function () {});
         } catch (e) {}
       }
+
+      videos.forEach(harden);
 
       if ('IntersectionObserver' in window) {
         var observer = new IntersectionObserver(function (entries) {
