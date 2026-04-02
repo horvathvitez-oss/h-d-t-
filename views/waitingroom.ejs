@@ -74,17 +74,25 @@
         </div>
       </section>
 
+      <section class="waiting-room-v2-card waiting-room-topics-card reveal-card reveal-delay-1">
+        <div class="waiting-room-card-title waiting-room-topics-title">VÁLASZD KI MILYEN TÉMÁKAT AKARTOK KAPNI. <span class="waiting-room-topics-subtitle">( a témák a szabotázs és tippelős kérdésekre nem terjednek ki)</span></div>
+        <p class="waiting-room-topics-helper">Minimum 2 témát kell bejelölni.</p>
+        <div id="topicFilters" class="waiting-room-topic-grid" role="group" aria-label="Kérdéskategóriák"></div>
+        <div id="topicSelectionMessage" class="waiting-room-topic-message"></div>
+      </section>
+
       <section class="waiting-room-v2-grid">
-        <aside class="waiting-room-side waiting-room-v2-card reveal-card reveal-delay-1">
+        <aside class="waiting-room-side waiting-room-v2-card reveal-card reveal-delay-2">
           <div class="waiting-room-card-title">Játékosok</div>
           <div id="playersList" class="waiting-room-players"></div>
         </aside>
 
-        <aside class="waiting-room-side waiting-room-v2-card reveal-card reveal-delay-2">
+        <aside class="waiting-room-side waiting-room-v2-card reveal-card reveal-delay-3">
           <div class="waiting-room-card-title">Szabály</div>
           <ul class="waiting-room-bullet">
             <li>Pontosan 3 játékos szükséges.</li>
             <li>Ha csak ketten vagytok, a host 1 ChatGPT Botot adhat hozzá.</li>
+            <li>Minimum 2 témát kell kijelölni.</li>
             <li>Csak a host indíthatja el a meccset.</li>
             <li>Indítás után mindenki automatikusan belép a meccsbe.</li>
           </ul>
@@ -112,6 +120,33 @@
     var latestLobbyState = null;
     var latestGameState = null;
     var BOT_NAME = 'ChatGPT Bot';
+    var QUESTION_FILTER_KEYS = ['hungary_pre_1848', 'hungary_post_1848', 'world_pre_1848', 'world_post_1848', 'literature'];
+    var QUESTION_FILTER_META = {
+      hungary_pre_1848: { label: '1848 előtti magyar történelem', kind: 'hungary' },
+      hungary_post_1848: { label: '1848 utáni magyar történelem', kind: 'hungary' },
+      world_pre_1848: { label: '1848 előtti egyetemes történelem', kind: 'world' },
+      world_post_1848: { label: '1848 utáni egyetemes történelem', kind: 'world' },
+      literature: { label: 'Irodalom', kind: 'literature' }
+    };
+
+    function normalizeQuestionFilters(filters) {
+      var normalized = {};
+      QUESTION_FILTER_KEYS.forEach(function(key) {
+        normalized[key] = !filters || typeof filters[key] === 'undefined' ? true : !!filters[key];
+      });
+      return normalized;
+    }
+
+    function getQuestionFilters() {
+      if (latestGameState && latestGameState.game && latestGameState.game.questionFilters) {
+        return normalizeQuestionFilters(latestGameState.game.questionFilters);
+      }
+      return normalizeQuestionFilters(null);
+    }
+
+    function getSelectedTopicCount(filters) {
+      return QUESTION_FILTER_KEYS.filter(function(key) { return !!filters[key]; }).length;
+    }
 
     function getRequiredPlayerCount() {
       if (latestGameState && latestGameState.game && latestGameState.game.howmany) {
@@ -126,6 +161,15 @@
         return latestGameState.players[0].name;
       }
       return username;
+    }
+
+    function isHost() {
+      return username === getHostName();
+    }
+
+    function isWaitingPhase() {
+      var phase = latestGameState && latestGameState.game ? latestGameState.game.phase : 'WAITING_FOR_PLAYERS';
+      return phase === 'WAITING_FOR_PLAYERS';
     }
 
     function getDisplayPlayers() {
@@ -161,6 +205,36 @@
       document.getElementById('waitingStatus').textContent = message;
     }
 
+    function renderTopicFilters() {
+      var container = document.getElementById('topicFilters');
+      var filters = getQuestionFilters();
+      var canEdit = isHost() && isWaitingPhase();
+      container.innerHTML = QUESTION_FILTER_KEYS.map(function(key) {
+        var meta = QUESTION_FILTER_META[key];
+        var checked = !!filters[key];
+        var tileClasses = ['waiting-room-topic-tile', 'waiting-room-topic-tile--' + meta.kind];
+        if (checked) tileClasses.push('is-selected');
+        if (!canEdit) tileClasses.push('is-locked');
+        return [
+          '<label class="' + tileClasses.join(' ') + '">',
+          '<input type="checkbox" class="waiting-room-topic-input" data-topic-key="' + key + '" ' + (checked ? 'checked' : '') + ' ' + (!canEdit ? 'disabled' : '') + '>',
+          '<span class="waiting-room-topic-glow"></span>',
+          '<span class="waiting-room-topic-label">' + meta.label + '</span>',
+          '</label>'
+        ].join('');
+      }).join('');
+
+      var message = document.getElementById('topicSelectionMessage');
+      var selectedCount = getSelectedTopicCount(filters);
+      if (selectedCount < 2) {
+        message.textContent = 'Legalább 2 témát kell kiválasztani a meccs indításához.';
+        message.className = 'waiting-room-topic-message is-warning';
+      } else {
+        message.textContent = 'Kiválasztott témák: ' + selectedCount + '.';
+        message.className = 'waiting-room-topic-message is-ok';
+      }
+    }
+
     function renderPlayers() {
       var list = document.getElementById('playersList');
       var players = getDisplayPlayers();
@@ -169,6 +243,7 @@
       var humanCount = players.filter(function(player) { return !player.isBot; }).length;
       var hasBot = players.some(function(player) { return player.isBot; });
       var phase = latestGameState && latestGameState.game ? latestGameState.game.phase : 'WAITING_FOR_PLAYERS';
+      var selectedTopicCount = getSelectedTopicCount(getQuestionFilters());
 
       list.innerHTML = players.map(function(player, index) {
         var role = player.name === hostName ? 'Host' : (player.isBot ? 'ChatGPT Bot' : 'Játékos');
@@ -184,11 +259,17 @@
         ].join('');
       }).join('');
 
-      document.getElementById('startButton').disabled = !(phase === 'WAITING_FOR_PLAYERS' && players.length === requiredPlayers && username === hostName);
+      var canStart = phase === 'WAITING_FOR_PLAYERS' && players.length === requiredPlayers && username === hostName && selectedTopicCount >= 2;
+      document.getElementById('startButton').disabled = !canStart;
       document.getElementById('addBotButton').disabled = !(phase === 'WAITING_FOR_PLAYERS' && username === hostName && !hasBot && humanCount === requiredPlayers - 1 && players.length === requiredPlayers - 1);
 
       if (phase !== 'WAITING_FOR_PLAYERS') {
         updateWaitingStatus('A meccs indul, átirányítás...');
+        return;
+      }
+
+      if (selectedTopicCount < 2) {
+        updateWaitingStatus('Jelöljetek be legalább 2 témát, utána indítható a meccs.');
         return;
       }
 
@@ -208,6 +289,19 @@
       });
     }
 
+    function pushQuestionFilters(filters) {
+      if (!isHost() || !isWaitingPhase()) return;
+      if (!latestGameState) latestGameState = { game: {} };
+      if (!latestGameState.game) latestGameState.game = {};
+      latestGameState.game.questionFilters = normalizeQuestionFilters(filters);
+      renderTopicFilters();
+      renderPlayers();
+      gameSocket.emit('updateQuestionFilters', {
+        username: username,
+        questionFilters: normalizeQuestionFilters(filters)
+      });
+    }
+
     socket.on('connect', function() {
       socket.emit('joinLobby', { gameid: gameid, username: username });
     });
@@ -218,6 +312,7 @@
 
     socket.on('lobbyState', function(lobby) {
       latestLobbyState = lobby;
+      renderTopicFilters();
       renderPlayers();
       document.getElementById('waitingError').textContent = '';
       syncWaitingRoomToGame();
@@ -225,6 +320,7 @@
 
     gameSocket.on('stateSnapshot', function(snapshot) {
       latestGameState = snapshot;
+      renderTopicFilters();
       renderPlayers();
       document.getElementById('waitingError').textContent = '';
       if (snapshot && snapshot.game && snapshot.game.phase && snapshot.game.phase !== 'WAITING_FOR_PLAYERS') {
@@ -250,13 +346,24 @@
 
     gameSocket.on('serverstatus', function(messages) {
       if (!messages || !messages.length) return;
-      updateWaitingStatus(messages[messages.length - 1]);
+      var message = messages[messages.length - 1];
+      updateWaitingStatus(message);
+      document.getElementById('waitingError').textContent = message;
+    });
+
+    document.getElementById('topicFilters').addEventListener('change', function(event) {
+      var target = event.target;
+      if (!target || !target.classList.contains('waiting-room-topic-input')) return;
+      var filters = getQuestionFilters();
+      filters[target.getAttribute('data-topic-key')] = target.checked;
+      pushQuestionFilters(filters);
     });
 
     document.getElementById('startButton').addEventListener('click', function() {
       gameSocket.emit('hostStartMatch', {
         username: username,
-        players: buildMirrorPlayerNames()
+        players: buildMirrorPlayerNames(),
+        questionFilters: getQuestionFilters()
       });
     });
 

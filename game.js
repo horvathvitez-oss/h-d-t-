@@ -98,7 +98,21 @@ const NAPOLEON_EUROPE_MEDIUM_NAMES = [
 
 const ACTIVE_GAMES = new Map();
 
+const QUESTION_CATEGORY_KEYS = [
+  'hungary_pre_1848',
+  'hungary_post_1848',
+  'world_pre_1848',
+  'world_post_1848',
+  'literature',
+];
 
+const DEFAULT_QUESTION_FILTERS = {
+  hungary_pre_1848: true,
+  hungary_post_1848: true,
+  world_pre_1848: true,
+  world_post_1848: true,
+  literature: true,
+};
 
 
 module.exports = function createGame(io, rawGameId, creatorUsername, howmany, maplevel) {
@@ -186,6 +200,7 @@ async function setupGame(room) {
     ultraSabotageRemainingByPid: Object.fromEntries(room.players.map((player) => [player.pid, 4])),
     kozepsuliHelpRemaining: room.players.length * 3,
     kozepsuliHelpRemainingByPid: Object.fromEntries(room.players.map((player) => [player.pid, 3])),
+    questionFilters: { ...DEFAULT_QUESTION_FILTERS },
   };
 
 
@@ -228,6 +243,14 @@ function attachNamespaceHandlers(room) {
         await handleAddBotPlayer(room, socket, data);
       } catch (error) {
         console.error('addBotPlayer error:', error);
+      }
+    });
+
+    socket.on('updateQuestionFilters', async (data = {}) => {
+      try {
+        await handleUpdateQuestionFilters(room, socket, data);
+      } catch (error) {
+        console.error('updateQuestionFilters error:', error);
       }
     });
 
@@ -395,7 +418,6 @@ async function handleJoinGame(room, socket, username) {
     await refreshGamePlayerNames(room);
     sendStatus(room, `${username} csatlakozott.`);
     gameLog(room, `${username} csatlakozott a játékhoz.`);
-    await maybeStartGame(room);
     emitSnapshot(room);
     return;
   }
@@ -418,7 +440,6 @@ async function handleJoinGame(room, socket, username) {
   await refreshGamePlayerNames(room);
   gameLog(room, `${username} csatlakozott a játékhoz.`);
   sendStatus(room, `${username} csatlakozott.`);
-  await maybeStartGame(room);
   emitSnapshot(room);
 }
 
@@ -429,6 +450,44 @@ async function handleJoinGame(room, socket, username) {
 function emitServerError(socket, message) {
   if (!socket || !message) return;
   socket.emit('serverstatus', [message]);
+}
+
+
+function normalizeQuestionFilters(rawFilters) {
+  const normalized = {};
+  QUESTION_CATEGORY_KEYS.forEach((key) => {
+    if (rawFilters && Object.prototype.hasOwnProperty.call(rawFilters, key)) {
+      normalized[key] = Boolean(rawFilters[key]);
+    } else {
+      normalized[key] = Boolean(DEFAULT_QUESTION_FILTERS[key]);
+    }
+  });
+  return normalized;
+}
+
+function getSelectedQuestionCategoryKeys(room) {
+  const filters = normalizeQuestionFilters(room && room.game ? room.game.questionFilters : null);
+  return QUESTION_CATEGORY_KEYS.filter((key) => filters[key]);
+}
+
+function getFilteredMultipleChoiceQuestions(room) {
+  const enabled = new Set(getSelectedQuestionCategoryKeys(room));
+  if (!enabled.size) return [];
+  return MULTIPLE_CHOICE_QUESTIONS.filter((question) => enabled.has(question.category));
+}
+
+function validateQuestionFiltersForStart(room) {
+  const selectedKeys = getSelectedQuestionCategoryKeys(room);
+  if (selectedKeys.length < 2) {
+    return 'Minimum 2 témát kell kiválasztani a meccs indításához.';
+  }
+
+  const filteredQuestions = getFilteredMultipleChoiceQuestions(room);
+  if (!filteredQuestions.length) {
+    return 'A kiválasztott témákhoz jelenleg nincs elérhető feleletválasztós kérdés.';
+  }
+
+  return null;
 }
 
 function getHumanWaitingNamesFromLobbyPayload(room, rawPlayers) {
@@ -561,6 +620,23 @@ async function handleAddBotPlayer(room, socket, data = {}) {
   emitSnapshot(room);
 }
 
+async function handleUpdateQuestionFilters(room, socket, data = {}) {
+  if (!room || !room.game || room.game.phase !== PHASES.WAITING) {
+    emitServerError(socket, 'A témákat csak a váróteremben lehet módosítani.');
+    return;
+  }
+
+  const requesterName = String((data && data.username) || socket.currentUsername || '').trim();
+  if (!requesterName || requesterName !== room.creatorUsername) {
+    emitServerError(socket, 'Csak a host állíthatja be a témákat.');
+    return;
+  }
+
+  room.game.questionFilters = normalizeQuestionFilters(data && data.questionFilters);
+  await persistGame(room);
+  emitSnapshot(room);
+}
+
 async function handleHostStartMatch(room, socket, data = {}) {
   if (!room || !room.game) return;
   const requesterName = String((data && data.username) || socket.currentUsername || '').trim();
@@ -576,12 +652,21 @@ async function handleHostStartMatch(room, socket, data = {}) {
   }
 
   applyWaitingRoomMirror(room, data.players);
+  room.game.questionFilters = normalizeQuestionFilters(data && data.questionFilters ? data.questionFilters : room.game.questionFilters);
   await persistAllPlayers(room);
   await refreshGamePlayerNames(room);
+  await persistGame(room);
 
   const filledPlayers = room.players.filter((player) => player.name !== 'x');
   if (filledPlayers.length !== room.howmany) {
     emitServerError(socket, `A meccshez pontosan ${room.howmany} játékos kell.`);
+    emitSnapshot(room);
+    return;
+  }
+
+  const filterError = validateQuestionFiltersForStart(room);
+  if (filterError) {
+    emitServerError(socket, filterError);
     emitSnapshot(room);
     return;
   }
@@ -1337,8 +1422,11 @@ async function createAndBroadcastQuestion(room, config) {
     ? drawMultipleChoiceQuestion(room)
     : drawGuessQuestion(room);
 
-
-
+  if (!baseQuestion) {
+    throw new Error(config.type === 'mcq'
+      ? 'Nincs elérhető feleletválasztós kérdés a kiválasztott témákban.'
+      : 'Nincs elérhető tippelős kérdés.');
+  }
 
   const deadline = Date.now() + (config.type === 'mcq' ? MCQ_TIME_LIMIT_MS : GUESS_TIME_LIMIT_MS);
 
@@ -2545,6 +2633,7 @@ function emitSnapshot(room, socket = null) {
       characterDraftOrder: room.game.characterDraftOrder || [],
       availableCharacterIds: room.game.availableCharacterIds || [],
       selectedCharactersByPid: room.game.selectedCharactersByPid || {},
+      questionFilters: normalizeQuestionFilters(room.game.questionFilters),
       brutusMirrorRemainingByPid: room.game.brutusMirrorRemainingByPid || {},
       kossuthGambleArmedByPid: room.game.kossuthGambleArmedByPid || {},
       napoleonEuropeOwnerPid: Number.isInteger(room.game.napoleonEuropeOwnerPid) ? room.game.napoleonEuropeOwnerPid : null,
@@ -3168,24 +3257,30 @@ function buildGuessRevealLines(room, question) {
 
 
 function drawMultipleChoiceQuestion(room) {
-  if (room.usedMcqIds.size >= MULTIPLE_CHOICE_QUESTIONS.length) {
+  var filteredQuestions = getFilteredMultipleChoiceQuestions(room);
+  if (!filteredQuestions.length) {
+    return null;
+  }
+
+  if (room.usedMcqIds.size >= filteredQuestions.length) {
     room.usedMcqIds.clear();
   }
 
-
-  var availableQuestions = MULTIPLE_CHOICE_QUESTIONS.filter(function(question) {
+  var availableQuestions = filteredQuestions.filter(function(question) {
     return !room.usedMcqIds.has(question.id);
   });
 
+  if (!availableQuestions.length) {
+    room.usedMcqIds.clear();
+    availableQuestions = filteredQuestions.slice();
+  }
 
   var preferredQuestions = availableQuestions.filter(function(question) {
     return question.correctOptionIndex !== room.lastMcqCorrectOptionIndex;
   });
 
-
   var pool = preferredQuestions.length ? preferredQuestions : availableQuestions;
   var question = pool[Math.floor(Math.random() * pool.length)];
-
 
   room.usedMcqIds.add(question.id);
   room.lastMcqCorrectOptionIndex = question.correctOptionIndex;
