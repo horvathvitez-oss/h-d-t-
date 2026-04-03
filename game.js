@@ -4,6 +4,7 @@ const Gameutils = require('./public/models/gameutils');
 const Player = require('./public/models/players');
 const Castle = require('./public/models/castle');
 const { MULTIPLE_CHOICE_QUESTIONS, GUESS_QUESTIONS, ULTRAHARD_QUESTIONS = [] } = require('./questions');
+const LobbyStore = require('./lobbyStore');
 
 
 
@@ -490,6 +491,31 @@ function validateQuestionFiltersForStart(room) {
   return null;
 }
 
+
+function syncLobbyStoreBeforeMatchStart(room) {
+  const gameid = String(room.gameid);
+  const lobby = LobbyStore.getLobby(gameid);
+  if (!lobby) {
+    return { ok: true, skipped: true };
+  }
+
+  const namesToEnsure = room.players
+    .filter((player) => player && player.name && player.name !== 'x')
+    .map((player) => player.name);
+
+  for (const name of namesToEnsure) {
+    if (LobbyStore.isParticipant(gameid, name)) {
+      continue;
+    }
+    const joinResult = LobbyStore.joinLobby(gameid, name);
+    if (!joinResult.ok && joinResult.reason !== 'started') {
+      return joinResult;
+    }
+  }
+
+  return LobbyStore.startLobby(gameid, room.creatorUsername);
+}
+
 function getHumanWaitingNamesFromLobbyPayload(room, rawPlayers) {
   const seen = new Set();
   const cleaned = [];
@@ -667,6 +693,23 @@ async function handleHostStartMatch(room, socket, data = {}) {
   const filterError = validateQuestionFiltersForStart(room);
   if (filterError) {
     emitServerError(socket, filterError);
+    emitSnapshot(room);
+    return;
+  }
+
+  const lobbyStartResult = syncLobbyStoreBeforeMatchStart(room);
+  if (!lobbyStartResult.ok) {
+    let lobbyStartMessage = 'Nem sikerült elindítani a lobbyt.';
+    if (lobbyStartResult.reason === 'not_found') {
+      lobbyStartMessage = 'A lobby nem található.';
+    } else if (lobbyStartResult.reason === 'only_host_can_start') {
+      lobbyStartMessage = 'Csak a host indíthatja el a lobbyt.';
+    } else if (lobbyStartResult.reason === 'not_enough_players') {
+      lobbyStartMessage = 'A lobby játékoslistája nincs szinkronban. Kérj meg mindenkit, hogy lépjen vissza a váróterembe, majd próbáld újra.';
+    } else if (lobbyStartResult.reason === 'full') {
+      lobbyStartMessage = 'A lobby megtelt, de nincs szinkronban a váróteremmel.';
+    }
+    emitServerError(socket, lobbyStartMessage);
     emitSnapshot(room);
     return;
   }
