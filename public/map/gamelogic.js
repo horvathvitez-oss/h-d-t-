@@ -1,5 +1,6 @@
 var socket = io('/' + gameid);
 var countriesLayer;
+var backgroundLayer;
 var mapTerritories = [];
 var gameFinished = false;
 var state = {
@@ -1029,6 +1030,10 @@ var map = L.map('map', {
   attributionControl: false,
 }).setView([43.8476, 18.3564], 2);
 L.control.zoom({ position: 'bottomright' }).addTo(map);
+
+map.createPane('backgroundPane');
+map.getPane('backgroundPane').style.zIndex = 320;
+map.getPane('backgroundPane').style.pointerEvents = 'none';
 
 
 
@@ -2688,6 +2693,11 @@ function getGeoJsonForMapLevel(level) {
   return countries;
 }
 
+function getBackgroundGeoJsonForMapLevel(level) {
+  if (level === 'hungary13' && typeof hungary13Background !== 'undefined') return hungary13Background;
+  return null;
+}
+
 function buildBaseMapStyle() {
   return {
     fillColor: UNOWNED_FILL,
@@ -2699,7 +2709,42 @@ function buildBaseMapStyle() {
   };
 }
 
+function buildBackgroundMapStyle() {
+  return {
+    interactive: false,
+    fillColor: '#4a3320',
+    weight: 3.5,
+    opacity: 1,
+    color: '#000000',
+    dashArray: '',
+    fillOpacity: 0.72,
+    pane: 'backgroundPane'
+  };
+}
+
+function redrawBackgroundLayerForLevel(level) {
+  if (backgroundLayer) {
+    map.removeLayer(backgroundLayer);
+    backgroundLayer = null;
+  }
+
+  var backgroundGeo = getBackgroundGeoJsonForMapLevel(level);
+  if (!backgroundGeo) return;
+
+  backgroundLayer = L.geoJson(backgroundGeo, {
+    interactive: false,
+    pane: 'backgroundPane',
+    style: buildBackgroundMapStyle
+  }).addTo(map);
+
+  if (backgroundLayer.bringToBack) {
+    backgroundLayer.bringToBack();
+  }
+}
+
 function redrawMapLayerForLevel(level) {
+  redrawBackgroundLayerForLevel(level);
+
   if (countriesLayer) {
     map.removeLayer(countriesLayer);
     countriesLayer = null;
