@@ -63,6 +63,29 @@ module.exports = function(app, io, db) {
       .trim();
   }
 
+  function getRegisterErrorRedirect(code) {
+    return '/register?error=' + encodeURIComponent(String(code || 'unknown'));
+  }
+
+  function getDuplicateFieldFromError(error) {
+    if (!error) return null;
+    if (error.code === 11000 || error.code === 11001) {
+      if (error.keyPattern) {
+        if (error.keyPattern.username) return 'username';
+        if (error.keyPattern.email) return 'email';
+      }
+      if (error.keyValue) {
+        if (Object.prototype.hasOwnProperty.call(error.keyValue, 'username')) return 'username';
+        if (Object.prototype.hasOwnProperty.call(error.keyValue, 'email')) return 'email';
+      }
+      var message = String(error.message || '').toLowerCase();
+      if (message.indexOf('username') !== -1) return 'username';
+      if (message.indexOf('email') !== -1) return 'email';
+      return 'duplicate';
+    }
+    return null;
+  }
+
   function getSuggestionFlash(code) {
     if (code === 'success') {
       return {
@@ -215,22 +238,31 @@ router.get('/lobby', function(req, res) {
 
   router.post('/authenticate', function(req, res, next) {
     if (req.body.password !== req.body.passwordConf) {
-      var err = new Error('Passwords do not match.');
-      err.status = 400;
-      res.send('passwords dont match');
-      return next(err);
+      return res.redirect(getRegisterErrorRedirect('password_mismatch'));
     }
 
     if (req.body.email && req.body.username && req.body.password && req.body.passwordConf) {
       var userData = {
-        email: req.body.email,
-        username: req.body.username,
+        email: String(req.body.email || '').trim(),
+        username: String(req.body.username || '').trim(),
         password: req.body.password,
         passwordConf: req.body.passwordConf
       };
 
       User.create(userData, function(error, user) {
-        if (error) return next(error);
+        if (error) {
+          var duplicateField = getDuplicateFieldFromError(error);
+          if (duplicateField === 'username') {
+            return res.redirect(getRegisterErrorRedirect('username_taken'));
+          }
+          if (duplicateField === 'email') {
+            return res.redirect(getRegisterErrorRedirect('email_taken'));
+          }
+          if (duplicateField === 'duplicate') {
+            return res.redirect(getRegisterErrorRedirect('duplicate'));
+          }
+          return next(error);
+        }
         req.session.userId = user._id;
         return res.redirect('/lobby');
       });
@@ -241,9 +273,7 @@ router.get('/lobby', function(req, res) {
         return res.redirect('/lobby');
       });
     } else {
-      var err = new Error('All fields required.');
-      err.status = 400;
-      return next(err);
+      return res.redirect(getRegisterErrorRedirect('missing_fields'));
     }
   });
 

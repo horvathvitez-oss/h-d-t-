@@ -28,6 +28,7 @@
               <div class="auth-brand-title">HÓDÍTÓ</div>
               <div class="auth-brand-tagline">az érettségi-játék</div>
               <p class="auth-brand-copy">Készíts fiókot, és indulhat a hódítás.</p>
+              <div id="registerError" class="auth-register-error" style="display:none;"></div>
             </div>
 
             <div class="wrap-input100 validate-input m-b-16" data-validate="Please enter your username!">
@@ -81,5 +82,26 @@
   <script src="views/login/vendor/daterangepicker/daterangepicker.js"></script>
   <script src="views/login/vendor/countdowntime/countdowntime.js"></script>
   <script src="views/login/js/main.js"></script>
+
+  <script>
+    (function () {
+      var params = new URLSearchParams(window.location.search);
+      var code = params.get('error');
+      var box = document.getElementById('registerError');
+      if (!box || !code) return;
+
+      var messages = {
+        username_taken: 'Ez a felhasználónév már foglalt.',
+        email_taken: 'Ez az email cím már használatban van.',
+        duplicate: 'Ez az email cím vagy felhasználónév már foglalt.',
+        password_mismatch: 'A két jelszó nem egyezik.',
+        missing_fields: 'Tölts ki minden mezőt.'
+      };
+
+      if (!messages[code]) return;
+      box.textContent = messages[code];
+      box.style.display = 'block';
+    })();
+  </script>
 </body>
 </html>

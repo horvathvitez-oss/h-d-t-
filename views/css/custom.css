@@ -7878,3 +7878,99 @@ body.lobby-v3 .lobby-v3-character--szechenyi:hover p {
 .territory-horthy-homeland.territory-selectable-battle {
   animation-duration: 1.45s;
 }
+
+/* ===== LOBBY PREVIEW SWITCH RESPONSIVE FIX ===== */
+body.lobby-v3 .lobby-v3-preview-switch {
+  max-width: 100%;
+}
+
+body.lobby-v3 .lobby-v3-preview-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  line-height: 1.1;
+  white-space: normal;
+}
+
+@media (max-width: 991px) {
+  body.lobby-v3 .lobby-v3-user-row {
+    align-items: stretch;
+  }
+
+  body.lobby-v3 .lobby-v3-user-badge {
+    width: 100%;
+  }
+
+  body.lobby-v3 .lobby-v3-preview-switch {
+    width: 100%;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+    border-radius: 24px;
+    padding: 10px;
+  }
+
+  body.lobby-v3 .lobby-v3-preview-pill {
+    width: 100%;
+    min-width: 0;
+    min-height: 52px;
+    padding: 12px 14px;
+    font-size: 16px;
+    letter-spacing: 0.06em;
+  }
+}
+
+@media (max-width: 767px) {
+  body.lobby-v3 .lobby-v3-user-row {
+    gap: 12px;
+  }
+
+  body.lobby-v3 .lobby-v3-preview-switch {
+    gap: 8px;
+    padding: 8px;
+    border-radius: 20px;
+  }
+
+  body.lobby-v3 .lobby-v3-preview-pill {
+    min-height: 48px;
+    padding: 10px 10px;
+    font-size: 14px;
+    letter-spacing: 0.04em;
+  }
+
+  body.lobby-v3 .lobby-v3-character-preview-head {
+    padding: 18px 16px;
+    border-radius: 20px;
+  }
+
+  body.lobby-v3 .lobby-v3-character-preview-title {
+    margin-top: 12px;
+    font-size: clamp(24px, 8vw, 34px);
+    line-height: 1.05;
+    letter-spacing: 0.05em;
+  }
+
+  body.lobby-v3 .lobby-v3-character-preview-subtitle {
+    font-size: 14px;
+    line-height: 1.45;
+  }
+}
+
+@media (max-width: 430px) {
+  body.lobby-v3 .lobby-v3-preview-switch {
+    grid-template-columns: 1fr;
+  }
+
+  body.lobby-v3 .lobby-v3-preview-pill {
+    min-height: 46px;
+    font-size: 13px;
+    padding: 10px 12px;
+  }
+
+  body.lobby-v3 .lobby-v3-user-badge strong {
+    display: block;
+    margin-top: 6px;
+    word-break: break-word;
+  }
+}
