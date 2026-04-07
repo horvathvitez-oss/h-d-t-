@@ -55,28 +55,28 @@ const CHARACTERS = {
     id: 'szilardleo',
     name: 'Szilárd Leó',
     shortDescription: '+1 segítség és 1 atombomba battle phase-ben.',
-    fullDescription: 'Szilárd Leóként eggyel több KÖZÉPSULINEKED HELP-ed van, és battle phase-ben 1 alkalommal ledobhatsz egy atombombát. Az atombomba azonnal elfoglal egy ellenséges területet, várra dobva pedig 1-gyel csökkenti a vár életerejét.',
+    fullDescription: 'Ha az atombombát ledobod, tied a terület ,vagy veszít 1 életet a másik vára',
     image: '/images/character-szilardleo.webp',
   },
   kossuth: {
     id: 'kossuth',
     name: 'Széchényi',
     shortDescription: 'A Széchényi Kaszinót 2 alkalommal aktiválhatod kérdés előtt.',
-    fullDescription: 'A kérdés előtt 2 alkalommal aktiválhatod a Széchényi Kaszinót. Ha ezzel szerzel területet, területenként +200 pont jár és az adott terület arannyá válik. Ha a próbálkozásod kudarcba fullad, -200 pontot kapsz.',
+    fullDescription: ' Ha ezzel szerzel területet, területenként +200 pont jár és az adott terület arannyá válik. Ha a próbálkozásod kudarcba fullad, -200 pontot kapsz.',
     image: '/images/character-szechenyi.webp',
   },
   napoleon: {
     id: 'napoleon',
     name: 'Napóleon',
     shortDescription: 'Ha tied egész Európa, +800 pontot kapsz.',
-    fullDescription: 'Ha tied Western Europe, Middle Europe, Southern Europe, Northern Europe, Ukraine, Scandinavia és Great Britain, +800 pontod lesz addig, amíg a szövetség él.',
+    fullDescription: 'Ha tied egész európa (7 terület), +800 pontod lesz addig, amíg a szövetség él.',
     image: '/images/character-napoleon.webp',
   },
   horthy: {
     id: 'horthy',
     name: 'Horthy Miklós',
-    shortDescription: 'Ha tied Western Europe, Great Britain és Iceland, +400 pontot kapsz.',
-    fullDescription: 'A hungary13 pályán, ha tied Western Europe, Great Britain és Iceland, +400 pontot kapsz, és a területek piros-fehér-zöld fénnyel izzanak.',
+    shortDescription: 'Ha tied a teljes FELVIDÉL és ERDÉLY, +400 pontot kapsz.',
+    fullDescription: 'Ha tied a teljes FELVIDÉL és ERDÉLY, +400 pontot kapsz, és a területek piros-fehér-zöld fénnyel izzanak.',
     image: '/images/character-horthy.webp',
   },
   brutus: {
@@ -146,6 +146,33 @@ function normalizeMapLevelValue(value) {
 }
 
 
+function isHungary13Rules(roomOrMaplevel) {
+  if (typeof roomOrMaplevel === 'string') {
+    return normalizeMapLevelValue(roomOrMaplevel) === 'hungary13';
+  }
+  const maplevel = roomOrMaplevel && roomOrMaplevel.game && roomOrMaplevel.game.maplevel
+    ? roomOrMaplevel.game.maplevel
+    : (roomOrMaplevel && roomOrMaplevel.maplevel);
+  return normalizeMapLevelValue(maplevel) === 'hungary13';
+}
+
+function getExpansionSelectionsPerTurn(room) {
+  return isHungary13Rules(room) ? 1 : EXPANSION_SELECTIONS_PER_TURN;
+}
+
+function getRemainderGuessCutoff(room) {
+  return isHungary13Rules(room) ? 2 : REMAINDER_GUESS_CUTOFF;
+}
+
+function getBaseUltraSabotagePerPlayer(room) {
+  return isHungary13Rules(room) ? 1 : 4;
+}
+
+function getBaseKozepsuliHelpPerPlayer(room) {
+  return isHungary13Rules(room) ? 2 : 3;
+}
+
+
 module.exports = function createGame(io, rawGameId, creatorUsername, howmany, maplevel) {
   const gameid = Number(rawGameId);
   if (ACTIVE_GAMES.has(gameid)) {
@@ -196,6 +223,8 @@ async function setupGame(room) {
   room.players = createInitialPlayers(room.gameid, room.creatorUsername, room.howmany);
   room.territories = createMapTerritories(room.gameid, room.maplevel);
   room.castles = [];
+  const baseUltraSabotagePerPlayer = getBaseUltraSabotagePerPlayer(room);
+  const baseKozepsuliHelpPerPlayer = getBaseKozepsuliHelpPerPlayer(room);
   room.game = {
     gameid: room.gameid,
     phase: PHASES.WAITING,
@@ -231,10 +260,10 @@ async function setupGame(room) {
     napoleonEuropeTerritoryTids: [],
     horthyHomelandOwnerPid: null,
     horthyHomelandTerritoryTids: [],
-    ultraSabotageRemaining: room.players.length * 4,
-    ultraSabotageRemainingByPid: Object.fromEntries(room.players.map((player) => [player.pid, 4])),
-    kozepsuliHelpRemaining: room.players.length * 3,
-    kozepsuliHelpRemainingByPid: Object.fromEntries(room.players.map((player) => [player.pid, 3])),
+    ultraSabotageRemaining: room.players.length * baseUltraSabotagePerPlayer,
+    ultraSabotageRemainingByPid: Object.fromEntries(room.players.map((player) => [player.pid, baseUltraSabotagePerPlayer])),
+    kozepsuliHelpRemaining: room.players.length * baseKozepsuliHelpPerPlayer,
+    kozepsuliHelpRemainingByPid: Object.fromEntries(room.players.map((player) => [player.pid, baseKozepsuliHelpPerPlayer])),
     questionFilters: { ...DEFAULT_QUESTION_FILTERS },
   };
 
@@ -995,7 +1024,7 @@ async function handleSelectCharacter(room, socket, characterId) {
     room.game.kozepsuliHelpRemainingByPid[player.pid] = 6;
   }
   if (characterId === 'szilardleo') {
-    room.game.kozepsuliHelpRemainingByPid[player.pid] = 4;
+    room.game.kozepsuliHelpRemainingByPid[player.pid] = getBaseKozepsuliHelpPerPlayer(room) + 1;
     room.game.szilardBombRemainingByPid[player.pid] = 1;
   }
   if (characterId === 'brutus') {
@@ -1004,6 +1033,9 @@ async function handleSelectCharacter(room, socket, characterId) {
   if (characterId === 'kossuth') {
     room.game.kossuthGambleRemainingByPid[player.pid] = 2;
   }
+
+  room.game.ultraSabotageRemaining = getTotalUltraSabotageRemaining(room);
+  room.game.kozepsuliHelpRemaining = getTotalKozepsuliHelpRemaining(room);
 
   const currentIndex = room.game.characterDraftOrder.indexOf(player.pid);
   const nextPid = nextEligiblePidInOrder(room, room.game.characterDraftOrder, currentIndex, false, room.game.selectedCharactersByPid);
@@ -1046,7 +1078,7 @@ async function startExpansionRound(room, firstRound = false) {
 
 
 
-  if (getUnownedTerritories(room).length <= REMAINDER_GUESS_CUTOFF) {
+  if (getUnownedTerritories(room).length <= getRemainderGuessCutoff(room)) {
     await startExpansionRemainderGuess(room);
     return;
   }
@@ -1995,7 +2027,7 @@ async function resolveExpansionRemainderGuess(room, question) {
 
   if (allTerritoriesClaimed(room)) {
     await startBattleRound(room, 1);
-  } else if (getUnownedTerritories(room).length <= REMAINDER_GUESS_CUTOFF) {
+  } else if (getUnownedTerritories(room).length <= getRemainderGuessCutoff(room)) {
     await startExpansionRemainderGuess(room);
   } else {
     await startExpansionRound(room);
@@ -2407,7 +2439,7 @@ function getExpansionSelectableTargets(room, pid) {
 
 function getExpansionSelectionsRequired(room, pid) {
   const selectableCount = getExpansionSelectableTargets(room, pid).length;
-  return Math.max(0, Math.min(EXPANSION_SELECTIONS_PER_TURN, selectableCount));
+  return Math.max(0, Math.min(getExpansionSelectionsPerTurn(room), selectableCount));
 }
 
 function getLockedExpansionSelectionsRequired(room, pid) {
@@ -2880,7 +2912,7 @@ function emitSnapshot(room, socket = null) {
       expansionRound: room.game.expansionRound,
       battleRound: room.game.battleRound,
       pendingSelections: room.game.pendingSelections || {},
-      expansionSelectionsPerTurn: EXPANSION_SELECTIONS_PER_TURN,
+      expansionSelectionsPerTurn: getExpansionSelectionsPerTurn(room),
       reservedTerritories: room.game.reservedTerritories,
       ultraSabotageRemaining: getTotalUltraSabotageRemaining(room),
       ultraSabotageRemainingByPid: getUltraSabotageRemainingMap(room),
