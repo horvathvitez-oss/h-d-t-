@@ -804,9 +804,9 @@ var CHARACTER_IMAGE_BY_ID = {
 var CHARACTER_DEFS = {
   einstein: { id: 'einstein', name: 'Einstein', shortDescription: '6 segítséged van 3 helyett.', fullDescription: 'Einsteinként 6 KÖZÉPSULINEKED HELP-et kapsz a meccs teljes hosszára.' },
   szilardleo: { id: 'szilardleo', name: 'Szilárd Leó', shortDescription: '+1 segítség és 1 atombomba battle phase-ben.', fullDescription: 'Szilárd Leóként 4 KÖZÉPSULINEKED HELP-et kapsz, és battle phase-ben 1 alkalommal ledobhatsz egy atombombát.' },
-  kossuth: { id: 'kossuth', name: 'Széchényi', shortDescription: 'A Széchényi Kaszinót kérdés előtt 2x aktiválhatod.', fullDescription: 'A kérdés előtt 2 alkalommal aktiválhatod a Széchényi Kaszinót. Ha ezzel szerzel területet, a bónusz +200 pont területenként és az így szerzett terület arannyá válik. Sikertelen próbálkozás esetén -200 pont jár.' },
+  kossuth: { id: 'kossuth', name: 'Széchényi', shortDescription: 'Aktiválod a kaszinót + 200 pont (ha sikeres).', fullDescription: 'Ha kaszinót nyomsz, és elfoglalod a területet +200 pont, ha NEM sikerül -200 pont.' },
   napoleon: { id: 'napoleon', name: 'Napóleon', shortDescription: 'Ha tied egész Európa, +800 pontot kapsz.', fullDescription: 'Western Europe, Middle Europe, Southern Europe, Northern Europe, Ukraine, Scandinavia és Great Britain egyesítése +800 pontot ér.' },
-  horthy: { id: 'horthy', name: 'Horthy Miklós', shortDescription: 'Western Europe + Great Britain + Iceland = +400 pont.', fullDescription: 'A hungary13 pályán, ha tied Western Europe, Great Britain és Iceland, +400 pontot kapsz és a területek piros-fehér-zölden izzanak.' },
+  horthy: { id: 'horthy', name: 'Horthy Miklós', shortDescription: 'ha tied FELVIDÉK+ERDÉLY = +400 pont.', fullDescription: 'Ha tied FELVIDÉK (2 terület)+ ERDÉLY (1 terület), +400 pontot kapsz és a területek piros-fehér-zölden izzanak.' },
   brutus: { id: 'brutus', name: 'Brutus', shortDescription: '3 tükröző battle-szabotázsod van.', fullDescription: 'Battle kérdésnél 3 alkalommal tükrözheted az ellenfél kérdéskártyáját.' }
 };
 
