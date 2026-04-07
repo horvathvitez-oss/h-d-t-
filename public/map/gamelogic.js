@@ -2697,7 +2697,9 @@ function initializeMap() {
 
 
 
-  if (maplevel === 'medium') {
+  if (maplevel === 'hungary13') {
+    countriesLayer = L.geoJson(hungary13, { style: baseStyle, onEachFeature: countriesOnEachFeature }).addTo(map);
+  } else if (maplevel === 'medium') {
     countriesLayer = L.geoJson(countries30, { style: baseStyle, onEachFeature: countriesOnEachFeature }).addTo(map);
   } else {
     countriesLayer = L.geoJson(countries, { style: baseStyle, onEachFeature: countriesOnEachFeature }).addTo(map);

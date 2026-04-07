@@ -35,7 +35,7 @@ module.exports.createLobby = function(data) {
     host: data.host,
     players: [data.host],
     maxPlayers: data.maxPlayers || 3,
-    maplevel: data.maplevel || 'hard',
+    maplevel: data.maplevel || 'world',
     started: false,
     createdAt: Date.now()
   };
@@ -113,5 +113,18 @@ module.exports.startLobby = function(gameid, username) {
 
 
   lobby.started = true;
+  return { ok: true, lobby: cloneLobby(lobby) };
+};
+
+
+module.exports.setMaplevel = function(gameid, username, maplevel) {
+  var key = normalizeGameId(gameid);
+  var lobby = lobbies[key];
+
+  if (!lobby) return { ok: false, reason: 'not_found' };
+  if (lobby.started) return { ok: false, reason: 'started' };
+  if (lobby.host !== username) return { ok: false, reason: 'only_host_can_change' };
+
+  lobby.maplevel = maplevel || lobby.maplevel || 'world';
   return { ok: true, lobby: cloneLobby(lobby) };
 };

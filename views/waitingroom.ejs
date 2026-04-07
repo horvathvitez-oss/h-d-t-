@@ -75,6 +75,13 @@
       </section>
 
       <section class="waiting-room-v2-card waiting-room-topics-card reveal-card reveal-delay-1">
+        <div class="waiting-room-card-title waiting-room-topics-title">PÁLYA KIVÁLASZTÁSA</div>
+        <p class="waiting-room-topics-helper">A host dönt: VILÁGTÉRKÉP vagy NAGYMAGYARORSZÁG.</p>
+        <div id="mapModeSelector" class="waiting-room-topic-grid" role="group" aria-label="Pályaválasztás"></div>
+        <div id="mapSelectionMessage" class="waiting-room-topic-message"></div>
+      </section>
+
+      <section class="waiting-room-v2-card waiting-room-topics-card reveal-card reveal-delay-1">
         <div class="waiting-room-card-title waiting-room-topics-title">VÁLASZD KI MILYEN TÉMÁKAT AKARTOK KAPNI. <span class="waiting-room-topics-subtitle">( a témák a szabotázs és tippelős kérdésekre nem terjednek ki)</span></div>
         <p class="waiting-room-topics-helper">Minimum 2 témát kell bejelölni.</p>
         <div id="topicFilters" class="waiting-room-topic-grid" role="group" aria-label="Kérdéskategóriák"></div>
@@ -94,6 +101,7 @@
             <li>Ha csak ketten vagytok, a host 1 ChatGPT Botot adhat hozzá.</li>
             <li>Minimum 2 témát kell kijelölni.</li>
             <li>Csak a host indíthatja el a meccset.</li>
+            <li>Csak a host válthat pályát: világtérkép vagy Nagy-Magyarország.</li>
             <li>Indítás után mindenki automatikusan belép a meccsbe.</li>
           </ul>
           <p class="waiting-room-note">A ChatGPT Bot arra való, hogy 2 emberrel is el lehessen indítani a 3 fős meccset. Ha valaki nem tud csatlakozni, ellenőrizze, hogy ugyanazt a kódot írta be.</p>
@@ -128,6 +136,18 @@
       world_post_1848: { label: '1848 utáni egyetemes történelem', kind: 'world' },
       literature: { label: 'Irodalom', kind: 'literature' }
     };
+
+    var MAP_OPTIONS = [
+      { value: 'hungary13', label: 'NAGYMAGYARORSZÁG', sublabel: 'villámháború', kind: 'hungary' },
+      { value: 'world', label: 'VILÁGTÉRKÉP', sublabel: 'hosszú hadjárat', kind: 'world' }
+    ];
+
+    function normalizeMaplevel(value) {
+      var normalized = String(value || '').trim().toLowerCase();
+      if (normalized === 'hungary13' || normalized === 'hungary_13' || normalized === 'hungary-13') return 'hungary13';
+      if (normalized === 'world' || normalized === 'hard' || !normalized) return 'world';
+      return 'world';
+    }
 
     function normalizeQuestionFilters(filters) {
       var normalized = {};
@@ -203,6 +223,56 @@
 
     function updateWaitingStatus(message) {
       document.getElementById('waitingStatus').textContent = message;
+    }
+
+    function getSelectedMapLevel() {
+      if (latestLobbyState && latestLobbyState.maplevel) {
+        return normalizeMaplevel(latestLobbyState.maplevel);
+      }
+      if (latestGameState && latestGameState.game && latestGameState.game.maplevel) {
+        return normalizeMaplevel(latestGameState.game.maplevel);
+      }
+      return 'world';
+    }
+
+    function renderMapModeSelector() {
+      var container = document.getElementById('mapModeSelector');
+      if (!container) return;
+      var selected = getSelectedMapLevel();
+      var canEdit = isHost() && isWaitingPhase();
+      container.innerHTML = MAP_OPTIONS.map(function(option) {
+        var isSelected = option.value === selected;
+        var tileClasses = ['waiting-room-topic-tile', 'waiting-room-topic-tile--' + option.kind];
+        if (isSelected) tileClasses.push('is-selected');
+        if (!canEdit) tileClasses.push('is-locked');
+        return [
+          '<label class="' + tileClasses.join(' ') + '">',
+          '<input type="radio" name="maplevel" class="waiting-room-topic-input" data-maplevel="' + option.value + '" ' + (isSelected ? 'checked' : '') + ' ' + (!canEdit ? 'disabled' : '') + '>',
+          '<span class="waiting-room-topic-glow"></span>',
+          '<span class="waiting-room-topic-label">' + option.label + '<small style="display:block; font-size:12px; opacity:.85; margin-top:4px;">' + option.sublabel + '</small></span>',
+          '</label>'
+        ].join('');
+      }).join('');
+
+      var message = document.getElementById('mapSelectionMessage');
+      if (!message) return;
+      message.textContent = selected === 'hungary13'
+        ? 'Aktív pálya: NAGYMAGYARORSZÁG (villámháború).'
+        : 'Aktív pálya: VILÁGTÉRKÉP (hosszú hadjárat).';
+      message.className = 'waiting-room-topic-message is-ok';
+    }
+
+    function pushMapLevel(maplevel) {
+      var normalized = normalizeMaplevel(maplevel);
+      if (!isHost() || !isWaitingPhase()) return;
+      if (!latestLobbyState) latestLobbyState = {};
+      latestLobbyState.maplevel = normalized;
+      renderMapModeSelector();
+      socket.emit('setLobbyMaplevel', {
+        gameid: gameid,
+        username: username,
+        maplevel: normalized
+      });
     }
 
     function renderTopicFilters() {
@@ -312,6 +382,8 @@
 
     socket.on('lobbyState', function(lobby) {
       latestLobbyState = lobby;
+      renderMapModeSelector();
+      renderMapModeSelector();
       renderTopicFilters();
       renderPlayers();
       document.getElementById('waitingError').textContent = '';
@@ -351,6 +423,12 @@
       document.getElementById('waitingError').textContent = message;
     });
 
+    document.getElementById('mapModeSelector').addEventListener('change', function(event) {
+      var target = event.target;
+      if (!target || !target.classList.contains('waiting-room-topic-input') || !target.hasAttribute('data-maplevel')) return;
+      pushMapLevel(target.getAttribute('data-maplevel'));
+    });
+
     document.getElementById('topicFilters').addEventListener('change', function(event) {
       var target = event.target;
       if (!target || !target.classList.contains('waiting-room-topic-input')) return;
@@ -366,7 +444,8 @@
       gameSocket.emit('hostStartMatch', {
         username: username,
         players: buildMirrorPlayerNames(),
-        questionFilters: getQuestionFilters()
+        questionFilters: getQuestionFilters(),
+        maplevel: getSelectedMapLevel()
       });
     });
 
