@@ -2657,6 +2657,10 @@ function finishGame(winnerPid) {
 function onStateSnapshot(payload) {
   var previousState = state;
   state = payload;
+  if (state && state.game && state.game.maplevel && state.game.maplevel !== maplevel) {
+    maplevel = state.game.maplevel;
+    redrawMapLayerForLevel(maplevel);
+  }
   USER = state.players.find(function (player) { return player.name === username; }) || null;
   updateScoreDeltas(previousState && previousState.players, state.players);
   maybePlayTerritoryCaptureSound(previousState, state);
@@ -2678,34 +2682,40 @@ function onStateSnapshot(payload) {
 
 
 
-function initializeMap() {
-  function baseStyle() {
-    return {
-      fillColor: UNOWNED_FILL,
-      weight: 2,
-      opacity: 1,
-      color: UNOWNED_STROKE,
-      dashArray: '4 4',
-      fillOpacity: 0.58,
-    };
+function getGeoJsonForMapLevel(level) {
+  if (level === 'hungary13') return hungary13;
+  if (level === 'medium') return countries30;
+  return countries;
+}
+
+function buildBaseMapStyle() {
+  return {
+    fillColor: UNOWNED_FILL,
+    weight: 2,
+    opacity: 1,
+    color: UNOWNED_STROKE,
+    dashArray: '4 4',
+    fillOpacity: 0.58,
+  };
+}
+
+function redrawMapLayerForLevel(level) {
+  if (countriesLayer) {
+    map.removeLayer(countriesLayer);
+    countriesLayer = null;
   }
-
-
-
-
-
-
-
-
-  if (maplevel === 'hungary13') {
-    countriesLayer = L.geoJson(hungary13, { style: baseStyle, onEachFeature: countriesOnEachFeature }).addTo(map);
-  } else if (maplevel === 'medium') {
-    countriesLayer = L.geoJson(countries30, { style: baseStyle, onEachFeature: countriesOnEachFeature }).addTo(map);
-  } else {
-    countriesLayer = L.geoJson(countries, { style: baseStyle, onEachFeature: countriesOnEachFeature }).addTo(map);
+  countriesLayer = L.geoJson(getGeoJsonForMapLevel(level), {
+    style: buildBaseMapStyle,
+    onEachFeature: countriesOnEachFeature
+  }).addTo(map);
+  if (state && state.territories && state.territories.length) {
+    renderAllTerritories();
   }
 }
 
+function initializeMap() {
+  redrawMapLayerForLevel(maplevel);
+}
 
 
 

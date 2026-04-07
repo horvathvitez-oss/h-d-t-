@@ -115,6 +115,14 @@ const DEFAULT_QUESTION_FILTERS = {
   literature: true,
 };
 
+function normalizeMapLevelValue(value) {
+  const normalized = String(value || '').trim().toLowerCase();
+  if (normalized === 'hungary13' || normalized === 'hungary_13' || normalized === 'hungary-13') return 'hungary13';
+  if (normalized === 'medium') return 'medium';
+  if (normalized === 'world' || normalized === 'hard' || normalized === 'countries' || !normalized) return 'world';
+  return 'world';
+}
+
 
 module.exports = function createGame(io, rawGameId, creatorUsername, howmany, maplevel) {
   const gameid = Number(rawGameId);
@@ -131,7 +139,7 @@ module.exports = function createGame(io, rawGameId, creatorUsername, howmany, ma
     namespace,
     gameid,
     howmany: Math.min(Math.max(Number(howmany) || 2, 2), 3),
-    maplevel,
+    maplevel: normalizeMapLevelValue(maplevel),
     creatorUsername,
     players: [],
     territories: [],
@@ -663,6 +671,27 @@ async function handleUpdateQuestionFilters(room, socket, data = {}) {
   emitSnapshot(room);
 }
 
+
+async function syncRoomMapSelectionBeforeMatchStart(room, requestedMaplevel) {
+  const lobby = LobbyStore.getLobby(String(room.gameid));
+  const desiredMaplevel = normalizeMapLevelValue(requestedMaplevel || (lobby && lobby.maplevel) || room.maplevel || (room.game && room.game.maplevel));
+
+  if (room.maplevel === desiredMaplevel && room.game && room.game.maplevel === desiredMaplevel) {
+    return;
+  }
+
+  room.maplevel = desiredMaplevel;
+  if (room.game) {
+    room.game.maplevel = desiredMaplevel;
+  }
+  room.castles = [];
+  room.territories = createMapTerritories(room.gameid, desiredMaplevel);
+
+  await Territory.deleteMany({ gameid: room.gameid });
+  await Castle.deleteMany({ gameid: room.gameid });
+  await Territory.createTerritories(room.territories);
+}
+
 async function handleHostStartMatch(room, socket, data = {}) {
   if (!room || !room.game) return;
   const requesterName = String((data && data.username) || socket.currentUsername || '').trim();
@@ -677,6 +706,7 @@ async function handleHostStartMatch(room, socket, data = {}) {
     return;
   }
 
+  await syncRoomMapSelectionBeforeMatchStart(room, data && data.maplevel);
   applyWaitingRoomMirror(room, data.players);
   room.game.questionFilters = normalizeQuestionFilters(data && data.questionFilters ? data.questionFilters : room.game.questionFilters);
   await persistAllPlayers(room);
@@ -3670,12 +3700,28 @@ function createOrderCycle(playerIds) {
 
 
 function createMapTerritories(gameid, maplevel) {
+  const normalizedMaplevel = normalizeMapLevelValue(maplevel);
   const T = (tid, continent, tname, neighbors) => ({ gameid, tid, continent, tname, neighbors, ownsto: -1, szechenyiCasinoOwnerPid: null });
 
+  if (normalizedMaplevel === 'hungary13') {
+    return [
+      T(0, 0, 'South Africa', [1, 2]),
+      T(1, 0, 'East Africa', [0, 2, 3, 4, 5]),
+      T(2, 0, 'Congo', [0, 1, 4]),
+      T(3, 1, 'Egypt', [1, 4, 5, 6]),
+      T(4, 0, 'West Africa', [2, 1, 3, 6, 7]),
+      T(5, 1, 'Middle East', [1, 3, 6, 9]),
+      T(6, 1, 'Southern Europe', [3, 4, 5, 7, 8, 9]),
+      T(7, 1, 'Western Europe', [4, 6, 8, 11]),
+      T(8, 1, 'Northern Europe', [6, 7, 9, 10, 11]),
+      T(9, 1, 'Ukraine', [5, 6, 8, 10]),
+      T(10, 1, 'Scandinavia', [8, 9, 11, 12]),
+      T(11, 1, 'Great Britain', [7, 8, 10, 12]),
+      T(12, 1, 'Iceland', [10, 11]),
+    ];
+  }
 
-
-
-  if (maplevel === 'medium') {
+  if (normalizedMaplevel === 'medium') {
     return [
       T(0, 0, 'Veneru', [1, 2, 3]),
       T(1, 0, 'Brazil', [0, 2, 10]),
@@ -3710,9 +3756,6 @@ function createMapTerritories(gameid, maplevel) {
       T(30, 2, 'Western Asia', [24, 12, 15, 20, 22]),
     ];
   }
-
-
-
 
   return [
     T(0, 0, 'Venezuela', [4, 1, 2]),

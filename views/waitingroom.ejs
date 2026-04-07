@@ -383,7 +383,6 @@
     socket.on('lobbyState', function(lobby) {
       latestLobbyState = lobby;
       renderMapModeSelector();
-      renderMapModeSelector();
       renderTopicFilters();
       renderPlayers();
       document.getElementById('waitingError').textContent = '';
@@ -392,6 +391,11 @@
 
     gameSocket.on('stateSnapshot', function(snapshot) {
       latestGameState = snapshot;
+      if (snapshot && snapshot.game && snapshot.game.maplevel) {
+        if (!latestLobbyState) latestLobbyState = {};
+        latestLobbyState.maplevel = normalizeMaplevel(snapshot.game.maplevel);
+      }
+      renderMapModeSelector();
       renderTopicFilters();
       renderPlayers();
       document.getElementById('waitingError').textContent = '';

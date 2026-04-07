@@ -13,13 +13,20 @@ module.exports = function(io, db) {
     return 'lobby-' + String(gameid);
   }
 
+  function normalizeMapLevel(value) {
+    var normalized = String(value || '').trim().toLowerCase();
+    if (normalized === 'hungary13' || normalized === 'hungary_13' || normalized === 'hungary-13') return 'hungary13';
+    if (normalized === 'world' || normalized === 'hard' || !normalized) return 'world';
+    return 'world';
+  }
+
   function toPublicLobbyState(lobby) {
     return {
       gameid: String(lobby.gameid),
       host: lobby.host,
       players: lobby.players.slice(),
       maxPlayers: lobby.maxPlayers,
-      maplevel: lobby.maplevel,
+      maplevel: normalizeMapLevel(lobby.maplevel),
       started: lobby.started,
       canStart: lobby.players.length === lobby.maxPlayers
     };
@@ -106,6 +113,33 @@ module.exports = function(io, db) {
       }
 
       client.in(roomName(gameid)).emit('matchStarted', { gameid: gameid });
+      emitLobbyState(gameid);
+    });
+
+    socket.on('setLobbyMaplevel', function(data) {
+      var gameid = String((data && data.gameid) || '');
+      var username = data && data.username;
+      var maplevel = normalizeMapLevel(data && data.maplevel);
+
+      if (!gameid || !username) {
+        return emitLobbyError(socket, 'Hiányzik a lobbykód vagy a felhasználónév.');
+      }
+
+      var updateResult = LobbyStore.setMaplevel(gameid, username, maplevel);
+      if (!updateResult.ok) {
+        if (updateResult.reason === 'not_found') {
+          return emitLobbyError(socket, 'A meccs nem található.');
+        }
+        if (updateResult.reason === 'only_host_can_change') {
+          return emitLobbyError(socket, 'Csak a host válthat pályát.');
+        }
+        if (updateResult.reason === 'started') {
+          return emitLobbyError(socket, 'A pályát csak a meccs indítása előtt lehet módosítani.');
+        }
+        return emitLobbyError(socket, 'Nem sikerült elmenteni a pályaválasztást.');
+      }
+
+      socket.emit('lobbyState', toPublicLobbyState(updateResult.lobby));
       emitLobbyState(gameid);
     });
 
