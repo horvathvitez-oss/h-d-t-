@@ -42,6 +42,7 @@ const BOT_GUESS_EXACT_PROBABILITY = 0.1;
 
 
 const NAPOLEON_CONTINENT_BONUS = 800;
+const HORTHY_HOMELAND_BONUS = 400;
 const CHARACTERS = {
   einstein: {
     id: 'einstein',
@@ -50,12 +51,19 @@ const CHARACTERS = {
     fullDescription: 'Einsteinként összesen 6 KÖZÉPSULINEKED HELP-et használhatsz a meccs során.',
     image: '/images/character-einstein.webp',
   },
+  szilardleo: {
+    id: 'szilardleo',
+    name: 'Szilárd Leó',
+    shortDescription: '+1 segítség és 1 atombomba battle phase-ben.',
+    fullDescription: 'Szilárd Leóként eggyel több KÖZÉPSULINEKED HELP-ed van, és battle phase-ben 1 alkalommal ledobhatsz egy atombombát. Az atombomba azonnal elfoglal egy ellenséges területet, várra dobva pedig 1-gyel csökkenti a vár életerejét.',
+    image: '/images/character-szilardleo.webp',
+  },
   kossuth: {
     id: 'kossuth',
     name: 'Széchényi',
-    shortDescription: 'A Széchényi Kaszinót aktiválhatod kérdés előtt.',
-    fullDescription: 'A kérdés előtt aktiválhatod a Széchényi Kaszinót. Ha ezzel szerzel területet, területenként +200 pont jár és az adott terület arannyá válik. Ha a próbálkozásod kudarcba fullad, -200 pontot kapsz.',
-    image: '/images/character-kossuth.webp',
+    shortDescription: 'A Széchényi Kaszinót 2 alkalommal aktiválhatod kérdés előtt.',
+    fullDescription: 'A kérdés előtt 2 alkalommal aktiválhatod a Széchényi Kaszinót. Ha ezzel szerzel területet, területenként +200 pont jár és az adott terület arannyá válik. Ha a próbálkozásod kudarcba fullad, -200 pontot kapsz.',
+    image: '/images/character-szechenyi.webp',
   },
   napoleon: {
     id: 'napoleon',
@@ -63,6 +71,13 @@ const CHARACTERS = {
     shortDescription: 'Ha tied egész Európa, +800 pontot kapsz.',
     fullDescription: 'Ha tied Western Europe, Middle Europe, Southern Europe, Northern Europe, Ukraine, Scandinavia és Great Britain, +800 pontod lesz addig, amíg a szövetség él.',
     image: '/images/character-napoleon.webp',
+  },
+  horthy: {
+    id: 'horthy',
+    name: 'Horthy Miklós',
+    shortDescription: 'Ha tied Western Europe, Great Britain és Iceland, +400 pontot kapsz.',
+    fullDescription: 'A hungary13 pályán, ha tied Western Europe, Great Britain és Iceland, +400 pontot kapsz, és a területek piros-fehér-zöld fénnyel izzanak.',
+    image: '/images/character-horthy.webp',
   },
   brutus: {
     id: 'brutus',
@@ -72,7 +87,8 @@ const CHARACTERS = {
     image: '/images/character-brutus.webp',
   },
 };
-const CHARACTER_ORDER = ['einstein', 'napoleon', 'brutus'];
+const WORLD_CHARACTER_ORDER = ['einstein', 'napoleon', 'brutus'];
+const HUNGARY13_CHARACTER_ORDER = ['szilardleo', 'horthy', 'kossuth'];
 const NAPOLEON_EUROPE_NAMES = [
   'western europe',
   'middle europe',
@@ -89,13 +105,19 @@ const NAPOLEON_EUROPE_MEDIUM_NAMES = [
   'scandinavia',
   'great britain',
 ];
+const HORTHY_HOMELAND_NAMES = [
+  'western europe',
+  'great britain',
+  'iceland',
+];
 
-
-
-
-
-
-
+function getCharacterPoolForMap(maplevel) {
+  const normalizedMaplevel = normalizeMapLevelValue(maplevel);
+  if (normalizedMaplevel === 'hungary13') {
+    return HUNGARY13_CHARACTER_ORDER.slice();
+  }
+  return WORLD_CHARACTER_ORDER.slice();
+}
 
 const ACTIVE_GAMES = new Map();
 
@@ -199,12 +221,16 @@ async function setupGame(room) {
     activeQuestion: null,
     characterDraftOrder: [],
     characterDraftIndex: 0,
-    availableCharacterIds: CHARACTER_ORDER.slice(),
+    availableCharacterIds: getCharacterPoolForMap(room.maplevel),
     selectedCharactersByPid: {},
     brutusMirrorRemainingByPid: Object.fromEntries(room.players.map((player) => [player.pid, 0])),
     kossuthGambleArmedByPid: Object.fromEntries(room.players.map((player) => [player.pid, false])),
+    kossuthGambleRemainingByPid: Object.fromEntries(room.players.map((player) => [player.pid, 0])),
+    szilardBombRemainingByPid: Object.fromEntries(room.players.map((player) => [player.pid, 0])),
     napoleonEuropeOwnerPid: null,
     napoleonEuropeTerritoryTids: [],
+    horthyHomelandOwnerPid: null,
+    horthyHomelandTerritoryTids: [],
     ultraSabotageRemaining: room.players.length * 4,
     ultraSabotageRemainingByPid: Object.fromEntries(room.players.map((player) => [player.pid, 4])),
     kozepsuliHelpRemaining: room.players.length * 3,
@@ -358,6 +384,14 @@ function attachNamespaceHandlers(room) {
         await handleActivateKossuthGamble(room, socket);
       } catch (error) {
         console.error('activateKossuthGamble error:', error);
+      }
+    });
+
+    socket.on('launchSzilardBomb', async (data = {}) => {
+      try {
+        await handleLaunchSzilardBomb(room, socket, data);
+      } catch (error) {
+        console.error('launchSzilardBomb error:', error);
       }
     });
 
@@ -646,6 +680,7 @@ async function handleAddBotPlayer(room, socket, data = {}) {
   openSlot.castleCaptureBonus = 0;
   openSlot.kossuthScoreModifier = 0;
   openSlot.napoleonEuropeBonus = 0;
+  openSlot.horthyHomelandBonus = 0;
 
   await persistPlayer(room, openSlot);
   await refreshGamePlayerNames(room);
@@ -924,7 +959,7 @@ async function startCharacterDraft(room) {
   room.game.characterDraftOrder = draftOrder.slice();
   room.game.characterDraftIndex = 0;
   room.game.currentplayer = draftOrder.length ? draftOrder[0] : -1;
-  room.game.availableCharacterIds = CHARACTER_ORDER.slice();
+  room.game.availableCharacterIds = getCharacterPoolForMap(room.maplevel);
   room.game.selectedCharactersByPid = {};
   await persistGame(room);
 
@@ -943,10 +978,6 @@ async function handleSelectCharacter(room, socket, characterId) {
     return;
   }
 
-  if (characterId === 'kossuth') {
-    socket.emit('serverstatus', ['Ez a karakter jelenleg nem választható.']);
-    return;
-  }
   if (!CHARACTERS[characterId]) {
     socket.emit('serverstatus', ['Érvénytelen karakter.']);
     return;
@@ -963,8 +994,15 @@ async function handleSelectCharacter(room, socket, characterId) {
   if (characterId === 'einstein') {
     room.game.kozepsuliHelpRemainingByPid[player.pid] = 6;
   }
+  if (characterId === 'szilardleo') {
+    room.game.kozepsuliHelpRemainingByPid[player.pid] = 4;
+    room.game.szilardBombRemainingByPid[player.pid] = 1;
+  }
   if (characterId === 'brutus') {
     room.game.brutusMirrorRemainingByPid[player.pid] = 3;
+  }
+  if (characterId === 'kossuth') {
+    room.game.kossuthGambleRemainingByPid[player.pid] = 2;
   }
 
   const currentIndex = room.game.characterDraftOrder.indexOf(player.pid);
@@ -1380,6 +1418,99 @@ async function handleSelectAttackTarget(room, socket, tid) {
 }
 
 
+
+
+
+
+function getSzilardBombTargets(room, pid) {
+  return room.territories
+    .filter((territory) => territory.ownsto >= 0 && territory.ownsto !== pid)
+    .map((territory) => territory.tid);
+}
+
+async function handleLaunchSzilardBomb(room, socket, data = {}) {
+  const attacker = getPlayerByUsername(room, socket.currentUsername);
+  if (!attacker) return;
+  if (room.game.phase !== PHASES.BATTLE_SELECTION) return;
+  if (room.game.currentplayer !== attacker.pid) {
+    socket.emit('serverstatus', ['Most nem te következel.']);
+    return;
+  }
+  if (getCharacterIdForPid(room, attacker.pid) !== 'szilardleo') {
+    socket.emit('serverstatus', ['Az atombombát csak Szilárd Leó használhatja.']);
+    return;
+  }
+  const remaining = getSzilardBombRemainingForPid(room, attacker.pid);
+  if (remaining <= 0) {
+    socket.emit('serverstatus', ['Az atombombát már felhasználtad.']);
+    return;
+  }
+
+  const tid = Number(data.tid);
+  const territory = getTerritoryByTid(room, tid);
+  if (!territory || territory.ownsto < 0 || territory.ownsto === attacker.pid) {
+    socket.emit('serverstatus', ['Atombombát csak ellenséges területre dobhatsz.']);
+    return;
+  }
+  if (!getSzilardBombTargets(room, attacker.pid).includes(tid)) {
+    socket.emit('serverstatus', ['Ez a célpont nem bombázható.']);
+    return;
+  }
+
+  const defender = getPlayerByPid(room, territory.ownsto);
+  const castle = getActiveCastleByTid(room, tid);
+  const rawX = Number(data.screenXRatio);
+  const rawY = Number(data.screenYRatio);
+  const screenXRatio = Number.isFinite(rawX) ? Math.max(0, Math.min(1, rawX)) : 0.5;
+  const screenYRatio = Number.isFinite(rawY) ? Math.max(0, Math.min(1, rawY)) : 0.5;
+
+  if (!room.game.szilardBombRemainingByPid || typeof room.game.szilardBombRemainingByPid !== 'object') {
+    room.game.szilardBombRemainingByPid = {};
+  }
+  room.game.szilardBombRemainingByPid[attacker.pid] = Math.max(0, remaining - 1);
+
+  let message = '';
+  let castleDestroyed = false;
+  if (castle) {
+    castle.hp = Math.max(0, Number(castle.hp || 0) - 1);
+    if (castle.hp <= 0) {
+      castle.active = false;
+      castleDestroyed = true;
+    }
+    await persistCastle(room, castle, false);
+    message = castleDestroyed
+      ? `${attacker.name} atombombája megsemmisítette ${defender.name} várát ${territory.tname} területén.`
+      : `${attacker.name} atombombája eltalálta ${defender.name} várát ${territory.tname} területén. Maradék életerő: ${castle.hp}.`;
+  } else {
+    territory.ownsto = attacker.pid;
+    territory.szechenyiCasinoOwnerPid = null;
+    await persistTerritory(room, territory);
+    message = `${attacker.name} atombombával elfoglalta ${territory.tname} területét ${defender.name} játékostól.`;
+  }
+
+  rebuildPlayerTerritories(room);
+  recalculateScores(room);
+  await persistAllPlayers(room);
+  await persistGame(room);
+
+  gameLog(room, message);
+  sendStatus(room, message);
+  room.namespace.emit('szilardBombLaunched', {
+    byPid: attacker.pid,
+    byName: attacker.name,
+    targetTid: tid,
+    targetName: territory.tname,
+    defenderPid: defender ? defender.pid : null,
+    isCastle: Boolean(castle),
+    castleDestroyed,
+    remaining: getSzilardBombRemainingForPid(room, attacker.pid),
+    screenXRatio,
+    screenYRatio,
+  });
+
+  emitSnapshot(room);
+  await advanceBattleTurn(room);
+}
 
 
 async function startBattleMcq(room, battleContext) {
@@ -2379,13 +2510,19 @@ function rebuildPlayerTerritories(room) {
 function recalculateScores(room) {
   syncSzechenyiCasinoTerritories(room);
   syncNapoleonEuropeState(room);
+  syncHorthyHomelandState(room);
   room.players.forEach((player) => {
     const territoryCount = room.territories.filter((territory) => territory.ownsto === player.pid).length;
     const activeCastleBonus = room.castles.some((castle) => castle.active && castle.pid === player.pid)
       ? CASTLE_SCORE_BONUS
       : 0;
     const assetScore = territoryCount * TERRITORY_SCORE + activeCastleBonus;
-    player.score = assetScore + (player.defenseBonus || 0) + (player.castleCaptureBonus || 0) + (player.kossuthScoreModifier || 0) + (player.napoleonEuropeBonus || 0);
+    player.score = assetScore
+      + (player.defenseBonus || 0)
+      + (player.castleCaptureBonus || 0)
+      + (player.kossuthScoreModifier || 0)
+      + (player.napoleonEuropeBonus || 0)
+      + (player.horthyHomelandBonus || 0);
   });
 }
 
@@ -2410,6 +2547,18 @@ function getCharacterIdForPid(room, pid) {
 function getBrutusMirrorRemainingForPid(room, pid) {
   if (!room || !room.game || !Number.isInteger(pid)) return 0;
   const byPid = room.game.brutusMirrorRemainingByPid || {};
+  return Math.max(0, Number(byPid[pid]) || 0);
+}
+
+function getKossuthGambleRemainingForPid(room, pid) {
+  if (!room || !room.game || !Number.isInteger(pid)) return 0;
+  const byPid = room.game.kossuthGambleRemainingByPid || {};
+  return Math.max(0, Number(byPid[pid]) || 0);
+}
+
+function getSzilardBombRemainingForPid(room, pid) {
+  if (!room || !room.game || !Number.isInteger(pid)) return 0;
+  const byPid = room.game.szilardBombRemainingByPid || {};
   return Math.max(0, Number(byPid[pid]) || 0);
 }
 
@@ -2518,6 +2667,40 @@ function syncNapoleonEuropeState(room) {
     }
   });
   room.game.napoleonEuropeOwnerPid = Number.isInteger(activePid) ? activePid : null;
+}
+
+
+function getHorthyHomelandTerritoryIds(room) {
+  const wanted = new Set(HORTHY_HOMELAND_NAMES);
+  return room.territories
+    .filter((territory) => wanted.has(normalizeTerritoryName(territory.tname)))
+    .map((territory) => territory.tid)
+    .sort((a, b) => a - b);
+}
+
+function syncHorthyHomelandState(room) {
+  const homelandTids = normalizeMapLevelValue(room && room.maplevel) === 'hungary13'
+    ? getHorthyHomelandTerritoryIds(room)
+    : [];
+  room.game.horthyHomelandTerritoryTids = homelandTids;
+  let activePid = null;
+  room.players.forEach((player) => {
+    if (getCharacterIdForPid(room, player.pid) !== 'horthy') {
+      player.horthyHomelandBonus = 0;
+      return;
+    }
+    const ownsAll = homelandTids.length > 0 && homelandTids.every((tid) => {
+      const territory = getTerritoryByTid(room, tid);
+      return territory && territory.ownsto === player.pid;
+    });
+    if (ownsAll) {
+      activePid = player.pid;
+      player.horthyHomelandBonus = HORTHY_HOMELAND_BONUS;
+    } else {
+      player.horthyHomelandBonus = 0;
+    }
+  });
+  room.game.horthyHomelandOwnerPid = Number.isInteger(activePid) ? activePid : null;
 }
 
 function getHighestScorePlayer(room) {
@@ -2709,8 +2892,12 @@ function emitSnapshot(room, socket = null) {
       questionFilters: normalizeQuestionFilters(room.game.questionFilters),
       brutusMirrorRemainingByPid: room.game.brutusMirrorRemainingByPid || {},
       kossuthGambleArmedByPid: room.game.kossuthGambleArmedByPid || {},
+      kossuthGambleRemainingByPid: room.game.kossuthGambleRemainingByPid || {},
+      szilardBombRemainingByPid: room.game.szilardBombRemainingByPid || {},
       napoleonEuropeOwnerPid: Number.isInteger(room.game.napoleonEuropeOwnerPid) ? room.game.napoleonEuropeOwnerPid : null,
       napoleonEuropeTerritoryTids: room.game.napoleonEuropeTerritoryTids || [],
+      horthyHomelandOwnerPid: Number.isInteger(room.game.horthyHomelandOwnerPid) ? room.game.horthyHomelandOwnerPid : null,
+      horthyHomelandTerritoryTids: room.game.horthyHomelandTerritoryTids || [],
       gamefinish: room.game.gamefinish,
       winner: room.game.winner ?? null,
     },
@@ -2728,6 +2915,7 @@ function emitSnapshot(room, socket = null) {
       characterId: player.characterId || null,
       characterName: player.characterId && CHARACTERS[player.characterId] ? CHARACTERS[player.characterId].name : null,
       napoleonEuropeBonus: player.napoleonEuropeBonus || 0,
+      horthyHomelandBonus: player.horthyHomelandBonus || 0,
       kossuthScoreModifier: player.kossuthScoreModifier || 0,
     })),
     castles: room.castles.map((castle) => ({
@@ -2765,11 +2953,13 @@ function publicQuestionContext(room, context, pid = null) {
   );
 
   const kossuthArmed = isKossuthGambleArmed(room, pid);
+  const kossuthRemaining = getKossuthGambleRemainingForPid(room, pid);
   const canUseKossuthGamble = Boolean(
     question &&
     Array.isArray(question.participants) &&
     question.participants.includes(pid) &&
     getCharacterIdForPid(room, pid) === 'kossuth' &&
+    kossuthRemaining > 0 &&
     !hasAnswered &&
     !kossuthArmed
   );
@@ -2781,6 +2971,7 @@ function publicQuestionContext(room, context, pid = null) {
       kozepsuliHelpRemainingTotal: getTotalKozepsuliHelpRemaining(room),
       canUseKozepsuliHelp,
       kossuthGambleArmed: kossuthArmed,
+      kossuthGambleRemaining: kossuthRemaining,
       canUseKossuthGamble,
     };
   }
@@ -2815,6 +3006,7 @@ function publicQuestionContext(room, context, pid = null) {
     Number.isInteger(context.attackerPid) &&
     context.attackerPid === pid &&
     getCharacterIdForPid(room, pid) === 'kossuth' &&
+    kossuthRemaining > 0 &&
     !hasAnswered &&
     !kossuthArmed
   );
@@ -2828,6 +3020,7 @@ function publicQuestionContext(room, context, pid = null) {
     attackerPid: Number.isInteger(context.attackerPid) ? context.attackerPid : null,
     defenderPid: Number.isInteger(context.defenderPid) ? context.defenderPid : null,
     kossuthGambleArmed: kossuthArmed,
+    kossuthGambleRemaining: kossuthRemaining,
     canUseKossuthGamble: canUseBattleKossuthGamble,
     ultraSabotageRemaining: sabotageRemaining,
     ultraSabotageRemainingTotal: getTotalUltraSabotageRemaining(room),
@@ -3163,8 +3356,17 @@ async function handleActivateKossuthGamble(room, socket) {
     socket.emit('serverstatus', ['A Széchényi Kaszinó már aktív nálad.']);
     return;
   }
+  const remaining = getKossuthGambleRemainingForPid(room, player.pid);
+  if (remaining <= 0) {
+    socket.emit('serverstatus', ['A Széchényi Kaszinót már mindkétszer felhasználtad.']);
+    return;
+  }
 
   armKossuthGamble(room, player.pid);
+  if (!room.game.kossuthGambleRemainingByPid || typeof room.game.kossuthGambleRemainingByPid !== 'object') {
+    room.game.kossuthGambleRemainingByPid = {};
+  }
+  room.game.kossuthGambleRemainingByPid[player.pid] = Math.max(0, remaining - 1);
   await persistGame(room);
 
   emitQuestionStart(room);
@@ -3172,6 +3374,7 @@ async function handleActivateKossuthGamble(room, socket) {
     questionId: question.id,
     byPid: player.pid,
     byName: player.name,
+    remaining: getKossuthGambleRemainingForPid(room, player.pid),
   });
 
   sendStatus(room, `${player.name} aktiválta a Széchényi Kaszinót.`);
@@ -3557,6 +3760,9 @@ function createInitialPlayers(gameid, creatorUsername, howmany) {
       score: 0,
       defenseBonus: 0,
       castleCaptureBonus: 0,
+      horthyHomelandBonus: 0,
+      napoleonEuropeBonus: 0,
+      kossuthScoreModifier: 0,
       active: true,
       eliminated: false,
       connected: false,

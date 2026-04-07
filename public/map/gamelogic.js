@@ -57,6 +57,10 @@ var questionUiTimers = [];
 var ownColorBannerTimer = null;
 var ultraSabotageBannerTimer = null;
 var hasSubmittedCurrentQuestion = false;
+var szilardBombModeActive = false;
+var szilardBombPointer = null;
+var szilardBombLastPoint = null;
+var szilardBombAnimationCleanupTimer = null;
 
 
 
@@ -409,16 +413,10 @@ function getCharacterDefinition(id) {
 }
 
 function buildCharacterDraftVisualHtml(id, name) {
-  if (id === 'kossuth') {
-    return '<span class="character-draft-card-image-wrap character-draft-card-image-wrap--szechenyi"><span class="character-draft-card-emblem">Sz</span></span>';
-  }
   return '<span class="character-draft-card-image-wrap"><img class="character-draft-card-image" src="' + escapeHtml(CHARACTER_IMAGE_BY_ID[id]) + '" alt="' + escapeHtml(name) + '" loading="lazy"></span>';
 }
 
 function buildCharacterTrayVisualHtml(id, name) {
-  if (id === 'kossuth') {
-    return '<span class="character-tray-image character-tray-image--szechenyi"><span class="character-tray-emblem">Sz</span></span>';
-  }
   return '<img class="character-tray-image" src="' + escapeHtml(CHARACTER_IMAGE_BY_ID[id]) + '" alt="' + escapeHtml(name) + '" loading="lazy">';
 }
 
@@ -457,7 +455,7 @@ function renderCharacterDraftModal() {
   var options = document.getElementById('character-draft-options');
   if (title) title.textContent = currentPlayer ? (getPlayerDisplayName(currentPlayer) + ' választ') : 'Karakterválasztás';
   if (subtitle) subtitle.textContent = USER && currentPid === USER.pid ? 'Válassz egy karaktert.' : 'Várj, amíg a soron lévő játékos választ.';
-  var available = (state.game.availableCharacterIds || []).filter(function (id) { return id !== 'kossuth'; }).slice();
+  var available = (state.game.availableCharacterIds || []).slice();
   options.innerHTML = available.map(function (id) {
     var def = getCharacterDefinition(id);
     if (!def) return '';
@@ -797,14 +795,18 @@ var QUESTION_HELP_ART_SRC = '/images/question-help-king.webp';
 var QUESTION_SABOTAGE_ART_SRC = '/images/question-sabotage-clown.webp';
 var CHARACTER_IMAGE_BY_ID = {
   einstein: '/images/character-einstein.webp',
-  kossuth: '/images/character-kossuth.webp',
+  szilardleo: '/images/character-szilardleo.webp',
+  kossuth: '/images/character-szechenyi.webp',
   napoleon: '/images/character-napoleon.webp',
+  horthy: '/images/character-horthy.webp',
   brutus: '/images/character-brutus.webp'
 };
 var CHARACTER_DEFS = {
   einstein: { id: 'einstein', name: 'Einstein', shortDescription: '6 segítséged van 3 helyett.', fullDescription: 'Einsteinként 6 KÖZÉPSULINEKED HELP-et kapsz a meccs teljes hosszára.' },
-  kossuth: { id: 'kossuth', name: 'Széchényi', shortDescription: 'A Széchényi Kaszinót kérdés előtt aktiválhatod.', fullDescription: 'A kérdés előtt aktiválhatod a Széchényi Kaszinót. Ha ezzel szerzel területet, a bónusz +200 pont területenként és az így szerzett terület arannyá válik. Sikertelen próbálkozás esetén -200 pont jár.' },
+  szilardleo: { id: 'szilardleo', name: 'Szilárd Leó', shortDescription: '+1 segítség és 1 atombomba battle phase-ben.', fullDescription: 'Szilárd Leóként 4 KÖZÉPSULINEKED HELP-et kapsz, és battle phase-ben 1 alkalommal ledobhatsz egy atombombát.' },
+  kossuth: { id: 'kossuth', name: 'Széchényi', shortDescription: 'A Széchényi Kaszinót kérdés előtt 2x aktiválhatod.', fullDescription: 'A kérdés előtt 2 alkalommal aktiválhatod a Széchényi Kaszinót. Ha ezzel szerzel területet, a bónusz +200 pont területenként és az így szerzett terület arannyá válik. Sikertelen próbálkozás esetén -200 pont jár.' },
   napoleon: { id: 'napoleon', name: 'Napóleon', shortDescription: 'Ha tied egész Európa, +800 pontot kapsz.', fullDescription: 'Western Europe, Middle Europe, Southern Europe, Northern Europe, Ukraine, Scandinavia és Great Britain egyesítése +800 pontot ér.' },
+  horthy: { id: 'horthy', name: 'Horthy Miklós', shortDescription: 'Western Europe + Great Britain + Iceland = +400 pont.', fullDescription: 'A hungary13 pályán, ha tied Western Europe, Great Britain és Iceland, +400 pontot kapsz és a területek piros-fehér-zölden izzanak.' },
   brutus: { id: 'brutus', name: 'Brutus', shortDescription: '3 tükröző battle-szabotázsod van.', fullDescription: 'Battle kérdésnél 3 alkalommal tükrözheted az ellenfél kérdéskártyáját.' }
 };
 
@@ -1332,9 +1334,7 @@ function renderQuestionActions(question) {
 
     var kossuthCounter = document.createElement('div');
     kossuthCounter.className = 'question-action-counter question-kossuth-counter';
-    kossuthCounter.textContent = question.context && question.context.flow === 'BATTLE'
-      ? 'ATTACK BÓNUSZ'
-      : 'FOGLALÁSI BÓNUSZ';
+    kossuthCounter.textContent = 'MARADÉK: ' + Number(question.context && question.context.kossuthGambleRemaining || 0);
 
     kossuthGroup.appendChild(kossuthButton);
     kossuthGroup.appendChild(kossuthCounter);
@@ -1769,6 +1769,10 @@ function whenClicked(e) {
 
 
   if (state.game.phase === 'BATTLE_SELECTION') {
+    if (szilardBombModeActive) {
+      launchSzilardBombAtTarget(tid, e && e.originalEvent ? e.originalEvent : null);
+      return;
+    }
     playOneShot(soundPlayers.attackEnemyAction);
     socket.emit('selectAttackTarget', { tid: tid });
   }
@@ -2104,7 +2108,22 @@ function buildLayerStyle(tid) {
     style.className = ((style.className ? style.className + ' ' : '') + 'territory-napoleon-europe').trim();
   }
 
-  if (isCurrentTurn && state.game.phase === 'BATTLE_SELECTION' && isSelectableAttack(tid)) {
+  var horthyHomelandActive = state.game && Number.isInteger(state.game.horthyHomelandOwnerPid) && Array.isArray(state.game.horthyHomelandTerritoryTids) && state.game.horthyHomelandTerritoryTids.indexOf(tid) !== -1;
+  if (horthyHomelandActive) {
+    style.weight = Math.max(style.weight, 5.2);
+    style.color = '#f4efe3';
+    style.fillOpacity = territory.ownsto >= 0 ? 0.9 : Math.max(style.fillOpacity, 0.74);
+    style.className = ((style.className ? style.className + ' ' : '') + 'territory-horthy-homeland').trim();
+  }
+
+  if (szilardBombModeActive && canUseSzilardBombNow() && isSzilardBombTargetTid(tid)) {
+    style.weight = Math.max(style.weight, 6.4);
+    style.color = '#f7f2ea';
+    style.fillColor = 'rgba(35, 35, 35, 0.92)';
+    style.fillOpacity = 0.82;
+    style.dashArray = '';
+    style.className = ((style.className ? style.className + ' ' : '') + 'territory-selectable territory-selectable-battle territory-selectable-bomb territory-elevated').trim();
+  } else if (isCurrentTurn && state.game.phase === 'BATTLE_SELECTION' && isSelectableAttack(tid)) {
     style.weight = 6.5;
     style.color = '#ffe2a2';
     style.fillColor = rgba(getOwnerColor(USER.pid), 0.82);
@@ -2154,9 +2173,11 @@ function applyLayerStyle(layer, tid) {
       'territory-selectable-battle',
       'territory-selectable-hover',
       'territory-selectable-battle-hover',
+      'territory-selectable-bomb',
       'territory-elevated',
       'territory-unselectable',
-      'territory-napoleon-europe'
+      'territory-napoleon-europe',
+      'territory-horthy-homeland'
     );
     if (style.className) {
       style.className.split(/\s+/).forEach(function (name) {
@@ -2542,6 +2563,169 @@ function renderStatus() {
 
 
 
+function ensureBattleActionDock() {
+  var existing = document.getElementById('battle-action-dock');
+  if (existing) return existing;
+  var dock = document.createElement('div');
+  dock.id = 'battle-action-dock';
+  dock.className = 'battle-action-dock';
+  document.body.appendChild(dock);
+  return dock;
+}
+
+function ensureSzilardBombPointer() {
+  if (szilardBombPointer && szilardBombPointer.parentNode) return szilardBombPointer;
+  var pointer = document.createElement('div');
+  pointer.id = 'szilard-bomb-pointer';
+  pointer.className = 'szilard-bomb-pointer';
+  pointer.innerHTML = '<div class="szilard-bomb-pointer-crosshair"></div><div class="szilard-bomb-pointer-bomb">☠</div>';
+  document.body.appendChild(pointer);
+  szilardBombPointer = pointer;
+  return pointer;
+}
+
+function canUseSzilardBombNow() {
+  if (!USER || !state.game) return false;
+  if (state.game.phase !== 'BATTLE_SELECTION') return false;
+  if (state.game.currentplayer !== USER.pid) return false;
+  var player = getPlayerByPid(USER.pid);
+  if (!player || player.characterId !== 'szilardleo') return false;
+  var byPid = state.game.szilardBombRemainingByPid || {};
+  return Number(byPid[USER.pid] || 0) > 0;
+}
+
+function isSzilardBombTargetTid(tid) {
+  if (!USER || !state.game) return false;
+  var territory = getTerritoryByTid(tid);
+  return Boolean(territory && territory.ownsto >= 0 && territory.ownsto !== USER.pid);
+}
+
+function setSzilardBombMode(active) {
+  var enabled = Boolean(active) && canUseSzilardBombNow();
+  szilardBombModeActive = enabled;
+  document.body.classList.toggle('szilard-bomb-mode', enabled);
+  if (!enabled) {
+    if (szilardBombPointer) {
+      szilardBombPointer.classList.remove('is-visible');
+    }
+    szilardBombLastPoint = null;
+    renderBattleActionDock();
+    renderAllTerritories();
+    return;
+  }
+  ensureSzilardBombPointer().classList.add('is-visible');
+  renderBattleActionDock();
+  renderAllTerritories();
+  setStatus('ATOMBOMBA mód aktív. Vidd a célkeresztet egy ellenséges terület fölé, majd kattints.');
+}
+
+function updateSzilardBombPointer(clientX, clientY) {
+  if (!szilardBombModeActive) return;
+  var pointer = ensureSzilardBombPointer();
+  pointer.classList.add('is-visible');
+  pointer.style.left = clientX + 'px';
+  pointer.style.top = clientY + 'px';
+  szilardBombLastPoint = { x: clientX, y: clientY };
+}
+
+function launchSzilardBombAtTarget(tid, originalEvent) {
+  if (!szilardBombModeActive || !canUseSzilardBombNow()) return;
+  if (!isSzilardBombTargetTid(tid)) {
+    setStatus('Atombombát csak ellenséges területre dobhatsz.');
+    return;
+  }
+  var mapElement = element('map');
+  var rect = mapElement ? mapElement.getBoundingClientRect() : null;
+  var clientX = originalEvent && typeof originalEvent.clientX === 'number'
+    ? originalEvent.clientX
+    : (szilardBombLastPoint ? szilardBombLastPoint.x : (rect ? rect.left + rect.width / 2 : window.innerWidth / 2));
+  var clientY = originalEvent && typeof originalEvent.clientY === 'number'
+    ? originalEvent.clientY
+    : (szilardBombLastPoint ? szilardBombLastPoint.y : (rect ? rect.top + rect.height / 2 : window.innerHeight / 2));
+  var screenXRatio = rect && rect.width > 0 ? (clientX - rect.left) / rect.width : 0.5;
+  var screenYRatio = rect && rect.height > 0 ? (clientY - rect.top) / rect.height : 0.5;
+  setSzilardBombMode(false);
+  playOneShot(soundPlayers.attackEnemyAction);
+  socket.emit('launchSzilardBomb', {
+    tid: tid,
+    screenXRatio: screenXRatio,
+    screenYRatio: screenYRatio
+  });
+}
+
+function renderBattleActionDock() {
+  var dock = ensureBattleActionDock();
+  if (!dock) return;
+  if (!canUseSzilardBombNow()) {
+    dock.classList.remove('is-visible');
+    dock.innerHTML = '';
+    if (szilardBombModeActive) {
+      setSzilardBombMode(false);
+    }
+    return;
+  }
+
+  var remaining = Number((state.game.szilardBombRemainingByPid || {})[USER.pid] || 0);
+  dock.innerHTML = [
+    '<button type="button" class="battle-action-button battle-action-button--szilard' + (szilardBombModeActive ? ' is-armed' : '') + '" id="szilard-bomb-toggle">',
+      '<span class="battle-action-button-icon">☠</span>',
+      '<span class="battle-action-button-text">ATOMBOMBA</span>',
+      '<span class="battle-action-button-counter">' + remaining + 'x</span>',
+    '</button>',
+    '<div class="battle-action-hint">' + (szilardBombModeActive ? 'Kattints egy ellenséges területre a ledobáshoz.' : 'Battle phase-ben 1x használható.') + '</div>'
+  ].join('');
+  dock.classList.add('is-visible');
+
+  var button = document.getElementById('szilard-bomb-toggle');
+  if (button) {
+    button.addEventListener('click', function () {
+      setSzilardBombMode(!szilardBombModeActive);
+    });
+  }
+}
+
+function clearSzilardBombAnimation() {
+  if (szilardBombAnimationCleanupTimer) {
+    clearTimeout(szilardBombAnimationCleanupTimer);
+    szilardBombAnimationCleanupTimer = null;
+  }
+  var existing = document.getElementById('szilard-bomb-animation');
+  if (existing && existing.parentNode) {
+    existing.parentNode.removeChild(existing);
+  }
+}
+
+function showSzilardBombAnimation(payload) {
+  clearSzilardBombAnimation();
+  var mapElement = element('map');
+  if (!mapElement) return;
+  var rect = mapElement.getBoundingClientRect();
+  var xRatio = payload && typeof payload.screenXRatio === 'number' ? payload.screenXRatio : 0.5;
+  var yRatio = payload && typeof payload.screenYRatio === 'number' ? payload.screenYRatio : 0.5;
+  var targetX = rect.left + rect.width * Math.max(0, Math.min(1, xRatio));
+  var targetY = rect.top + rect.height * Math.max(0, Math.min(1, yRatio));
+
+  var overlay = document.createElement('div');
+  overlay.id = 'szilard-bomb-animation';
+  overlay.className = 'szilard-bomb-animation';
+  overlay.style.setProperty('--impact-x', targetX + 'px');
+  overlay.style.setProperty('--impact-y', targetY + 'px');
+  overlay.innerHTML = [
+    '<div class="szilard-bomb-fall">☠</div>',
+    '<div class="szilard-bomb-blast"></div>',
+    '<div class="szilard-bomb-ring"></div>',
+    '<div class="szilard-bomb-smoke"></div>',
+    '<div class="szilard-bomb-label">ATOMBOMBA</div>'
+  ].join('');
+  document.body.appendChild(overlay);
+  requestAnimationFrame(function () {
+    overlay.classList.add('is-live');
+  });
+  szilardBombAnimationCleanupTimer = setTimeout(function () {
+    clearSzilardBombAnimation();
+  }, 1900);
+}
+
 function renderKossuthAction() {
   var tray = document.getElementById('character-tray');
   if (!tray) return;
@@ -2556,15 +2740,9 @@ function renderHUD() {
   renderOrderBoard();
   renderStatus();
   syncCharacterUi();
+  renderBattleActionDock();
   renderKossuthAction();
 }
-
-
-
-
-
-
-
 
 function setStatus(text) {
   gamestatus.textContent = text;
@@ -2770,6 +2948,16 @@ function initializeMap() {
 
 initializeMap();
 
+document.addEventListener('mousemove', function (event) {
+  updateSzilardBombPointer(event.clientX, event.clientY);
+});
+
+document.addEventListener('keydown', function (event) {
+  if (event.key === 'Escape' && szilardBombModeActive) {
+    setSzilardBombMode(false);
+  }
+});
+
 
 
 
@@ -2793,6 +2981,9 @@ socket.on('kossuthGambleActivated', function (payload) {
     triggerQuestionActionEffect('kossuth', payload);
     currentQuestionData.context = currentQuestionData.context || {};
     currentQuestionData.context.kossuthGambleArmed = true;
+    currentQuestionData.context.kossuthGambleRemaining = payload && typeof payload.remaining === 'number'
+      ? payload.remaining
+      : currentQuestionData.context.kossuthGambleRemaining;
     currentQuestionData.context.canUseKossuthGamble = false;
     applyQuestionVisualMode(currentQuestionData);
     renderQuestionActions(currentQuestionData);
@@ -2876,6 +3067,12 @@ socket.on('question:resolved', function (payload) {
 socket.on('battle:result', function (payload) {
   if (payload && payload.message) {
     setStatus(payload.message);
+  }
+});
+socket.on('szilardBombLaunched', function (payload) {
+  showSzilardBombAnimation(payload);
+  if (payload && payload.byName && payload.targetName) {
+    setStatus(payload.byName + ' ledobta az atombombát ' + payload.targetName + ' fölé.');
   }
 });
 socket.on('gamefinish', function (data) {
