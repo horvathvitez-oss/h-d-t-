@@ -91,21 +91,32 @@
           <span class="lobby-v3-user-label">Bejelentkezve</span>
           <strong><%= username %></strong>
         </div>
+
+        <div class="lobby-v3-preview-switch" role="tablist" aria-label="Pályaelőnézet váltása">
+          <button type="button" class="lobby-v3-preview-pill is-active" data-preview-mode="world" aria-pressed="true">VILÁGTÉRKÉP</button>
+          <button type="button" class="lobby-v3-preview-pill" data-preview-mode="hungary13" aria-pressed="false">NAGYMAGYARORSZÁG</button>
+        </div>
       </section>
 
-      <section class="lobby-v3-characters reveal-card" aria-label="Karakterek">
-        <article class="lobby-v3-character lobby-v3-character--brutus">
+      <section class="lobby-v3-character-preview-head reveal-card" aria-label="Aktív karakter előnézet">
+        <div class="lobby-v3-character-preview-kicker">Karakter előnézet</div>
+        <div id="lobbyCharacterPreviewTitle" class="lobby-v3-character-preview-title">VILÁGTÉRKÉP</div>
+        <p id="lobbyCharacterPreviewSubtitle" class="lobby-v3-character-preview-subtitle">Itt megnézheted, milyen karakterek várnak az adott pályán.</p>
+      </section>
+
+      <section id="lobbyCharacterGrid" class="lobby-v3-characters reveal-card" aria-label="Karakterek" data-preview-mode="world">
+        <article class="lobby-v3-character lobby-v3-character--brutus" data-character-card="0">
           <div class="lobby-v3-character-tag">A ravasz</div>
           <div class="lobby-v3-character-media">
             <img src="/images/character-brutus.webp" alt="Brutus karaktere" loading="lazy">
           </div>
           <div class="lobby-v3-character-body">
             <h2>Brutus</h2>
-            <p>EXTRA szabotázs gombja van. Ha használod, az ellenfeled kérdése megtükröződik</p>
+            <p>EXTRA szabotázs gombja van. Ha használod, az ellenfeled kérdése megtükröződik.</p>
           </div>
         </article>
 
-        <article class="lobby-v3-character lobby-v3-character--einstein">
+        <article class="lobby-v3-character lobby-v3-character--einstein" data-character-card="1">
           <div class="lobby-v3-character-tag">A magabiztos</div>
           <div class="lobby-v3-character-media">
             <img src="/images/character-einstein.webp" alt="Einstein karaktere" loading="lazy">
@@ -116,7 +127,7 @@
           </div>
         </article>
 
-        <article class="lobby-v3-character lobby-v3-character--napoleon">
+        <article class="lobby-v3-character lobby-v3-character--napoleon" data-character-card="2">
           <div class="lobby-v3-character-tag">A rizikós</div>
           <div class="lobby-v3-character-media">
             <img src="/images/character-napoleon.webp" alt="Napóleon karaktere" loading="lazy">
@@ -194,6 +205,137 @@
         joinByCode();
       }
     });
+  </script>
+
+  <script>
+    (function () {
+      var previewSets = {
+        world: {
+          title: 'VILÁGTÉRKÉP',
+          subtitle: 'A klasszikus pályán ezek a karakterek érhetők el.',
+          cards: [
+            {
+              modifier: 'brutus',
+              tag: 'A ravasz',
+              name: 'Brutus',
+              image: '/images/character-brutus.webp',
+              description: 'EXTRA szabotázs gombja van. Ha használod, az ellenfeled kérdése megtükröződik.'
+            },
+            {
+              modifier: 'einstein',
+              tag: 'A magabiztos',
+              name: 'Einstein',
+              image: '/images/character-einstein.webp',
+              description: '+3 segítséggel rendelkezik.'
+            },
+            {
+              modifier: 'napoleon',
+              tag: 'A rizikós',
+              name: 'Napóleon',
+              image: '/images/character-napoleon.webp',
+              description: 'Ha övé EGÉSZ EURÓPA, +800 pontot kap.'
+            }
+          ]
+        },
+        hungary13: {
+          title: 'NAGYMAGYARORSZÁG',
+          subtitle: 'Itt a magyar pályára szabott karakterek jelennek meg.',
+          cards: [
+            {
+              modifier: 'szilardleo',
+              tag: 'A végzetes',
+              name: 'Szilárd Leó',
+              image: '/images/character-szilardleo.webp',
+              description: '+1 segítséged van ÉS EGY atombombád, amit ha ledobsz vagy kapsz egy területet, vagy veszít az enemy vára 1 HP-t.'
+            },
+            {
+              modifier: 'horthy',
+              tag: 'A kékvérű',
+              name: 'Horthy Miklós',
+              image: '/images/character-horthy.webp',
+              description: 'Ha tied a teljes FELVIDÉK és ERDÉLY, +400 pontot kapsz.'
+            },
+            {
+              modifier: 'szechenyi',
+              tag: 'Az aranykezű',
+              name: 'Széchényi',
+              image: '/images/character-szechenyi.webp',
+              description: 'Ha benyomod a „kaszinó” gombot és megszerzed az adott területet, +200 pontot kapsz. Ha nem szerzed meg, -200-at kapsz.'
+            }
+          ]
+        }
+      };
+
+      var activeMode = 'world';
+      var grid = document.getElementById('lobbyCharacterGrid');
+      var title = document.getElementById('lobbyCharacterPreviewTitle');
+      var subtitle = document.getElementById('lobbyCharacterPreviewSubtitle');
+      var pills = Array.prototype.slice.call(document.querySelectorAll('[data-preview-mode]'));
+      var cards = Array.prototype.slice.call(document.querySelectorAll('[data-character-card]'));
+      var swapTimer = null;
+
+      function applyMode(mode, animated) {
+        var config = previewSets[mode] || previewSets.world;
+        activeMode = mode;
+
+        pills.forEach(function (pill) {
+          var isActive = pill.getAttribute('data-preview-mode') === mode;
+          pill.classList.toggle('is-active', isActive);
+          pill.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+        });
+
+        if (!grid || !cards.length) return;
+        if (title) title.textContent = config.title;
+        if (subtitle) subtitle.textContent = config.subtitle;
+        grid.setAttribute('data-preview-mode', mode);
+
+        if (swapTimer) {
+          clearTimeout(swapTimer);
+          swapTimer = null;
+        }
+
+        var renderCards = function () {
+          cards.forEach(function (card, index) {
+            var item = config.cards[index];
+            if (!item) return;
+            card.className = 'lobby-v3-character lobby-v3-character--' + item.modifier;
+            var tag = card.querySelector('.lobby-v3-character-tag');
+            var img = card.querySelector('.lobby-v3-character-media img');
+            var name = card.querySelector('.lobby-v3-character-body h2');
+            var desc = card.querySelector('.lobby-v3-character-body p');
+            if (tag) tag.textContent = item.tag;
+            if (img) {
+              img.src = item.image;
+              img.alt = item.name + ' karaktere';
+            }
+            if (name) name.textContent = item.name;
+            if (desc) desc.textContent = item.description;
+          });
+        };
+
+        if (!animated) {
+          renderCards();
+          grid.classList.remove('is-swapping');
+          return;
+        }
+
+        grid.classList.add('is-swapping');
+        swapTimer = setTimeout(function () {
+          renderCards();
+          grid.classList.remove('is-swapping');
+        }, 220);
+      }
+
+      pills.forEach(function (pill) {
+        pill.addEventListener('click', function () {
+          var nextMode = pill.getAttribute('data-preview-mode');
+          if (!nextMode || nextMode === activeMode) return;
+          applyMode(nextMode, true);
+        });
+      });
+
+      applyMode(activeMode, false);
+    })();
   </script>
 
   <script>

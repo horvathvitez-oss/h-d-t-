@@ -2142,6 +2142,68 @@ function buildLayerStyle(tid) {
 
 
 
+function ensureHorthyHomelandGradient() {
+  var overlaySvg = document.querySelector('#map .leaflet-overlay-pane svg');
+  if (!overlaySvg || !overlaySvg.ownerSVGElement && overlaySvg.tagName.toLowerCase() !== 'svg') return null;
+
+  var defs = overlaySvg.querySelector('defs[data-hodito-defs="true"]');
+  if (!defs) {
+    defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+    defs.setAttribute('data-hodito-defs', 'true');
+    overlaySvg.insertBefore(defs, overlaySvg.firstChild || null);
+  }
+
+  var gradient = defs.querySelector('#horthyHomelandFill');
+  if (!gradient) {
+    gradient = document.createElementNS('http://www.w3.org/2000/svg', 'linearGradient');
+    gradient.setAttribute('id', 'horthyHomelandFill');
+    gradient.setAttribute('x1', '0%');
+    gradient.setAttribute('y1', '0%');
+    gradient.setAttribute('x2', '100%');
+    gradient.setAttribute('y2', '0%');
+
+    [
+      ['0%', '#d92f2f'],
+      ['33.333%', '#d92f2f'],
+      ['33.333%', '#f6f4ef'],
+      ['66.666%', '#f6f4ef'],
+      ['66.666%', '#1f9d4a'],
+      ['100%', '#1f9d4a']
+    ].forEach(function (entry) {
+      var stop = document.createElementNS('http://www.w3.org/2000/svg', 'stop');
+      stop.setAttribute('offset', entry[0]);
+      stop.setAttribute('stop-color', entry[1]);
+      gradient.appendChild(stop);
+    });
+
+    defs.appendChild(gradient);
+  }
+
+  return gradient;
+}
+
+function applySpecialTerritoryFill(layer, territory, style) {
+  if (!layer || !layer._path || !territory || !style) return;
+  var path = layer._path;
+  var hasTricolor = path.classList && path.classList.contains('territory-horthy-homeland');
+  var isSelectableOverlay = path.classList && (
+    path.classList.contains('territory-selectable') ||
+    path.classList.contains('territory-selectable-battle') ||
+    path.classList.contains('territory-selectable-bomb')
+  );
+
+  if (hasTricolor && !isSelectableOverlay && territory.ownsto >= 0) {
+    ensureHorthyHomelandGradient();
+    path.setAttribute('fill', 'url(#horthyHomelandFill)');
+    path.style.fill = 'url(#horthyHomelandFill)';
+    path.style.fillOpacity = String(style.fillOpacity != null ? style.fillOpacity : 0.9);
+    return;
+  }
+
+  path.style.removeProperty('fill');
+  path.style.removeProperty('fill-opacity');
+}
+
 function applyLayerStyle(layer, tid) {
   var territory = getTerritoryByTid(tid);
   if (!territory) return;
@@ -2188,6 +2250,8 @@ function applyLayerStyle(layer, tid) {
   if (style.className && style.className.indexOf('territory-selectable') !== -1 && layer.bringToFront) {
     layer.bringToFront();
   }
+
+  applySpecialTerritoryFill(layer, territory, style);
 
 
 

@@ -7707,3 +7707,174 @@ body.game-screen .leaflet-interactive.territory-selectable-bomb.territory-select
     text-align: center;
   }
 }
+
+
+
+body.lobby-v3 .lobby-v3-user-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+body.lobby-v3 .lobby-v3-preview-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px;
+  border-radius: 999px;
+  background: rgba(14, 17, 26, 0.78);
+  border: 1px solid rgba(255,255,255,0.1);
+  box-shadow: 0 14px 28px rgba(8, 10, 18, 0.16);
+}
+
+body.lobby-v3 .lobby-v3-preview-pill {
+  border: 0;
+  min-height: 54px;
+  padding: 0 22px;
+  border-radius: 999px;
+  background: transparent;
+  color: rgba(244, 246, 251, 0.7);
+  font-size: 18px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  transition: transform 180ms ease, background 180ms ease, color 180ms ease, box-shadow 180ms ease;
+}
+
+body.lobby-v3 .lobby-v3-preview-pill:hover {
+  transform: translateY(-1px);
+  color: #ffffff;
+}
+
+body.lobby-v3 .lobby-v3-preview-pill.is-active {
+  background: linear-gradient(135deg, rgba(255, 190, 93, 0.98), rgba(247, 140, 42, 0.98));
+  color: #1f140b;
+  box-shadow: 0 12px 22px rgba(145, 74, 15, 0.26);
+}
+
+body.lobby-v3 .lobby-v3-character-preview-head {
+  margin-bottom: 18px;
+  padding: 22px 24px;
+  border-radius: 26px;
+  background: rgba(255,255,255,0.46);
+  border: 1px solid rgba(255,255,255,0.28);
+  box-shadow: 0 20px 42px rgba(18, 20, 26, 0.14), inset 0 1px 0 rgba(255,255,255,0.16);
+  backdrop-filter: blur(8px);
+}
+
+body.lobby-v3 .lobby-v3-character-preview-kicker {
+  display: inline-flex;
+  align-items: center;
+  min-height: 36px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: rgba(17, 20, 26, 0.82);
+  color: #eef1f7;
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+}
+
+body.lobby-v3 .lobby-v3-character-preview-title {
+  margin-top: 14px;
+  font-size: clamp(32px, 4.8vw, 52px);
+  line-height: 1;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  color: #16171c;
+}
+
+body.lobby-v3 .lobby-v3-character-preview-subtitle {
+  margin: 10px 0 0;
+  color: rgba(18, 21, 27, 0.74);
+  font-size: 16px;
+  line-height: 1.55;
+}
+
+body.lobby-v3 .lobby-v3-characters {
+  perspective: 1200px;
+}
+
+body.lobby-v3 .lobby-v3-characters.is-swapping .lobby-v3-character {
+  opacity: 0;
+  transform: translateY(18px) rotateX(-12deg) scale(0.96);
+}
+
+body.lobby-v3 .lobby-v3-character {
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+body.lobby-v3 .lobby-v3-character-media {
+  flex: 1 1 auto;
+}
+
+body.lobby-v3 .lobby-v3-character p {
+  min-height: 96px;
+}
+
+body.lobby-v3 .lobby-v3-character--szilardleo:hover {
+  border-color: rgba(255, 79, 79, 0.45);
+  box-shadow: 0 28px 56px rgba(139, 22, 22, 0.22), 0 0 0 1px rgba(255, 90, 90, 0.18);
+}
+
+body.lobby-v3 .lobby-v3-character--szilardleo:hover .lobby-v3-character-media img {
+  filter: drop-shadow(0 0 18px rgba(255, 61, 61, 0.9));
+  transform: translateY(-4px) scale(1.02);
+}
+
+body.lobby-v3 .lobby-v3-character--szilardleo:hover p {
+  color: #7a1313;
+}
+
+body.lobby-v3 .lobby-v3-character--horthy:hover {
+  border-color: rgba(70, 137, 255, 0.45);
+  box-shadow: 0 28px 56px rgba(17, 71, 155, 0.22), 0 0 0 1px rgba(79, 144, 255, 0.18);
+}
+
+body.lobby-v3 .lobby-v3-character--horthy:hover .lobby-v3-character-media img {
+  filter: drop-shadow(0 0 18px rgba(76, 146, 255, 0.92));
+  transform: translateY(-4px) scale(1.02);
+}
+
+body.lobby-v3 .lobby-v3-character--horthy:hover p {
+  color: #174f9d;
+}
+
+body.lobby-v3 .lobby-v3-character--szechenyi:hover {
+  border-color: rgba(237, 194, 80, 0.52);
+  box-shadow: 0 28px 56px rgba(148, 108, 11, 0.22), 0 0 0 1px rgba(237, 194, 80, 0.2);
+}
+
+body.lobby-v3 .lobby-v3-character--szechenyi:hover .lobby-v3-character-media img {
+  filter: drop-shadow(0 0 18px rgba(244, 201, 93, 0.9));
+  transform: translateY(-4px) scale(1.02);
+}
+
+body.lobby-v3 .lobby-v3-character--szechenyi:hover p {
+  color: #8b650c;
+}
+
+@keyframes horthyHomelandPulse {
+  0%, 100% {
+    filter: drop-shadow(0 0 10px rgba(255, 70, 70, 0.28)) drop-shadow(0 0 18px rgba(255, 255, 255, 0.18)) drop-shadow(0 0 26px rgba(55, 190, 95, 0.22));
+  }
+  50% {
+    filter: drop-shadow(0 0 14px rgba(255, 70, 70, 0.44)) drop-shadow(0 0 24px rgba(255, 255, 255, 0.28)) drop-shadow(0 0 34px rgba(55, 190, 95, 0.32));
+  }
+}
+
+.territory-horthy-homeland {
+  animation: horthyHomelandPulse 1.9s ease-in-out infinite;
+  filter: drop-shadow(0 0 10px rgba(255, 70, 70, 0.32)) drop-shadow(0 0 18px rgba(255, 255, 255, 0.2)) drop-shadow(0 0 28px rgba(55, 190, 95, 0.24));
+}
+
+.territory-horthy-homeland.territory-selectable,
+.territory-horthy-homeland.territory-elevated,
+.territory-horthy-homeland.territory-selectable-battle {
+  animation-duration: 1.45s;
+}
