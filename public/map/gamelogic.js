@@ -104,7 +104,10 @@ function ensureQuestionEnhancementStyles() {
     '.attack-selection-badge { width:32px; height:32px; border-radius:999px; display:inline-flex; align-items:center; justify-content:center; color:#fff; font-size:18px; border:2px solid rgba(255,255,255,0.75); box-shadow:0 8px 16px rgba(0,0,0,0.22); background:rgba(0,0,0,0.22); }',
     '.own-color-banner { position:fixed; top:92px; left:50%; transform:translateX(-50%); z-index:10050; min-width:280px; max-width:calc(100vw - 28px); text-align:center; padding:18px 28px; border-radius:18px; color:#fff; font-weight:700; letter-spacing:0.05em; text-transform:uppercase; box-shadow:0 18px 36px rgba(0,0,0,0.22); opacity:0; pointer-events:none; transition:opacity .28s ease, transform .28s ease; }',
     '.own-color-banner.is-visible { opacity:1; transform:translateX(-50%) translateY(0); }',
-    '.own-color-banner small { display:block; margin-top:6px; font-size:12px; letter-spacing:0.08em; opacity:0.9; }'
+    '.own-color-banner small { display:block; margin-top:6px; font-size:12px; letter-spacing:0.08em; opacity:0.9; }',
+    '@keyframes territoryBattlePulse { 0% { filter: drop-shadow(0 0 5px rgba(255,232,173,0.52)) drop-shadow(0 0 12px rgba(255,202,102,0.34)) saturate(1.04) brightness(1.01); } 50% { filter: drop-shadow(0 0 10px rgba(255,240,196,0.92)) drop-shadow(0 0 22px rgba(255,207,112,0.72)) saturate(1.22) brightness(1.12); } 100% { filter: drop-shadow(0 0 5px rgba(255,232,173,0.52)) drop-shadow(0 0 12px rgba(255,202,102,0.34)) saturate(1.04) brightness(1.01); } }',
+    '.leaflet-interactive.territory-selectable-battle { animation: territoryBattlePulse 1.25s ease-in-out infinite; }',
+    '.leaflet-interactive.territory-selectable-battle-hover { filter: drop-shadow(0 0 14px rgba(255,245,214,1)) drop-shadow(0 0 30px rgba(255,218,127,0.86)) saturate(1.28) brightness(1.16); }'
   ].join('\n');
   document.head.appendChild(style);
 }
@@ -1027,10 +1030,47 @@ function createGameCornerPromo() {
   return promo;
 }
 
+function getMapStartView(level) {
+  if (level === 'hungary13') {
+    return {
+      center: [47.15, 19.35],
+      zoom: 4
+    };
+  }
+  if (level === 'medium') {
+    return {
+      center: [43.8476, 18.3564],
+      zoom: 2.35
+    };
+  }
+  return {
+    center: [43.8476, 18.3564],
+    zoom: 2
+  };
+}
+
+function applyInitialMapView(level, options) {
+  var view = getMapStartView(level);
+  if (!map) return;
+  if (level === 'hungary13' && countriesLayer && countriesLayer.getBounds) {
+    var bounds = countriesLayer.getBounds();
+    if (bounds && bounds.isValid && bounds.isValid()) {
+      map.fitBounds(bounds.pad(0.2), {
+        animate: Boolean(options && options.animate),
+        padding: [24, 24],
+        maxZoom: view.zoom
+      });
+      return;
+    }
+  }
+  map.setView(view.center, view.zoom, { animate: Boolean(options && options.animate) });
+}
+
+var initialMapView = getMapStartView(maplevel);
 var map = L.map('map', {
   zoomControl: false,
   attributionControl: false,
-}).setView([43.8476, 18.3564], 2);
+}).setView(initialMapView.center, initialMapView.zoom);
 L.control.zoom({ position: 'bottomright' }).addTo(map);
 
 map.createPane('backgroundPane');
@@ -1681,9 +1721,9 @@ function countriesOnEachFeature(feature, layer) {
       var selectableExpansion = expansionHighlight.selectable;
       var selectableBattle = Boolean(state.game && state.game.phase === 'BATTLE_SELECTION' && state.game.currentplayer === USER.pid && isSelectableAttack(tid));
       if (selectableExpansion || selectableBattle) {
-        baseStyle.weight = Math.max(baseStyle.weight || 2, selectableBattle ? 8 : 7);
-        baseStyle.fillOpacity = Math.min((baseStyle.fillOpacity || 0.7) + (selectableBattle ? 0.07 : 0.06), 0.98);
-        baseStyle.color = selectableBattle ? '#ffe8ad' : '#fff8de';
+        baseStyle.weight = Math.max(baseStyle.weight || 2, selectableBattle ? 8.6 : 7);
+        baseStyle.fillOpacity = Math.min((baseStyle.fillOpacity || 0.7) + (selectableBattle ? 0.04 : 0.06), 0.98);
+        baseStyle.color = selectableBattle ? '#fff6cf' : '#fff8de';
         e.target.setStyle(baseStyle);
         if (e.target._path && e.target._path.classList) {
           e.target._path.classList.add('territory-selectable-hover');
@@ -2124,12 +2164,12 @@ function buildLayerStyle(tid) {
     style.dashArray = '';
     style.className = ((style.className ? style.className + ' ' : '') + 'territory-selectable territory-selectable-battle territory-selectable-bomb territory-elevated').trim();
   } else if (isCurrentTurn && state.game.phase === 'BATTLE_SELECTION' && isSelectableAttack(tid)) {
-    style.weight = 6.5;
-    style.color = '#ffe2a2';
-    style.fillColor = rgba(getOwnerColor(USER.pid), 0.82);
-    style.fillOpacity = 0.88;
+    style.weight = 7.2;
+    style.color = '#fff1be';
+    style.fillColor = ownerFill;
+    style.fillOpacity = territory.ownsto >= 0 ? 0.94 : 0.72;
     style.dashArray = '';
-    style.className = 'territory-selectable territory-selectable-battle territory-elevated';
+    style.className = 'territory-selectable territory-selectable-battle territory-selectable-battle-ownerglow territory-elevated';
   }
 
   return style;
@@ -2906,7 +2946,7 @@ function onStateSnapshot(payload) {
   state = payload;
   if (state && state.game && state.game.maplevel && state.game.maplevel !== maplevel) {
     maplevel = state.game.maplevel;
-    redrawMapLayerForLevel(maplevel);
+    redrawMapLayerForLevel(maplevel, { resetView: true, animate: false });
   }
   USER = state.players.find(function (player) { return player.name === username; }) || null;
   updateScoreDeltas(previousState && previousState.players, state.players);
@@ -2954,7 +2994,7 @@ function buildBaseMapStyle() {
 function buildBackgroundMapStyle() {
   return {
     interactive: false,
-    fillColor: '#4a3320',
+    fillColor: '#58422f',
     weight: 3.5,
     opacity: 1,
     color: '#000000',
@@ -2984,13 +3024,14 @@ function redrawBackgroundLayerForLevel(level) {
   }
 }
 
-function redrawMapLayerForLevel(level) {
+function redrawMapLayerForLevel(level, options) {
   redrawBackgroundLayerForLevel(level);
 
   if (countriesLayer) {
     map.removeLayer(countriesLayer);
     countriesLayer = null;
   }
+  mapTerritories = [];
   countriesLayer = L.geoJson(getGeoJsonForMapLevel(level), {
     style: buildBaseMapStyle,
     onEachFeature: countriesOnEachFeature
@@ -2998,10 +3039,13 @@ function redrawMapLayerForLevel(level) {
   if (state && state.territories && state.territories.length) {
     renderAllTerritories();
   }
+  if (!options || options.resetView !== false) {
+    applyInitialMapView(level, options);
+  }
 }
 
 function initializeMap() {
-  redrawMapLayerForLevel(maplevel);
+  redrawMapLayerForLevel(maplevel, { resetView: true, animate: false });
 }
 
 
