@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>HÓDÍTÓ / Random matchmaking</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="/views/css/bootstrap.min.css">
+  <link rel="stylesheet" href="/views/css/ionicons.min.css">
+  <link rel="stylesheet" href="/views/css/pace.css">
+  <link rel="stylesheet" href="/views/css/custom.css">
+  <script src="/views/js/jquery-2.1.3.min.js"></script>
+  <script src="/views/js/bootstrap.min.js"></script>
+  <script src="/views/js/pace.min.js"></script>
+  <script src="/views/js/modernizr.custom.js"></script>
+  <script src="/socket.io/socket.io.js"></script>
+  <style>
+    .mm-page {
+      min-height: 100vh;
+      background: radial-gradient(circle at top, rgba(255, 194, 102, 0.18), transparent 40%), #0f1016;
+      color: #f4e5bf;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+    .mm-panel {
+      width: 100%;
+      max-width: 760px;
+      background: rgba(18, 18, 28, 0.94);
+      border: 1px solid rgba(230, 195, 124, 0.25);
+      border-radius: 28px;
+      padding: 42px 30px;
+      box-shadow: 0 30px 90px rgba(0,0,0,0.38);
+      text-align: center;
+    }
+    .mm-kicker {
+      font-size: 13px;
+      letter-spacing: 0.28em;
+      text-transform: uppercase;
+      color: #f8c566;
+      margin-bottom: 10px;
+    }
+    .mm-title {
+      margin: 0;
+      font-size: 38px;
+      font-weight: 800;
+      line-height: 1.08;
+    }
+    .mm-subtitle {
+      margin: 16px auto 0;
+      max-width: 560px;
+      color: rgba(255,255,255,0.78);
+      font-size: 17px;
+      line-height: 1.6;
+    }
+    .mm-spinner {
+      width: 118px;
+      height: 118px;
+      margin: 34px auto 26px;
+      border-radius: 50%;
+      border: 9px solid rgba(255,255,255,0.08);
+      border-top-color: #f8c566;
+      border-right-color: #e46c2f;
+      animation: mm-spin 1.15s linear infinite;
+      position: relative;
+    }
+    .mm-spinner:after {
+      content: '';
+      position: absolute;
+      inset: 18px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(248,197,102,0.18), rgba(248,197,102,0.02));
+    }
+    @keyframes mm-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+    .mm-status {
+      font-size: 24px;
+      font-weight: 700;
+      margin-bottom: 10px;
+    }
+    .mm-meta {
+      color: rgba(255,255,255,0.74);
+      font-size: 16px;
+      min-height: 28px;
+    }
+    .mm-actions {
+      margin-top: 30px;
+      display: flex;
+      justify-content: center;
+    }
+    .mm-cancel {
+      min-width: 220px;
+      font-size: 20px;
+      border-radius: 999px;
+      padding: 14px 26px;
+      background: linear-gradient(135deg, #4b4f65, #2d3040);
+      border: none;
+      color: #fff8e7;
+      box-shadow: 0 18px 40px rgba(0,0,0,0.28);
+    }
+    .mm-found {
+      animation: mm-pulse 0.9s ease-in-out infinite alternate;
+    }
+    @keyframes mm-pulse { from { transform: scale(1); } to { transform: scale(1.03); } }
+    .mm-error {
+      margin-top: 14px;
+      color: #ff9e9e;
+      min-height: 22px;
+    }
+  </style>
+</head>
+<body class="mm-page" data-sound-base="/sounds">
+  <section class="mm-panel" aria-label="Random matchmaking">
+    <div class="mm-kicker">Random matchmaking</div>
+    <h1 class="mm-title">JÁTSZ RANDOMOKKAL HA NINCSENEK BARÁTAID</h1>
+    <p class="mm-subtitle">Keresünk neked még két játékost. Ha megvan a 3 fős csapat, azonnal jön a látványos pálya- és témasorsolás.</p>
+
+    <div id="spinner" class="mm-spinner" aria-hidden="true"></div>
+    <div id="status" class="mm-status">MECCSKERESÉS FOLYAMATBAN...</div>
+    <div id="meta" class="mm-meta">Beléptél a random matchmaking sorba.</div>
+    <div id="error" class="mm-error"></div>
+
+    <div class="mm-actions">
+      <button id="cancelButton" type="button" class="btn mm-cancel">MÉGSE</button>
+    </div>
+  </section>
+
+  <script>
+    var username = '<%= username %>';
+    var socket = io('/matchmaking');
+    var searchStopped = false;
+
+    function byId(id) {
+      return document.getElementById(id);
+    }
+
+    function setStatus(title, meta, found) {
+      byId('status').textContent = title;
+      byId('meta').textContent = meta || '';
+      byId('status').classList.toggle('mm-found', !!found);
+    }
+
+    socket.on('connect', function() {
+      socket.emit('queue:join', { username: username });
+    });
+
+    socket.on('queue:update', function(payload) {
+      if (!payload || payload.matched) return;
+      var waitingFor = Math.max(0, Number(payload.waitingFor || 0));
+      var queueLength = Math.max(0, Number(payload.queueLength || 0));
+      if (waitingFor > 0) {
+        setStatus('MECCSKERESÉS FOLYAMATBAN...', 'Még ' + waitingFor + ' játékos kell. A sorban jelenleg ' + queueLength + ' játékos vár.', false);
+      } else {
+        setStatus('ELLENFELEK KERESÉSE...', 'Már majdnem kész a meccs. Ne lépj ki.', false);
+      }
+    });
+
+    socket.on('match:found', function(payload) {
+      if (!payload || !payload.gameid) return;
+      setStatus('MEGVAN A 3 JÁTÉKOS!', 'Indul a sorsoló oldal...', true);
+      byId('spinner').style.animationDuration = '0.4s';
+      setTimeout(function() {
+        window.location.href = '/matchdraw/' + payload.gameid;
+      }, 850);
+    });
+
+    socket.on('queue:left', function() {
+      if (searchStopped) {
+        window.location.href = '/lobby';
+      }
+    });
+
+    socket.on('queue:error', function(payload) {
+      byId('error').textContent = payload && payload.message ? payload.message : 'Hiba történt a meccskeresés közben.';
+    });
+
+    byId('cancelButton').addEventListener('click', function() {
+      searchStopped = true;
+      socket.emit('queue:leave', { username: username });
+      setStatus('MECCSKERESÉS LEÁLLÍTVA', 'Visszalépés a lobbyba...', false);
+    });
+  </script>
+</body>
+</html>
