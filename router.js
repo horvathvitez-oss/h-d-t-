@@ -199,15 +199,34 @@ router.get('/lobby', function(req, res) {
   router.get('/matchmaking', function(req, res) {
     withAuthenticatedUser(req, res, function(user) {
       var activeMatch = MatchmakingStore.getMatchByUsername(user.username);
-      if (activeMatch) {
-        var activeLobby = LobbyStore.getLobby(activeMatch.gameid);
-        if (activeLobby && activeLobby.started) {
-          return res.redirect('/game/' + activeMatch.gameid);
-        }
+      if (!activeMatch) {
+        return res.render('matchmaking', { username: user.username });
+      }
+
+      var activeLobby = LobbyStore.getLobby(activeMatch.gameid);
+      if (!activeLobby) {
+        MatchmakingStore.clearMatch(activeMatch.gameid);
+        return res.render('matchmaking', { username: user.username });
+      }
+
+      if (!activeLobby.started) {
         return res.redirect('/matchdraw/' + activeMatch.gameid);
       }
 
-      res.render('matchmaking', { username: user.username });
+      Gameutils.getGameByID(Number(activeMatch.gameid), function(err, gameutil) {
+        if (err) {
+          console.log('matchmaking active game lookup error', err);
+          return res.redirect('/game/' + activeMatch.gameid);
+        }
+
+        var gameRecord = normalizeGameutil(gameutil);
+        if (gameRecord && gameRecord.gamefinish) {
+          MatchmakingStore.clearMatch(activeMatch.gameid);
+          return res.render('matchmaking', { username: user.username });
+        }
+
+        return res.redirect('/game/' + activeMatch.gameid);
+      });
     });
   });
 

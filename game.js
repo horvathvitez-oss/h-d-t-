@@ -5,6 +5,7 @@ const Player = require('./public/models/players');
 const Castle = require('./public/models/castle');
 const { MULTIPLE_CHOICE_QUESTIONS, GUESS_QUESTIONS, ULTRAHARD_QUESTIONS = [] } = require('./questions');
 const LobbyStore = require('./lobbyStore');
+const MatchmakingStore = require('./matchmakingStore');
 
 
 
@@ -2391,6 +2392,12 @@ async function finishMatch(room, winnerPid) {
   sendStatus(room, `A meccs véget ért. Győztes: ${winner.name}.`);
   emitSnapshot(room);
   room.namespace.emit('gamefinish', [{ winner: winner.pid }]);
+
+  try {
+    MatchmakingStore.clearMatch(room.gameid);
+  } catch (error) {
+    console.error('Failed to clear matchmaking state after finished game:', error);
+  }
 }
 
 
