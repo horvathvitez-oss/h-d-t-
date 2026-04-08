@@ -391,14 +391,14 @@
 
     function maybeRequestStart() {
       if (!state.drawComplete || !state.questionFilters || !state.lockedMap) return;
-      if (username !== state.host) return;
       if (!state.gameSocketConnected) return;
       if (state.startRequested) return;
+      if (!state.host) return;
 
       state.startRequested = true;
       drawSocket.emit('match:start-requested', { gameid: gameid, username: username });
       gameSocket.emit('hostStartMatch', {
-        username: username,
+        username: state.host,
         players: state.players.slice(),
         maplevel: state.lockedMap,
         questionFilters: state.questionFilters
