@@ -63,6 +63,13 @@ var szilardBombLastPoint = null;
 var szilardBombAnimationCleanupTimer = null;
 
 
+var interstitialAdTimer = null;
+var interstitialAdWasShown = false;
+var interstitialAdDismissed = false;
+var interstitialAdPrimed = false;
+
+
+
 
 
 function queueUiTimer(fn, ms) {
@@ -1005,6 +1012,114 @@ playOneShot(soundPlayers.territoryCapture);
 
 
 
+
+
+function getInterstitialAdConfig() {
+  var config = window.HODITO_INTERSTITIAL_AD || {};
+  return {
+    imageSrc: config.imageSrc || '/images/interstitial-ad.webp',
+    href: config.href || 'https://kozepsulineked.com/products/30-napos-elofizetes-kozepsulineked',
+    storageKey: config.storageKey || ('hodito_game_ad_seen_' + String(gameid || 'default')),
+    delayMs: Number(config.delayMs) > 0 ? Number(config.delayMs) : 20000
+  };
+}
+
+function safeSessionStorageGet(key) {
+  try {
+    return window.sessionStorage.getItem(key);
+  } catch (error) {
+    return null;
+  }
+}
+
+function safeSessionStorageSet(key, value) {
+  try {
+    window.sessionStorage.setItem(key, value);
+  } catch (error) {}
+}
+
+function ensureInterstitialAdModal() {
+  var existing = document.getElementById('game-interstitial-ad');
+  if (existing) return existing;
+
+  var config = getInterstitialAdConfig();
+  var modal = document.createElement('div');
+  modal.id = 'game-interstitial-ad';
+  modal.className = 'hodito-ad-modal hodito-ad-modal--game';
+  modal.setAttribute('aria-hidden', 'true');
+  modal.innerHTML = [
+    '<div class="hodito-ad-backdrop" data-game-ad-close="1"></div>',
+    '<div class="hodito-ad-panel hodito-ad-panel--game">',
+      '<button type="button" class="hodito-ad-close" aria-label="Bezárás" data-game-ad-close="1">×</button>',
+      '<a class="hodito-ad-link" href="' + config.href + '" target="_blank" rel="noopener noreferrer sponsored">',
+        '<img class="hodito-ad-image" src="' + config.imageSrc + '" alt="Középsuli Neked ajánlat" loading="lazy">',
+      '</a>',
+    '</div>'
+  ].join('');
+
+  modal.addEventListener('click', function (event) {
+    var target = event.target;
+    if (target && target.getAttribute('data-game-ad-close') === '1') {
+      hideInterstitialAd();
+    }
+  });
+
+  document.body.appendChild(modal);
+  return modal;
+}
+
+function hideInterstitialAd() {
+  var modal = document.getElementById('game-interstitial-ad');
+  if (!modal) return;
+  modal.classList.remove('is-visible');
+  modal.setAttribute('aria-hidden', 'true');
+  document.body.classList.remove('hodito-ad-open');
+}
+
+function showInterstitialAd() {
+  if (interstitialAdDismissed || interstitialAdWasShown) return;
+  if (!document.body || !document.body.classList.contains('game-screen')) return;
+  if (!state || !state.game || state.game.phase === 'FINISHED') return;
+
+  var config = getInterstitialAdConfig();
+  if (safeSessionStorageGet(config.storageKey) === '1') {
+    interstitialAdWasShown = true;
+    return;
+  }
+
+  interstitialAdWasShown = true;
+  safeSessionStorageSet(config.storageKey, '1');
+
+  var modal = ensureInterstitialAdModal();
+  modal.classList.add('is-visible');
+  modal.setAttribute('aria-hidden', 'false');
+  document.body.classList.add('hodito-ad-open');
+}
+
+function scheduleInterstitialAdIfNeeded() {
+  if (interstitialAdPrimed || interstitialAdWasShown || interstitialAdDismissed) return;
+  if (!document.body || !document.body.classList.contains('game-screen')) return;
+  if (!state || !state.game || state.game.phase === 'WAITING_FOR_PLAYERS' || state.game.phase === 'FINISHED') return;
+
+  var config = getInterstitialAdConfig();
+  if (safeSessionStorageGet(config.storageKey) === '1') {
+    interstitialAdWasShown = true;
+    return;
+  }
+
+  interstitialAdPrimed = true;
+  interstitialAdTimer = setTimeout(function () {
+    interstitialAdTimer = null;
+    showInterstitialAd();
+  }, config.delayMs);
+}
+
+function cancelInterstitialAdTimer() {
+  if (interstitialAdTimer) {
+    clearTimeout(interstitialAdTimer);
+    interstitialAdTimer = null;
+  }
+}
 
 function createGameCornerPromo() {
   if (!document.body || !document.body.classList.contains('game-screen')) return null;
@@ -2931,6 +3046,8 @@ function finishGame(winnerPid) {
   renderAllTerritories();
   renderHUD();
   syncBackgroundMusic();
+  cancelInterstitialAdTimer();
+  hideInterstitialAd();
   showWinnerModal(winner);
 }
 
@@ -2957,6 +3074,7 @@ function onStateSnapshot(payload) {
   renderHUD();
   maybeShowPhaseSplash();
   syncBackgroundMusic();
+  scheduleInterstitialAdIfNeeded();
   if (state.game && state.game.phase === 'FINISHED' && !gameFinished) {
     finishGame(state.game.winner);
   }
@@ -3064,6 +3182,13 @@ document.addEventListener('keydown', function (event) {
   if (event.key === 'Escape' && szilardBombModeActive) {
     setSzilardBombMode(false);
   }
+  if (event.key === 'Escape') {
+    hideInterstitialAd();
+  }
+});
+
+window.addEventListener('beforeunload', function () {
+  cancelInterstitialAdTimer();
 });
 
 

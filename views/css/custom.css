@@ -7974,3 +7974,154 @@ body.lobby-v3 .lobby-v3-preview-pill {
     word-break: break-word;
   }
 }
+
+
+/* =========================
+   HÓDÍTÓ INTERSTITIAL AD
+   ========================= */
+
+body.hodito-ad-open {
+  overflow: hidden;
+}
+
+.hodito-ad-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 160000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 220ms ease, visibility 220ms ease;
+}
+
+.hodito-ad-modal.is-visible {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+}
+
+.hodito-ad-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(5, 8, 12, 0.72);
+  backdrop-filter: blur(4px);
+}
+
+.hodito-ad-panel {
+  position: relative;
+  z-index: 1;
+  width: min(92vw, 720px);
+  max-height: min(86vh, 920px);
+  border-radius: 22px;
+  padding: 18px;
+  background: rgba(24, 16, 11, 0.96);
+  border: 1px solid rgba(255, 181, 74, 0.24);
+  box-shadow: 0 24px 52px rgba(0,0,0,0.42), inset 0 1px 0 rgba(255,255,255,0.05);
+}
+
+.hodito-ad-panel--waiting {
+  width: min(92vw, 680px);
+}
+
+.hodito-ad-panel--game {
+  width: min(88vw, 620px);
+}
+
+.hodito-ad-close {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 42px;
+  height: 42px;
+  border: none;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.56);
+  color: #fff6ea;
+  font-size: 28px;
+  line-height: 1;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 10px 20px rgba(0,0,0,0.28);
+  z-index: 2;
+}
+
+.hodito-ad-link {
+  display: block;
+  border-radius: 16px;
+  overflow: hidden;
+  text-decoration: none !important;
+}
+
+.hodito-ad-image {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: calc(86vh - 72px);
+  object-fit: contain;
+  border-radius: 16px;
+  background: #120d09;
+}
+
+@media (max-width: 991px) {
+  .hodito-ad-modal {
+    padding: 14px;
+  }
+
+  .hodito-ad-panel,
+  .hodito-ad-panel--waiting,
+  .hodito-ad-panel--game {
+    width: min(94vw, 560px);
+    padding: 14px;
+    border-radius: 18px;
+  }
+
+  .hodito-ad-image {
+    max-height: calc(82vh - 64px);
+  }
+}
+
+@media (max-width: 767px) {
+  .hodito-ad-modal {
+    padding: 10px;
+    align-items: flex-end;
+  }
+
+  .hodito-ad-panel,
+  .hodito-ad-panel--waiting,
+  .hodito-ad-panel--game {
+    width: 100%;
+    max-width: 100%;
+    max-height: min(78vh, 640px);
+    border-radius: 18px 18px 0 0;
+    padding: 12px;
+  }
+
+  .hodito-ad-close {
+    top: 8px;
+    right: 8px;
+    width: 36px;
+    height: 36px;
+    font-size: 24px;
+  }
+
+  .hodito-ad-image {
+    max-height: calc(74vh - 56px);
+    border-radius: 12px;
+  }
+}
+
+@media (max-width: 430px) {
+  .hodito-ad-panel,
+  .hodito-ad-panel--waiting,
+  .hodito-ad-panel--game {
+    padding: 10px;
+  }
+
+  .hodito-ad-image {
+    max-height: calc(70vh - 52px);
+  }
+}
