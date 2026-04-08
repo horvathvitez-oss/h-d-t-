@@ -37,6 +37,8 @@ var element = function (id) {
 var messages = element('messages');
 var gamelogs = element('gamelog');
 var textarea = element('textarea');
+var chatCard = element('chatCard');
+var chatToggleButton = element('chatToggleButton');
 var playercards = element('playercards');
 var phaseboard = element('phaseboard');
 var orderboard = element('orderboard');
@@ -67,9 +69,82 @@ var interstitialAdTimer = null;
 var interstitialAdWasShown = false;
 var interstitialAdDismissed = false;
 var interstitialAdPrimed = false;
+var activityHeartbeatTimer = null;
+var lastActivityPingAt = 0;
 
 
 
+
+
+function isCompactChatViewport() {
+  return window.innerWidth <= 767;
+}
+
+function syncChatToggleState() {
+  if (!chatCard || !chatToggleButton) return;
+  var open = chatCard.classList.contains('is-open');
+  chatToggleButton.setAttribute('aria-expanded', open ? 'true' : 'false');
+  chatToggleButton.textContent = open ? 'Elrejt' : 'Chat';
+}
+
+function applyChatViewportMode(forceReset) {
+  if (!chatCard) return;
+  if (!isCompactChatViewport()) {
+    chatCard.classList.add('is-open');
+    chatCard.classList.remove('has-unread');
+    syncChatToggleState();
+    return;
+  }
+  if (forceReset) {
+    chatCard.classList.remove('is-open');
+  }
+  syncChatToggleState();
+}
+
+function initializeChatCard() {
+  if (chatToggleButton) {
+    chatToggleButton.addEventListener('click', function () {
+      if (!chatCard || !isCompactChatViewport()) return;
+      chatCard.classList.toggle('is-open');
+      if (chatCard.classList.contains('is-open')) {
+        chatCard.classList.remove('has-unread');
+      }
+      syncChatToggleState();
+    });
+  }
+  applyChatViewportMode(true);
+  window.addEventListener('resize', function () {
+    applyChatViewportMode(false);
+  });
+}
+
+function emitPlayerActivity(force) {
+  if (!socket || !socket.connected || gameFinished) return;
+  var now = Date.now();
+  if (!force && (now - lastActivityPingAt) < 4000) return;
+  lastActivityPingAt = now;
+  socket.emit('playerActivity', { gameid: gameid, username: username });
+}
+
+function startActivityHeartbeat() {
+  stopActivityHeartbeat();
+  activityHeartbeatTimer = setInterval(function () {
+    emitPlayerActivity(false);
+  }, 5000);
+}
+
+function stopActivityHeartbeat() {
+  if (!activityHeartbeatTimer) return;
+  clearInterval(activityHeartbeatTimer);
+  activityHeartbeatTimer = null;
+}
+
+initializeChatCard();
+['click', 'keydown', 'touchstart', 'mousedown'].forEach(function (eventName) {
+  document.addEventListener(eventName, function () {
+    emitPlayerActivity(false);
+  }, { passive: true });
+});
 
 
 function queueUiTimer(fn, ms) {
@@ -2964,6 +3039,7 @@ function renderHUD() {
 }
 
 function setStatus(text) {
+  if (!gamestatus) return;
   gamestatus.textContent = text;
 }
 
@@ -3189,6 +3265,7 @@ document.addEventListener('keydown', function (event) {
 
 window.addEventListener('beforeunload', function () {
   cancelInterstitialAdTimer();
+  stopActivityHeartbeat();
 });
 
 
@@ -3321,7 +3398,7 @@ socket.on('serverstatus', function (data) {
   }
 });
 socket.on('gamelog', function (data) {
-  if (!data || !data.length) return;
+  if (!gamelogs || !data || !data.length) return;
   data.forEach(function (line) {
     var gameLogMessage = document.createElement('div');
     gameLogMessage.id = 'gamelogs';
@@ -3331,7 +3408,7 @@ socket.on('gamelog', function (data) {
   $('#gamelog').scrollTop($('#gamelog')[0].scrollHeight);
 });
 socket.on('outputmsg', function (data) {
-  if (!data || !data.length) return;
+  if (!messages || !data || !data.length) return;
   data.forEach(function (item) {
     var chatMessage = document.createElement('div');
     chatMessage.id = 'chatmsgs';
@@ -3339,36 +3416,9 @@ socket.on('outputmsg', function (data) {
     messages.append(chatMessage);
   });
   $('#messages').scrollTop($('#messages')[0].scrollHeight);
-});
-
-
-
-
-
-
-
-
-socket.on('connect', function () {
-  socket.emit('joingame', { username: username });
-  socket.emit('getmsgs', { gameid: gameid });
-});
-
-
-
-
-
-
-
-
-textarea.addEventListener('keydown', function (event) {
-  if (event.which === 13 && event.shiftKey === false) {
-    socket.emit('newmessage', {
-      gameid: gameid,
-      name: USER ? USER.name : username,
-      message: textarea.value,
-    });
-    textarea.value = '';
-    event.preventDefault();
+  if (chatCard && isCompactChatViewport() && !chatCard.classList.contains('is-open')) {
+    chatCard.classList.add('has-unread');
+    syncChatToggleState();
   }
 });
 
@@ -3379,7 +3429,58 @@ textarea.addEventListener('keydown', function (event) {
 
 
 
+socket.on('connect', function () {
+  if (messages) {
+    messages.innerHTML = '';
+  }
+  socket.emit('joingame', { username: username });
+  socket.emit('getmsgs', { gameid: gameid });
+  emitPlayerActivity(true);
+  startActivityHeartbeat();
+});
+
+socket.on('disconnect', function () {
+  stopActivityHeartbeat();
+});
+
+
+
+
+
+
+
+
+if (textarea) {
+  textarea.addEventListener('keydown', function (event) {
+    if (event.which === 13 && event.shiftKey === false) {
+      var messageValue = String(textarea.value || '').trim();
+      if (!messageValue) {
+        textarea.value = '';
+        event.preventDefault();
+        return;
+      }
+      socket.emit('newmessage', {
+        gameid: gameid,
+        name: USER ? USER.name : username,
+        username: username,
+        message: messageValue,
+      });
+      emitPlayerActivity(true);
+      textarea.value = '';
+      event.preventDefault();
+    }
+  });
+}
+
+
+
+
+
+
+
+
 window.onbeforeunload = function (e) {
+  stopActivityHeartbeat();
   e = e || window.event;
   if (e) {
     e.returnValue = 'Biztosan bezárod az oldalt?';

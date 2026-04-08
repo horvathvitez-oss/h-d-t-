@@ -8125,3 +8125,97 @@ body.hodito-ad-open {
     max-height: calc(70vh - 52px);
   }
 }
+
+
+/* =========================
+   CHAT MINI / MOBILE + AFK HUD TWEAKS
+   ========================= */
+
+body.game-screen .chat-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+body.game-screen .chat-toggle-button {
+  display: none;
+  appearance: none;
+  border: 1px solid rgba(103, 73, 45, 0.24);
+  background: rgba(255, 249, 235, 0.88);
+  color: #4a2b14;
+  border-radius: 999px;
+  padding: 5px 10px;
+  font-size: 10px;
+  line-height: 1;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+body.game-screen #chatmsgs {
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+@media (max-width: 767px) {
+  body.game-screen .compact-chat-card {
+    position: fixed;
+    right: 10px;
+    bottom: 10px;
+    width: 184px;
+    max-width: calc(100vw - 20px);
+    min-height: 0;
+    z-index: 850;
+    border-radius: 16px;
+    padding: 8px;
+    box-shadow: 0 12px 28px rgba(0,0,0,0.28);
+    backdrop-filter: blur(6px);
+  }
+
+  body.game-screen .chat-toggle-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  body.game-screen .compact-chat-card .hud-card-title {
+    margin-bottom: 0;
+    font-size: 11px;
+    letter-spacing: 0.1em;
+  }
+
+  body.game-screen .compact-chat-card:not(.is-open) .hud-scroll,
+  body.game-screen .compact-chat-card:not(.is-open) .hud-input {
+    display: none;
+  }
+
+  body.game-screen .compact-chat-card.is-open .hud-scroll,
+  body.game-screen .compact-chat-card.is-open .panel-body {
+    display: block;
+    height: 96px;
+    max-height: 96px;
+    padding: 6px;
+  }
+
+  body.game-screen .compact-chat-card.is-open .hud-input {
+    display: block;
+    margin-top: 6px;
+    height: 30px;
+    font-size: 12px;
+    padding: 5px 8px;
+    border-radius: 10px;
+  }
+
+  body.game-screen .compact-chat-card #chatmsgs {
+    margin-bottom: 4px;
+    padding: 5px 6px;
+    border-radius: 8px;
+    font-size: 11px;
+    line-height: 1.3;
+  }
+
+  body.game-screen .compact-chat-card.has-unread {
+    box-shadow: 0 0 0 2px rgba(255, 186, 78, 0.32), 0 12px 28px rgba(0,0,0,0.28);
+  }
+}
