@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>HÓDÍTÓ / Sorsolás</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="/views/css/bootstrap.min.css">
+  <link rel="stylesheet" href="/views/css/ionicons.min.css">
+  <link rel="stylesheet" href="/views/css/pace.css">
+  <link rel="stylesheet" href="/views/css/custom.css">
+  <script src="/views/js/jquery-2.1.3.min.js"></script>
+  <script src="/views/js/bootstrap.min.js"></script>
+  <script src="/views/js/pace.min.js"></script>
+  <script src="/views/js/modernizr.custom.js"></script>
+  <script src="/socket.io/socket.io.js"></script>
+  <style>
+    body.matchdraw-page {
+      min-height: 100vh;
+      margin: 0;
+      background:
+        radial-gradient(circle at top, rgba(248, 197, 102, 0.18), transparent 36%),
+        radial-gradient(circle at bottom, rgba(83, 151, 255, 0.16), transparent 36%),
+        #0c0d12;
+      color: #fff3d2;
+      font-family: "Helvetica Neue", Arial, sans-serif;
+    }
+    .matchdraw-shell {
+      max-width: 1180px;
+      margin: 0 auto;
+      padding: 30px 20px 60px;
+    }
+    .matchdraw-head {
+      text-align: center;
+      margin-bottom: 24px;
+    }
+    .matchdraw-kicker {
+      letter-spacing: 0.28em;
+      text-transform: uppercase;
+      color: #f8c566;
+      font-size: 12px;
+      margin-bottom: 10px;
+    }
+    .matchdraw-title {
+      margin: 0;
+      font-size: 46px;
+      font-weight: 900;
+      line-height: 1.03;
+    }
+    .matchdraw-subtitle {
+      max-width: 760px;
+      margin: 14px auto 0;
+      color: rgba(255,255,255,0.76);
+      font-size: 17px;
+      line-height: 1.7;
+    }
+    .matchdraw-players {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 16px;
+      margin: 34px 0 28px;
+    }
+    .matchdraw-player {
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 24px;
+      padding: 18px 20px;
+      box-shadow: 0 18px 46px rgba(0,0,0,0.24);
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    .matchdraw-player-badge {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      color: #0e1016;
+      font-weight: 900;
+      font-size: 19px;
+      background: linear-gradient(135deg, #f8c566, #ff9354);
+      flex: 0 0 auto;
+    }
+    .matchdraw-player-name {
+      font-size: 21px;
+      font-weight: 800;
+    }
+    .matchdraw-player-role {
+      color: rgba(255,255,255,0.62);
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      margin-top: 4px;
+    }
+    .matchdraw-stages {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 22px;
+    }
+    .matchdraw-card {
+      background: rgba(18, 18, 28, 0.93);
+      border-radius: 30px;
+      border: 1px solid rgba(248, 197, 102, 0.16);
+      box-shadow: 0 28px 90px rgba(0,0,0,0.3);
+      padding: 28px;
+      overflow: hidden;
+      position: relative;
+    }
+    .matchdraw-card:before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(180deg, rgba(255,255,255,0.03), transparent 28%);
+      pointer-events: none;
+    }
+    .matchdraw-card-title {
+      font-size: 14px;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: #f8c566;
+      margin-bottom: 18px;
+    }
+    .matchdraw-map-grid,
+    .matchdraw-topics-grid {
+      display: grid;
+      gap: 18px;
+    }
+    .matchdraw-map-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .matchdraw-topics-grid {
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+    }
+    .draw-chip {
+      min-height: 140px;
+      border-radius: 24px;
+      background: rgba(255,255,255,0.04);
+      border: 2px solid rgba(255,255,255,0.08);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 18px;
+      transition: transform 0.22s ease, opacity 0.22s ease, border-color 0.22s ease, box-shadow 0.22s ease, background 0.22s ease;
+      position: relative;
+      overflow: hidden;
+    }
+    .draw-chip-inner {
+      position: relative;
+      z-index: 2;
+      width: 100%;
+    }
+    .draw-chip-name {
+      font-size: 24px;
+      font-weight: 900;
+      line-height: 1.08;
+    }
+    .draw-chip-sub {
+      margin-top: 8px;
+      color: rgba(255,255,255,0.66);
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+    }
+    .draw-chip.active {
+      transform: scale(1.06) rotate(-0.3deg);
+      border-color: rgba(248, 197, 102, 0.96);
+      box-shadow: 0 0 0 1px rgba(248,197,102,0.2), 0 24px 44px rgba(248, 197, 102, 0.22);
+      background: linear-gradient(135deg, rgba(248,197,102,0.18), rgba(255,147,84,0.14));
+    }
+    .draw-chip.locked {
+      transform: scale(1.08);
+      border-color: rgba(73, 211, 125, 0.96);
+      box-shadow: 0 24px 52px rgba(47, 211, 125, 0.22);
+      background: linear-gradient(135deg, rgba(47,211,125,0.18), rgba(52,142,255,0.18));
+    }
+    .draw-chip.dimmed {
+      opacity: 0.18;
+      transform: scale(0.96);
+      filter: blur(0.5px);
+    }
+    .draw-chip.hidden-away {
+      opacity: 0;
+      transform: scale(0.82);
+      pointer-events: none;
+    }
+    .draw-chip.final-focus {
+      min-height: 180px;
+      transform: scale(1.14);
+      z-index: 3;
+    }
+    .draw-chip.final-focus .draw-chip-name {
+      font-size: 30px;
+    }
+    .matchdraw-bottom {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-top: 22px;
+      min-height: 56px;
+      color: rgba(255,255,255,0.76);
+      font-size: 18px;
+      text-align: center;
+    }
+    .matchdraw-bottom.strong {
+      color: #ffffff;
+      font-weight: 800;
+      font-size: 22px;
+    }
+    .matchdraw-launch {
+      margin-top: 18px;
+      text-align: center;
+      color: #8fffc2;
+      font-size: 18px;
+      min-height: 28px;
+    }
+    @media (max-width: 980px) {
+      .matchdraw-players,
+      .matchdraw-topics-grid,
+      .matchdraw-map-grid {
+        grid-template-columns: repeat(1, minmax(0, 1fr));
+      }
+    }
+  </style>
+</head>
+<body class="matchdraw-page" data-sound-base="/sounds">
+  <div class="matchdraw-shell">
+    <header class="matchdraw-head">
+      <div class="matchdraw-kicker">Ceremony</div>
+      <h1 class="matchdraw-title">A MECCS ÖSSZEÁLLT</h1>
+      <p class="matchdraw-subtitle">Először kisorsoljuk a pályát, utána pedig kaszinósan kisorsolunk 2 témát. Ha megállt minden, a rendszer automatikusan belök benneteket a meccsbe.</p>
+    </header>
+
+    <section id="playersRow" class="matchdraw-players" aria-label="Játékosok"></section>
+
+    <section class="matchdraw-stages">
+      <article class="matchdraw-card">
+        <div class="matchdraw-card-title">TÉRKÉPSORSOLÁS</div>
+        <div id="mapGrid" class="matchdraw-map-grid"></div>
+        <div id="mapMessage" class="matchdraw-bottom">Várunk a pályasorsolás indulására...</div>
+      </article>
+
+      <article class="matchdraw-card">
+        <div class="matchdraw-card-title">TÉMASORSOLÁS</div>
+        <div id="topicsGrid" class="matchdraw-topics-grid"></div>
+        <div id="topicMessage" class="matchdraw-bottom">A témakártyák mindjárt pörögni kezdenek.</div>
+        <div id="launchMessage" class="matchdraw-launch"></div>
+      </article>
+    </section>
+  </div>
+
+  <script>
+    var username = '<%= username %>';
+    var gameid = '<%= gameid %>';
+    var drawSocket = io('/matchmaking');
+    var gameSocket = io('/' + gameid);
+
+    var state = {
+      players: [],
+      host: '',
+      stage: 'waiting',
+      mapOptions: [],
+      topicOptions: [],
+      activeMap: null,
+      lockedMap: null,
+      activeTopic: null,
+      activePickIndex: 0,
+      lockedTopics: [],
+      drawComplete: false,
+      questionFilters: null,
+      startRequested: false,
+      gameSocketConnected: false
+    };
+
+    function byId(id) {
+      return document.getElementById(id);
+    }
+
+    function escapeHtml(value) {
+      return String(value || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    function renderPlayers() {
+      var colors = ['#ff8f5f', '#53b6ff', '#52d886'];
+      byId('playersRow').innerHTML = (state.players || []).map(function(player, index) {
+        var isHost = player === state.host;
+        return [
+          '<div class="matchdraw-player">',
+          '<div class="matchdraw-player-badge" style="background:linear-gradient(135deg,' + colors[index % colors.length] + ', #f8c566)">' + escapeHtml((player || '?').charAt(0).toUpperCase()) + '</div>',
+          '<div>',
+          '<div class="matchdraw-player-name">' + escapeHtml(player) + '</div>',
+          '<div class="matchdraw-player-role">' + (isHost ? 'Technikai host / első karakterválasztó' : 'Játékos') + '</div>',
+          '</div>',
+          '</div>'
+        ].join('');
+      }).join('');
+    }
+
+    function renderMap() {
+      var html = (state.mapOptions || []).map(function(option) {
+        var classes = ['draw-chip'];
+        if (state.activeMap === option.value && !state.lockedMap) classes.push('active');
+        if (state.lockedMap === option.value) classes.push('locked', 'final-focus');
+        if (state.lockedMap && state.lockedMap !== option.value) classes.push('hidden-away');
+        return [
+          '<div class="' + classes.join(' ') + '">',
+          '<div class="draw-chip-inner">',
+          '<div class="draw-chip-name">' + escapeHtml(option.label) + '</div>',
+          '<div class="draw-chip-sub">Térkép</div>',
+          '</div>',
+          '</div>'
+        ].join('');
+      }).join('');
+      byId('mapGrid').innerHTML = html;
+    }
+
+    function renderTopics() {
+      var html = (state.topicOptions || []).map(function(option) {
+        var isLocked = state.lockedTopics.indexOf(option.key) !== -1;
+        var classes = ['draw-chip'];
+        if (!state.drawComplete && state.activeTopic === option.key && !isLocked) classes.push('active');
+        if (isLocked) classes.push('locked');
+        if (state.drawComplete) {
+          if (isLocked) {
+            classes.push('final-focus');
+          } else {
+            classes.push('hidden-away');
+          }
+        } else if (state.lockedTopics.length && !isLocked) {
+          classes.push('dimmed');
+        }
+        return [
+          '<div class="' + classes.join(' ') + '">',
+          '<div class="draw-chip-inner">',
+          '<div class="draw-chip-name">' + escapeHtml(option.label) + '</div>',
+          '<div class="draw-chip-sub">Téma</div>',
+          '</div>',
+          '</div>'
+        ].join('');
+      }).join('');
+      byId('topicsGrid').innerHTML = html;
+    }
+
+    function updateMessages() {
+      var mapMessage = 'Várunk a pályasorsolás indulására...';
+      var topicMessage = 'A témakártyák mindjárt pörögni kezdenek.';
+      var launchMessage = '';
+
+      if (state.stage === 'drawing_map') {
+        mapMessage = 'A térképek pörögnek...';
+      }
+      if (state.lockedMap) {
+        var selectedMap = (state.mapOptions || []).filter(function(option) { return option.value === state.lockedMap; })[0];
+        mapMessage = 'Kisorsolt pálya: ' + (selectedMap ? selectedMap.label : state.lockedMap);
+      }
+      if (state.stage === 'drawing_topics') {
+        topicMessage = state.lockedTopics.length ? 'Megvan az első téma. Jön a második pörgés...' : 'A témák pörögnek...';
+      }
+      if (state.drawComplete && state.lockedTopics.length === 2) {
+        topicMessage = 'Kisorsolt témák: ' + state.lockedTopics.map(function(key) {
+          var match = (state.topicOptions || []).filter(function(option) { return option.key === key; })[0];
+          return match ? match.label : key;
+        }).join(' + ');
+        launchMessage = username === state.host
+          ? 'A rendszer most elindítja a meccset...'
+          : 'A host elindítja a meccset, utána automatikusan belépsz.';
+      }
+
+      var mapEl = byId('mapMessage');
+      var topicEl = byId('topicMessage');
+      var launchEl = byId('launchMessage');
+      mapEl.textContent = mapMessage;
+      topicEl.textContent = topicMessage;
+      launchEl.textContent = launchMessage;
+      mapEl.className = 'matchdraw-bottom' + (state.lockedMap ? ' strong' : '');
+      topicEl.className = 'matchdraw-bottom' + (state.drawComplete ? ' strong' : '');
+    }
+
+    function renderAll() {
+      renderPlayers();
+      renderMap();
+      renderTopics();
+      updateMessages();
+    }
+
+    function maybeRequestStart() {
+      if (!state.drawComplete || !state.questionFilters || !state.lockedMap) return;
+      if (username !== state.host) return;
+      if (!state.gameSocketConnected) return;
+      if (state.startRequested) return;
+
+      state.startRequested = true;
+      drawSocket.emit('match:start-requested', { gameid: gameid, username: username });
+      gameSocket.emit('hostStartMatch', {
+        username: username,
+        players: state.players.slice(),
+        maplevel: state.lockedMap,
+        questionFilters: state.questionFilters
+      });
+    }
+
+    drawSocket.on('connect', function() {
+      drawSocket.emit('draw:watch', { gameid: gameid, username: username });
+    });
+
+    gameSocket.on('connect', function() {
+      state.gameSocketConnected = true;
+      maybeRequestStart();
+    });
+
+    drawSocket.on('match:not-found', function() {
+      window.location.href = '/matchmaking';
+    });
+
+    drawSocket.on('draw:init', function(payload) {
+      if (!payload) return;
+      state.players = payload.players || [];
+      state.host = payload.host || '';
+      state.mapOptions = payload.mapOptions || [];
+      state.topicOptions = payload.topicOptions || [];
+      state.stage = payload.status || state.stage;
+      state.lockedMap = payload.maplevel || null;
+      state.activeMap = payload.lastMapTick || null;
+      state.lockedTopics = payload.selectedTopics || [];
+      state.activeTopic = payload.lastTopicTick ? payload.lastTopicTick.topicKey : null;
+      state.drawComplete = state.lockedTopics.length >= 2;
+      state.questionFilters = payload.questionFilters || null;
+      state.startRequested = !!payload.startRequested;
+      renderAll();
+      maybeRequestStart();
+    });
+
+    drawSocket.on('draw:stage', function(payload) {
+      state.stage = payload && payload.stage ? payload.stage : state.stage;
+      renderAll();
+    });
+
+    drawSocket.on('draw:map:tick', function(payload) {
+      state.activeMap = payload && payload.value ? payload.value : null;
+      renderMap();
+      updateMessages();
+    });
+
+    drawSocket.on('draw:map:result', function(payload) {
+      state.lockedMap = payload && payload.value ? payload.value : null;
+      state.activeMap = state.lockedMap;
+      renderMap();
+      updateMessages();
+    });
+
+    drawSocket.on('draw:topic:tick', function(payload) {
+      state.activePickIndex = payload && typeof payload.pickIndex !== 'undefined' ? payload.pickIndex : 0;
+      state.activeTopic = payload && payload.topicKey ? payload.topicKey : null;
+      renderTopics();
+      updateMessages();
+    });
+
+    drawSocket.on('draw:topic:locked', function(payload) {
+      if (!payload || !payload.topicKey) return;
+      if (state.lockedTopics.indexOf(payload.topicKey) === -1) {
+        state.lockedTopics.push(payload.topicKey);
+      }
+      state.activeTopic = payload.topicKey;
+      renderTopics();
+      updateMessages();
+    });
+
+    drawSocket.on('draw:complete', function(payload) {
+      if (!payload) return;
+      state.players = payload.players || state.players;
+      state.host = payload.host || state.host;
+      state.lockedMap = payload.maplevel || state.lockedMap;
+      state.lockedTopics = payload.selectedTopics || state.lockedTopics;
+      state.questionFilters = payload.questionFilters || state.questionFilters;
+      state.drawComplete = true;
+      renderAll();
+      maybeRequestStart();
+    });
+
+    drawSocket.on('draw:launching', function() {
+      byId('launchMessage').textContent = 'A meccs indul...';
+    });
+
+    gameSocket.on('matchStarted', function() {
+      window.location.href = '/game/' + gameid;
+    });
+
+    gameSocket.on('stateSnapshot', function(snapshot) {
+      if (snapshot && snapshot.game && snapshot.game.phase && snapshot.game.phase !== 'WAITING_FOR_PLAYERS') {
+        window.location.href = '/game/' + gameid;
+      }
+    });
+  </script>
+</body>
+</html>

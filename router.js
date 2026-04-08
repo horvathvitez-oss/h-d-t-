@@ -15,8 +15,10 @@ module.exports = function(app, io, db) {
   var Gameutils = require('./public/models/gameutils');
   var User = require('./public/models/user');
   var LobbyStore = require('./lobbyStore');
+  var MatchmakingStore = require('./matchmakingStore');
 
   require('./lobby')(io, db);
+  require('./matchmaking')(io, db);
 
   var FEATURE_REQUEST_TO = 'kozepsulineked@gmail.com';
 
@@ -194,12 +196,54 @@ router.get('/lobby', function(req, res) {
     });
   });
 
+  router.get('/matchmaking', function(req, res) {
+    withAuthenticatedUser(req, res, function(user) {
+      var activeMatch = MatchmakingStore.getMatchByUsername(user.username);
+      if (activeMatch) {
+        var activeLobby = LobbyStore.getLobby(activeMatch.gameid);
+        if (activeLobby && activeLobby.started) {
+          return res.redirect('/game/' + activeMatch.gameid);
+        }
+        return res.redirect('/matchdraw/' + activeMatch.gameid);
+      }
+
+      res.render('matchmaking', { username: user.username });
+    });
+  });
+
+  router.get('/matchdraw/:gameid', function(req, res) {
+    withAuthenticatedUser(req, res, function(user) {
+      var gameid = String(req.params.gameid);
+      var lobby = LobbyStore.getLobby(gameid);
+      var match = MatchmakingStore.getMatch(gameid);
+
+      if (lobby && lobby.started) {
+        if (!LobbyStore.isParticipant(gameid, user.username)) return res.redirect('/lobby');
+        return res.redirect('/game/' + gameid);
+      }
+
+      if (!match || !MatchmakingStore.isParticipant(gameid, user.username)) {
+        if (lobby && LobbyStore.isParticipant(gameid, user.username)) {
+          return res.redirect('/lobby/' + gameid);
+        }
+        return res.redirect('/matchmaking');
+      }
+
+      res.render('matchdraw', { username: user.username, gameid: gameid });
+    });
+  });
+
   router.get('/lobby/:gameid', function(req, res) {
     withAuthenticatedUser(req, res, function(user) {
       var gameid = String(req.params.gameid);
       var lobby = LobbyStore.getLobby(gameid);
+      var match = MatchmakingStore.getMatch(gameid);
 
       if (!lobby) return res.redirect('/lobby');
+
+      if (match && MatchmakingStore.isParticipant(gameid, user.username) && !lobby.started) {
+        return res.redirect('/matchdraw/' + gameid);
+      }
 
       if (lobby.started) {
         if (!LobbyStore.isParticipant(gameid, user.username)) return res.redirect('/lobby');
@@ -345,10 +389,16 @@ router.get('/lobby', function(req, res) {
     withAuthenticatedUser(req, res, function(user) {
       var gameid = String(req.params.gameid);
       var lobby = LobbyStore.getLobby(gameid);
+      var match = MatchmakingStore.getMatch(gameid);
 
       if (lobby) {
         if (!LobbyStore.isParticipant(gameid, user.username)) return res.redirect('/lobby');
-        if (!lobby.started) return res.redirect('/lobby/' + gameid);
+        if (!lobby.started) {
+          if (match && MatchmakingStore.isParticipant(gameid, user.username)) {
+            return res.redirect('/matchdraw/' + gameid);
+          }
+          return res.redirect('/lobby/' + gameid);
+        }
       }
 
       Gameutils.getGameByID(Number(gameid), function(err, gameutil) {
