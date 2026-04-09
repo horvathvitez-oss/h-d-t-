@@ -285,9 +285,11 @@ function stopAfkUiTicker() {
 }
 
 initializeChatCard();
+startAfkUiTicker();
 
 ['click', 'keydown', 'touchstart', 'mousedown'].forEach(function (eventName) {
   document.addEventListener(eventName, function () {
+    noteMeaningfulActivity();
     emitPlayerActivity(false);
   }, { passive: true });
 });
