@@ -71,6 +71,9 @@ var interstitialAdDismissed = false;
 var interstitialAdPrimed = false;
 var activityHeartbeatTimer = null;
 var lastActivityPingAt = 0;
+var lastMeaningfulActivityAt = Date.now();
+var afkUiTimer = null;
+var lastAfkTrackingKey = '';
 
 
 
@@ -118,19 +121,23 @@ function initializeChatCard() {
   });
 }
 
+
 function emitPlayerActivity(force) {
   if (!socket || !socket.connected || gameFinished) return;
   var now = Date.now();
-  if (!force && (now - lastActivityPingAt) < 4000) return;
+  if (!force && (now - lastActivityPingAt) < 1000) return;
   lastActivityPingAt = now;
   socket.emit('playerActivity', { gameid: gameid, username: username });
 }
 
+function noteMeaningfulActivity() {
+  lastMeaningfulActivityAt = Date.now();
+  renderAfkWarning();
+  renderStatus();
+}
+
 function startActivityHeartbeat() {
   stopActivityHeartbeat();
-  activityHeartbeatTimer = setInterval(function () {
-    emitPlayerActivity(false);
-  }, 5000);
 }
 
 function stopActivityHeartbeat() {
@@ -139,7 +146,146 @@ function stopActivityHeartbeat() {
   activityHeartbeatTimer = null;
 }
 
+function getAfkInactivityLimitMs() {
+  var value = state && state.game ? Number(state.game.afkInactivityLimitMs) : 0;
+  return value > 0 ? value : 15000;
+}
+
+function getAfkWarningThresholdMs() {
+  var limit = getAfkInactivityLimitMs();
+  var configured = state && state.game ? Number(state.game.afkWarningThresholdMs) : 0;
+  if (configured > 0 && configured < limit) return configured;
+  return Math.min(10000, Math.max(3000, limit - 4000));
+}
+
+function isAfkWatchedPhase(phase) {
+  return ['BASE_SELECTION', 'CHARACTER_SELECTION', 'EXPANSION_SELECTION', 'BATTLE_SELECTION'].indexOf(phase || (state && state.game && state.game.phase)) !== -1;
+}
+
+function isUserAfkWatchedTurn() {
+  return Boolean(
+    state &&
+    state.game &&
+    USER &&
+    USER.connected &&
+    !USER.awaitingReconnectActivity &&
+    state.game.currentplayer === USER.pid &&
+    isAfkWatchedPhase(state.game.phase)
+  );
+}
+
+function ensureAfkWarningStyles() {
+  if (document.getElementById('afk-warning-styles')) return;
+  var style = document.createElement('style');
+  style.id = 'afk-warning-styles';
+  style.textContent = [
+    '.afk-warning-banner { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%) translateY(18px); min-width: 320px; max-width: calc(100vw - 28px); padding: 16px 20px; border-radius: 18px; color: #fff; background: rgba(44, 33, 25, 0.92); box-shadow: 0 16px 34px rgba(0,0,0,0.28); z-index: 10060; opacity: 0; pointer-events: none; transition: opacity .22s ease, transform .22s ease; text-align: center; }',
+    '.afk-warning-banner.is-visible { opacity: 1; transform: translateX(-50%) translateY(0); }',
+    '.afk-warning-banner.is-warning { background: linear-gradient(135deg, rgba(198, 96, 41, 0.96), rgba(151, 53, 24, 0.96)); }',
+    '.afk-warning-banner.is-return { background: linear-gradient(135deg, rgba(158, 45, 45, 0.96), rgba(109, 24, 24, 0.96)); }',
+    '.afk-warning-banner-title { font-size: 16px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; }',
+    '.afk-warning-banner-subtitle { margin-top: 6px; font-size: 13px; opacity: 0.96; }'
+  ].join('\\n');
+  document.head.appendChild(style);
+}
+
+function ensureAfkWarningUi() {
+  ensureAfkWarningStyles();
+  var existing = document.getElementById('afk-warning-banner');
+  if (existing) return existing;
+  var banner = document.createElement('div');
+  banner.id = 'afk-warning-banner';
+  banner.className = 'afk-warning-banner';
+  banner.setAttribute('aria-hidden', 'true');
+  banner.innerHTML = '<div class="afk-warning-banner-title" id="afk-warning-title"></div><div class="afk-warning-banner-subtitle" id="afk-warning-subtitle"></div>';
+  document.body.appendChild(banner);
+  return banner;
+}
+
+function getAfkStatusOverrideText() {
+  if (!USER || !state || !state.game || gameFinished) return '';
+  if (USER.awaitingReconnectActivity) {
+    return 'AFK miatt most ki vagy hagyva. Kattints vagy nyomj le egy gombot a visszatéréshez.';
+  }
+  if (isUserAfkWatchedTurn()) {
+    var remainingMs = getAfkInactivityLimitMs() - (Date.now() - lastMeaningfulActivityAt);
+    if (remainingMs <= getAfkWarningThresholdMs()) {
+      return 'AFK figyelmeztetés: ' + Math.max(1, Math.ceil(remainingMs / 1000)) + ' mp múlva kihagy a játék, ha nem vagy aktív.';
+    }
+  }
+  return '';
+}
+
+function renderAfkWarning() {
+  var banner = ensureAfkWarningUi();
+  if (!banner) return;
+
+  var title = document.getElementById('afk-warning-title');
+  var subtitle = document.getElementById('afk-warning-subtitle');
+  var modeClass = '';
+  var titleText = '';
+  var subtitleText = '';
+
+  if (!gameFinished && USER && state && state.game) {
+    if (USER.awaitingReconnectActivity) {
+      modeClass = ' is-return';
+      titleText = 'AFK miatt most ki vagy hagyva';
+      subtitleText = 'Kattints vagy nyomj le egy gombot a visszatéréshez.';
+    } else if (isUserAfkWatchedTurn()) {
+      var remainingMs = getAfkInactivityLimitMs() - (Date.now() - lastMeaningfulActivityAt);
+      if (remainingMs <= getAfkWarningThresholdMs()) {
+        modeClass = ' is-warning';
+        titleText = 'Hahó, mindjárt AFK-nak veszünk';
+        subtitleText = Math.max(1, Math.ceil(remainingMs / 1000)) + ' mp múlva kiskippelünk, ha nem csinálsz semmit.';
+      }
+    }
+  }
+
+  if (!titleText) {
+    banner.className = 'afk-warning-banner';
+    banner.setAttribute('aria-hidden', 'true');
+    if (title) title.textContent = '';
+    if (subtitle) subtitle.textContent = '';
+    return;
+  }
+
+  if (title) title.textContent = titleText;
+  if (subtitle) subtitle.textContent = subtitleText;
+  banner.className = 'afk-warning-banner is-visible' + modeClass;
+  banner.setAttribute('aria-hidden', 'false');
+}
+
+function syncAfkTrackingFromState() {
+  var nextKey = (!state || !state.game || !USER)
+    ? ''
+    : [state.game.phase, state.game.currentplayer, USER.connected ? 1 : 0, USER.awaitingReconnectActivity ? 1 : 0].join('|');
+
+  if (nextKey !== lastAfkTrackingKey) {
+    lastAfkTrackingKey = nextKey;
+    if (isUserAfkWatchedTurn()) {
+      lastMeaningfulActivityAt = Date.now();
+    }
+  }
+
+  renderAfkWarning();
+}
+
+function startAfkUiTicker() {
+  stopAfkUiTicker();
+  afkUiTimer = setInterval(function () {
+    renderAfkWarning();
+    renderStatus();
+  }, 250);
+}
+
+function stopAfkUiTicker() {
+  if (!afkUiTimer) return;
+  clearInterval(afkUiTimer);
+  afkUiTimer = null;
+}
+
 initializeChatCard();
+
 ['click', 'keydown', 'touchstart', 'mousedown'].forEach(function (eventName) {
   document.addEventListener(eventName, function () {
     emitPlayerActivity(false);
@@ -2570,6 +2716,7 @@ function renderPlayerCards() {
 
       var status = 'aktív';
       if (player.eliminated) status = 'kiesett';
+      else if (player.awaitingReconnectActivity) status = 'AFK';
       else if (!player.connected) status = 'offline';
       else if (state.game && state.game.currentplayer === player.pid) status = 'soron van';
 
@@ -2801,6 +2948,12 @@ function renderStatus() {
 
   if (!USER) {
     setStatus('A saját játékosprofil szinkronizálása folyamatban.');
+    return;
+  }
+
+  var afkOverride = getAfkStatusOverrideText();
+  if (afkOverride) {
+    setStatus(afkOverride);
     return;
   }
 
@@ -3142,6 +3295,7 @@ function onStateSnapshot(payload) {
     redrawMapLayerForLevel(maplevel, { resetView: true, animate: false });
   }
   USER = state.players.find(function (player) { return player.name === username; }) || null;
+  syncAfkTrackingFromState();
   updateScoreDeltas(previousState && previousState.players, state.players);
   maybePlayTerritoryCaptureSound(previousState, state);
   applyNapoleonEuropeState();
@@ -3266,6 +3420,7 @@ document.addEventListener('keydown', function (event) {
 window.addEventListener('beforeunload', function () {
   cancelInterstitialAdTimer();
   stopActivityHeartbeat();
+  stopAfkUiTicker();
 });
 
 
@@ -3435,12 +3590,10 @@ socket.on('connect', function () {
   }
   socket.emit('joingame', { username: username });
   socket.emit('getmsgs', { gameid: gameid });
-  emitPlayerActivity(true);
-  startActivityHeartbeat();
 });
 
 socket.on('disconnect', function () {
-  stopActivityHeartbeat();
+  renderAfkWarning();
 });
 
 
@@ -3465,6 +3618,7 @@ if (textarea) {
         username: username,
         message: messageValue,
       });
+      noteMeaningfulActivity();
       emitPlayerActivity(true);
       textarea.value = '';
       event.preventDefault();
@@ -3481,6 +3635,7 @@ if (textarea) {
 
 window.onbeforeunload = function (e) {
   stopActivityHeartbeat();
+  stopAfkUiTicker();
   e = e || window.event;
   if (e) {
     e.returnValue = 'Biztosan bezárod az oldalt?';

@@ -41,6 +41,7 @@ const CHATGPT_BOT_NAME = 'ChatGPT Bot';
 const BOT_MC_CORRECT_PROBABILITY = 0.4;
 const BOT_GUESS_EXACT_PROBABILITY = 0.1;
 const PLAYER_INACTIVITY_LIMIT_MS = 15000;
+const AFK_WARNING_THRESHOLD_MS = 10000;
 const INACTIVITY_CHECK_INTERVAL_MS = 4000;
 
 
@@ -205,6 +206,8 @@ module.exports = function createGame(io, rawGameId, creatorUsername, howmany, ma
     botTimers: new Map(),
     activityByPid: new Map(),
     inactivityMonitor: null,
+    reconnectPendingByPid: new Set(),
+    socketIdByPid: new Map(),
   };
 
 
@@ -464,9 +467,9 @@ function attachNamespaceHandlers(room) {
 
 
 
-    socket.on('playerActivity', (data = {}) => {
+    socket.on('playerActivity', async (data = {}) => {
       try {
-        handlePlayerActivity(room, socket, data);
+        await handlePlayerActivity(room, socket, data);
       } catch (error) {
         console.error('playerActivity error:', error);
       }
@@ -488,21 +491,26 @@ function attachNamespaceHandlers(room) {
 
 
 
+
 async function handleJoinGame(room, socket, username) {
   if (!username) {
     return;
   }
 
-
-
-
   socket.currentUsername = username;
   const existingPlayer = room.players.find((player) => player.name === username);
-
-
-
+  const requireReconnectActivity = room.game && room.game.phase !== PHASES.WAITING && room.game.phase !== PHASES.FINISHED;
 
   if (existingPlayer) {
+    room.socketIdByPid.set(existingPlayer.pid, socket.id);
+
+    if (requireReconnectActivity && room.reconnectPendingByPid.has(existingPlayer.pid)) {
+      emitSnapshot(room, socket);
+      socket.emit('serverstatus', ['Visszacsatlakoztál. Kattints vagy nyomj le egy gombot a visszatéréshez.']);
+      return;
+    }
+
+    room.reconnectPendingByPid.delete(existingPlayer.pid);
     existingPlayer.connected = true;
     touchPlayerActivity(room, existingPlayer.pid);
     await persistPlayer(room, existingPlayer);
@@ -513,18 +521,14 @@ async function handleJoinGame(room, socket, username) {
     return;
   }
 
-
-
-
   const openSlot = room.players.find((player) => player.name === 'x');
   if (!openSlot) {
     socket.emit('serverstatus', ['A szoba megtelt.']);
     return;
   }
 
-
-
-
+  room.socketIdByPid.set(openSlot.pid, socket.id);
+  room.reconnectPendingByPid.delete(openSlot.pid);
   openSlot.name = username;
   openSlot.connected = true;
   touchPlayerActivity(room, openSlot.pid);
@@ -535,9 +539,32 @@ async function handleJoinGame(room, socket, username) {
   emitSnapshot(room);
 }
 
+function setCurrentPlayer(room, pid) {
+  if (!room || !room.game) return;
+  room.game.currentplayer = Number.isInteger(pid) ? pid : -1;
+  if (Number.isInteger(pid) && pid >= 0) {
+    touchPlayerActivity(room, pid);
+  }
+}
 
+function isSocketAuthorizedForPlayer(room, socket, player) {
+  if (!room || !socket || !player) return false;
+  const currentSocketId = room.socketIdByPid ? room.socketIdByPid.get(player.pid) : null;
+  return !currentSocketId || currentSocketId === socket.id;
+}
 
-
+function ensurePlayerCanInteract(room, socket, player) {
+  if (!player) return false;
+  if (!isSocketAuthorizedForPlayer(room, socket, player)) {
+    emitServerError(socket, 'Ez a kapcsolat már nem aktív ennél a játékosnál. Csatlakozz újra a meccshez.');
+    return false;
+  }
+  if (!player.connected) {
+    emitServerError(socket, 'Jelenleg ki vagy hagyva a meccsből. Kattints vagy nyomj le egy gombot a visszatéréshez.');
+    return false;
+  }
+  return true;
+}
 
 function emitServerError(socket, message) {
   if (!socket || !message) return;
@@ -832,30 +859,35 @@ async function handleHostStartMatch(room, socket, data = {}) {
   emitSnapshot(room);
 }
 
+
 async function handleDisconnect(room, socket) {
   const username = socket.currentUsername;
   if (!username) {
     return;
   }
 
-
-
-
   const player = room.players.find((item) => item.name === username);
   if (!player) {
     return;
   }
 
+  if (!isSocketAuthorizedForPlayer(room, socket, player)) {
+    return;
+  }
 
+  room.socketIdByPid.delete(player.pid);
 
+  const requireReconnectActivity = room.game && room.game.phase !== PHASES.WAITING && room.game.phase !== PHASES.FINISHED;
+  if (requireReconnectActivity) {
+    room.reconnectPendingByPid.add(player.pid);
+  } else {
+    room.reconnectPendingByPid.delete(player.pid);
+  }
 
   player.connected = false;
   await persistPlayer(room, player);
   gameLog(room, `${username} lecsatlakozott.`);
   sendStatus(room, `${username} lecsatlakozott.`);
-
-
-
 
   if (
     room.game.activeQuestion &&
@@ -870,21 +902,12 @@ async function handleDisconnect(room, socket) {
     await maybeResolveQuestionEarly(room);
   }
 
-
-
-
-  if (room.game.phase === PHASES.BATTLE_SELECTION || room.game.phase === PHASES.EXPANSION_SELECTION || room.game.phase === PHASES.BASE_SELECTION) {
+  if (room.game.phase === PHASES.BATTLE_SELECTION || room.game.phase === PHASES.EXPANSION_SELECTION || room.game.phase === PHASES.BASE_SELECTION || room.game.phase === PHASES.CHARACTER_SELECTION) {
     await maybeAdvanceWhenCurrentPlayerUnavailable(room);
   }
 
-
-
-
   emitSnapshot(room);
 }
-
-
-
 
 async function maybeStartGame(room) {
   const filledPlayers = room.players.filter((player) => player.name !== 'x');
@@ -901,7 +924,7 @@ async function maybeStartGame(room) {
   room.game.baseOrder = shuffle(room.players.map((player) => player.pid));
   room.game.baseSelectionIndex = 0;
   room.game.phase = PHASES.BASE_SELECTION;
-  room.game.currentplayer = room.game.baseOrder[0];
+  setCurrentPlayer(room, room.game.baseOrder[0]);
   room.game.currentOrder = [...room.game.baseOrder];
   await refreshGamePlayerNames(room);
   await persistGame(room);
@@ -922,6 +945,7 @@ async function maybeStartGame(room) {
 async function handleSelectBase(room, socket, tid) {
   const player = getPlayerByUsername(room, socket.currentUsername);
   if (!player) return;
+  if (!ensurePlayerCanInteract(room, socket, player)) return;
   if (room.game.phase !== PHASES.BASE_SELECTION) return;
   if (room.game.currentplayer !== player.pid) {
     socket.emit('serverstatus', ['Most nem te választasz bázist.']);
@@ -981,7 +1005,7 @@ async function handleSelectBase(room, socket, tid) {
   if (room.game.baseSelectionIndex >= room.game.baseOrder.length) {
     await startCharacterDraft(room);
   } else {
-    room.game.currentplayer = room.game.baseOrder[room.game.baseSelectionIndex];
+    setCurrentPlayer(room, room.game.baseOrder[room.game.baseSelectionIndex]);
     await persistGame(room);
     const nextPlayer = getPlayerByPid(room, room.game.currentplayer);
     sendStatus(room, `Bázisválasztás: ${nextPlayer.name} következik.`);
@@ -1007,7 +1031,7 @@ async function startCharacterDraft(room) {
   room.game.currentOrder = draftOrder;
   room.game.characterDraftOrder = draftOrder.slice();
   room.game.characterDraftIndex = 0;
-  room.game.currentplayer = draftOrder.length ? draftOrder[0] : -1;
+  setCurrentPlayer(room, draftOrder.length ? draftOrder[0] : -1);
   room.game.availableCharacterIds = getCharacterPoolForMap(room.maplevel);
   room.game.selectedCharactersByPid = {};
   await persistGame(room);
@@ -1016,11 +1040,13 @@ async function startCharacterDraft(room) {
   sendStatus(room, current ? `Karakterválasztás: ${current.name} választ.` : 'Karakterválasztás indul.');
   gameLog(room, 'A bázisok kiosztása után karakterválasztás indul.');
   emitSnapshot(room);
+  await maybeAdvanceWhenCurrentPlayerUnavailable(room);
 }
 
 async function handleSelectCharacter(room, socket, characterId) {
   const player = getPlayerByUsername(room, socket.currentUsername);
   if (!player) return;
+  if (!ensurePlayerCanInteract(room, socket, player)) return;
   if (room.game.phase !== PHASES.CHARACTER_SELECTION) return;
   if (room.game.currentplayer !== player.pid) {
     socket.emit('serverstatus', ['Most nem te választasz karaktert.']);
@@ -1070,7 +1096,7 @@ async function handleSelectCharacter(room, socket, characterId) {
     return;
   }
 
-  room.game.currentplayer = nextPid;
+  setCurrentPlayer(room, nextPid);
   room.game.characterDraftIndex = Math.max(0, currentIndex + 1);
   await persistPlayer(room, player);
   await persistGame(room);
@@ -1116,7 +1142,7 @@ async function startExpansionRound(room, firstRound = false) {
   room.game.expansionReadyByPid = {};
   resetKossuthGamble(room);
   room.game.activeQuestion = null;
-  room.game.currentplayer = getNextExpansionSelectionPid(room, -1);
+  setCurrentPlayer(room, getNextExpansionSelectionPid(room, -1));
   await persistGame(room);
 
 
@@ -1202,6 +1228,7 @@ async function startExpansionRemainderGuess(room) {
 async function handleSelectExpansionTarget(room, socket, tid) {
   const player = getPlayerByUsername(room, socket.currentUsername);
   if (!player) return;
+  if (!ensurePlayerCanInteract(room, socket, player)) return;
   if (room.game.phase !== PHASES.EXPANSION_SELECTION) return;
   if (room.game.currentplayer !== player.pid) {
     socket.emit('serverstatus', ['Most nem te választasz területet.']);
@@ -1253,7 +1280,7 @@ async function handleSelectExpansionTarget(room, socket, tid) {
   if (nextPid === -1) {
     await startExpansionQuestion(room);
   } else {
-    room.game.currentplayer = nextPid;
+    setCurrentPlayer(room, nextPid);
     await persistGame(room);
     const nextPlayer = getPlayerByPid(room, nextPid);
     sendStatus(room, `Foglalási kör: ${nextPlayer.name} választ.`);
@@ -1314,7 +1341,7 @@ async function startBattleRound(room, roundNumber) {
   resetKossuthGamble(room);
   room.game.battleTurnIndex = 0;
   room.game.currentOrder = room.game.orderCycle[(roundNumber - 1) % room.game.orderCycle.length] || [];
-  room.game.currentplayer = getNextExpansionSelectionPid(room, -1);
+  setCurrentPlayer(room, getNextExpansionSelectionPid(room, -1));
   room.game.activeQuestion = null;
   await persistGame(room);
 
@@ -1343,31 +1370,45 @@ function touchPlayerActivity(room, playerRef) {
   room.activityByPid.set(player.pid, Date.now());
 }
 
-function handlePlayerActivity(room, socket, data = {}) {
+
+async function handlePlayerActivity(room, socket, data = {}) {
   if (!room) return;
   const username = String((socket && socket.currentUsername) || (data && data.username) || '').trim();
   if (!username) return;
   if (socket && !socket.currentUsername) {
     socket.currentUsername = username;
   }
-  touchPlayerActivity(room, username);
-}
 
-function getRequiredActivePlayerPid(room) {
-  if (!room || !room.game) return null;
-  if (room.game.phase === PHASES.BASE_SELECTION || room.game.phase === PHASES.CHARACTER_SELECTION || room.game.phase === PHASES.EXPANSION_SELECTION || room.game.phase === PHASES.BATTLE_SELECTION) {
-    return Number.isInteger(room.game.currentplayer) && room.game.currentplayer >= 0 ? room.game.currentplayer : null;
+  const player = getPlayerByUsername(room, username);
+  if (!player) return;
+  if (socket && !isSocketAuthorizedForPlayer(room, socket, player)) {
+    return;
   }
-  return null;
+
+  touchPlayerActivity(room, player.pid);
+
+  if (!room.reconnectPendingByPid.has(player.pid)) {
+    return;
+  }
+
+  room.reconnectPendingByPid.delete(player.pid);
+  if (!player.connected) {
+    player.connected = true;
+    await persistPlayer(room, player);
+    sendStatus(room, `${player.name} újra aktív, visszakerült a meccsbe.`);
+    gameLog(room, `${player.name} újra aktív, visszakerült a körforgásba.`);
+    emitSnapshot(room);
+  }
 }
 
 async function disconnectInactivePlayer(room, player) {
   if (!room || !player || !player.connected || player.eliminated || isBotPlayer(player)) return;
 
+  room.reconnectPendingByPid.add(player.pid);
   player.connected = false;
   await persistPlayer(room, player);
 
-  const message = `${player.name} 20 másodpercig inaktív volt, ezért ideiglenesen lecsatlakozott. Ugyanazzal a névvel vissza tud csatlakozni.`;
+  const message = `${player.name} 15 másodpercig inaktív volt, ezért ideiglenesen kiesett a körből. Aktivitással vissza tud térni.`;
   gameLog(room, message);
   sendStatus(room, message);
 
@@ -1427,24 +1468,28 @@ function stopInactivityMonitor(room) {
 }
 
 
+
 async function maybeAdvanceWhenCurrentPlayerUnavailable(room) {
   if (room.game.phase === PHASES.BASE_SELECTION) {
     const current = getPlayerByPid(room, room.game.currentplayer);
     if (!current || current.name === 'x' || !current.connected) {
       room.game.baseSelectionIndex += 1;
       if (room.game.baseSelectionIndex >= room.game.baseOrder.length) {
-        await startExpansionRound(room, true);
+        await startCharacterDraft(room);
       } else {
-        room.game.currentplayer = room.game.baseOrder[room.game.baseSelectionIndex];
+        setCurrentPlayer(room, room.game.baseOrder[room.game.baseSelectionIndex]);
         await persistGame(room);
+        const nextPlayer = getPlayerByPid(room, room.game.currentplayer);
+        if (!nextPlayer || nextPlayer.name === 'x' || !nextPlayer.connected) {
+          await maybeAdvanceWhenCurrentPlayerUnavailable(room);
+          return;
+        }
+        sendStatus(room, nextPlayer ? `Bázisválasztás: ${nextPlayer.name} következik.` : 'Bázisválasztás folyamatban.');
         emitSnapshot(room);
       }
     }
     return;
   }
-
-
-
 
   if (room.game.phase === PHASES.CHARACTER_SELECTION) {
     const current = getPlayerByPid(room, room.game.currentplayer);
@@ -1454,8 +1499,14 @@ async function maybeAdvanceWhenCurrentPlayerUnavailable(room) {
       if (nextPid === -1) {
         await startExpansionRound(room, true);
       } else {
-        room.game.currentplayer = nextPid;
+        setCurrentPlayer(room, nextPid);
         await persistGame(room);
+        const nextPlayer = getPlayerByPid(room, nextPid);
+        if (!nextPlayer || !nextPlayer.connected) {
+          await maybeAdvanceWhenCurrentPlayerUnavailable(room);
+          return;
+        }
+        sendStatus(room, nextPlayer ? `Karakterválasztás: ${nextPlayer.name} választ.` : 'Karakterválasztás folyamatban.');
         emitSnapshot(room);
       }
     }
@@ -1474,16 +1525,19 @@ async function maybeAdvanceWhenCurrentPlayerUnavailable(room) {
       if (nextPid === -1) {
         await startExpansionQuestion(room);
       } else {
-        room.game.currentplayer = nextPid;
+        setCurrentPlayer(room, nextPid);
         await persistGame(room);
+        const nextPlayer = getPlayerByPid(room, nextPid);
+        if (!nextPlayer || nextPlayer.eliminated || !nextPlayer.connected || getLockedExpansionSelectionsRequired(room, nextPlayer.pid) <= 0) {
+          await maybeAdvanceWhenCurrentPlayerUnavailable(room);
+          return;
+        }
+        sendStatus(room, nextPlayer ? `Foglalási kör: ${nextPlayer.name} választ.` : 'Foglalási kör folyamatban.');
         emitSnapshot(room);
       }
     }
     return;
   }
-
-
-
 
   if (room.game.phase === PHASES.BATTLE_SELECTION) {
     const current = getPlayerByPid(room, room.game.currentplayer);
@@ -1507,12 +1561,10 @@ async function maybeAdvanceWhenCurrentPlayerUnavailable(room) {
   }
 }
 
-
-
-
 async function handleSelectAttackTarget(room, socket, tid) {
   const attacker = getPlayerByUsername(room, socket.currentUsername);
   if (!attacker) return;
+  if (!ensurePlayerCanInteract(room, socket, attacker)) return;
   if (room.game.phase !== PHASES.BATTLE_SELECTION) return;
   if (room.game.currentplayer !== attacker.pid) {
     socket.emit('serverstatus', ['Most nem te támadsz.']);
@@ -1581,6 +1633,7 @@ function getSzilardBombTargets(room, pid) {
 async function handleLaunchSzilardBomb(room, socket, data = {}) {
   const attacker = getPlayerByUsername(room, socket.currentUsername);
   if (!attacker) return;
+  if (!ensurePlayerCanInteract(room, socket, attacker)) return;
   if (room.game.phase !== PHASES.BATTLE_SELECTION) return;
   if (room.game.currentplayer !== attacker.pid) {
     socket.emit('serverstatus', ['Most nem te következel.']);
@@ -1699,6 +1752,7 @@ async function handleSubmitAnswer(room, socket, data) {
 
   const player = getPlayerByUsername(room, socket.currentUsername);
   if (!player) return;
+  if (!ensurePlayerCanInteract(room, socket, player)) return;
   const question = room.game.activeQuestion;
   if (!question.participants.includes(player.pid)) return;
   if (question.answers[player.pid]) return;
@@ -2464,13 +2518,11 @@ async function resolveSuccessfulDefense(room, { attacker, defender, isCastle, ca
 
 
 
+
 async function advanceBattleTurn(room) {
   const order = room.game.currentOrder || [];
   const currentIndex = room.game.currentplayer === -1 ? room.game.battleTurnIndex : order.indexOf(room.game.currentplayer);
   const nextPid = nextEligiblePidInOrder(room, order, currentIndex, false);
-
-
-
 
   if (nextPid === -1) {
     await startBattleRound(room, room.game.battleRound + 1);
@@ -2478,19 +2530,13 @@ async function advanceBattleTurn(room) {
     return;
   }
 
-
-
-
-  room.game.currentplayer = nextPid;
+  setCurrentPlayer(room, nextPid);
   room.game.phase = PHASES.BATTLE_SELECTION;
   room.game.battleTurnIndex = order.indexOf(nextPid);
   await persistGame(room);
   emitSnapshot(room);
   await maybeAdvanceWhenCurrentPlayerUnavailable(room);
 }
-
-
-
 
 async function finishMatch(room, winnerPid) {
   stopInactivityMonitor(room);
@@ -3039,6 +3085,8 @@ function emitSnapshot(room, socket = null) {
       pendingSelections: room.game.pendingSelections || {},
       expansionSelectionsPerTurn: getExpansionSelectionsPerTurn(room),
       reservedTerritories: room.game.reservedTerritories,
+      afkInactivityLimitMs: PLAYER_INACTIVITY_LIMIT_MS,
+      afkWarningThresholdMs: AFK_WARNING_THRESHOLD_MS,
       ultraSabotageRemaining: getTotalUltraSabotageRemaining(room),
       ultraSabotageRemainingByPid: getUltraSabotageRemainingMap(room),
       kozepsuliHelpRemaining: getTotalKozepsuliHelpRemaining(room),
@@ -3066,6 +3114,7 @@ function emitSnapshot(room, socket = null) {
       score: player.score,
       defenseBonus: player.defenseBonus || 0,
       connected: Boolean(player.connected),
+      awaitingReconnectActivity: Boolean(room.reconnectPendingByPid && room.reconnectPendingByPid.has(player.pid)),
       eliminated: Boolean(player.eliminated),
       isBot: Boolean(player.isBot),
       castleCaptureBonus: player.castleCaptureBonus || 0,
@@ -3340,6 +3389,7 @@ async function handleActivateUltraSabotage(room, socket) {
   const runtime = room.questionRuntime;
 
   if (!player || !question || !runtime) return;
+  if (!ensurePlayerCanInteract(room, socket, player)) return;
   if (room.game.phase !== PHASES.BATTLE_QUESTION) return;
   if (question.type !== 'mcq' || !question.context || question.context.flow !== 'BATTLE') return;
   if (!question.participants.includes(player.pid)) {
@@ -3414,6 +3464,7 @@ async function handleActivateKozepsuliHelp(room, socket) {
   const runtime = room.questionRuntime || {};
 
   if (!player || !question) return;
+  if (!ensurePlayerCanInteract(room, socket, player)) return;
   if (!Array.isArray(question.participants) || !question.participants.includes(player.pid)) {
     socket.emit('serverstatus', ['Csak az aktuális kérdés résztvevői használhatják a segítséget.']);
     return;
@@ -3489,6 +3540,7 @@ async function handleActivateKossuthGamble(room, socket) {
   const question = room.game && room.game.activeQuestion;
 
   if (!player || !question) return;
+  if (!ensurePlayerCanInteract(room, socket, player)) return;
   if (!Array.isArray(question.participants) || !question.participants.includes(player.pid)) {
     socket.emit('serverstatus', ['Csak az aktuális kérdés résztvevői használhatják a Széchényi Kaszinót.']);
     return;
@@ -3544,6 +3596,7 @@ async function handleActivateBrutusMirror(room, socket) {
   const runtime = room.questionRuntime;
 
   if (!player || !question || !runtime) return;
+  if (!ensurePlayerCanInteract(room, socket, player)) return;
   if (room.game.phase !== PHASES.BATTLE_QUESTION) return;
   if (question.type !== 'mcq' || !question.context || question.context.flow !== 'BATTLE') return;
   if (!Array.isArray(question.participants) || !question.participants.includes(player.pid)) {
