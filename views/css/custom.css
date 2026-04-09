@@ -4939,9 +4939,7 @@ body.game-screen .hud-right {
     max-height: 68px;
   }
 }
-body.game-screen .compact-chat-card {
-  display: none !important;
-}
+
 
 /* =========================
    UX UPGRADE: SELECTABLE TERRITORIES + QUESTION REVEAL

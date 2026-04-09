@@ -40,8 +40,6 @@ const CASTLE_DESTROYED_MS = 3200;
 const CHATGPT_BOT_NAME = 'ChatGPT Bot';
 const BOT_MC_CORRECT_PROBABILITY = 0.4;
 const BOT_GUESS_EXACT_PROBABILITY = 0.1;
-const PLAYER_INACTIVITY_LIMIT_MS = 15000;
-const INACTIVITY_CHECK_INTERVAL_MS = 4000;
 
 
 const NAPOLEON_CONTINENT_BONUS = 800;
@@ -167,6 +165,8 @@ function getRemainderGuessCutoff(room) {
   return isHungary13Rules(room) ? 2 : REMAINDER_GUESS_CUTOFF;
 }
 
+const ACTION_INACTIVITY_LIMIT_MS = 15000;
+
 function getBaseUltraSabotagePerPlayer(room) {
   return 2;
 }
@@ -203,15 +203,13 @@ module.exports = function createGame(io, rawGameId, creatorUsername, howmany, ma
     usedUltraHardIds: new Set(),
     questionRuntime: null,
     botTimers: new Map(),
-    activityByPid: new Map(),
-    inactivityMonitor: null,
+    actionInactivityTimers: new Map(),
   };
 
 
 
 
   ACTIVE_GAMES.set(gameid, room);
-  startInactivityMonitor(room);
   setupGame(room).catch((error) => console.error('Game setup failed:', error));
   attachNamespaceHandlers(room);
   return room;
@@ -447,7 +445,6 @@ function attachNamespaceHandlers(room) {
 
     socket.on('newmessage', async (data = {}) => {
       try {
-        touchPlayerActivity(room, socket.currentUsername || (data && data.username));
         if (!String(data.message || '').trim()) return;
         const payload = {
           gameid: room.gameid,
@@ -458,17 +455,6 @@ function attachNamespaceHandlers(room) {
         room.namespace.emit('outputmsg', [payload]);
       } catch (error) {
         console.error('newmessage error:', error);
-      }
-    });
-
-
-
-
-    socket.on('playerActivity', (data = {}) => {
-      try {
-        handlePlayerActivity(room, socket, data);
-      } catch (error) {
-        console.error('playerActivity error:', error);
       }
     });
 
@@ -504,7 +490,6 @@ async function handleJoinGame(room, socket, username) {
 
   if (existingPlayer) {
     existingPlayer.connected = true;
-    touchPlayerActivity(room, existingPlayer.pid);
     await persistPlayer(room, existingPlayer);
     await refreshGamePlayerNames(room);
     sendStatus(room, `${username} csatlakozott.`);
@@ -527,7 +512,6 @@ async function handleJoinGame(room, socket, username) {
 
   openSlot.name = username;
   openSlot.connected = true;
-  touchPlayerActivity(room, openSlot.pid);
   await persistPlayer(room, openSlot);
   await refreshGamePlayerNames(room);
   gameLog(room, `${username} csatlakozott a játékhoz.`);
@@ -538,6 +522,150 @@ async function handleJoinGame(room, socket, username) {
 
 
 
+
+
+function getActionablePlayerIds(room) {
+  if (!room || !room.game) return [];
+
+  if (
+    room.game.phase === PHASES.BASE_SELECTION ||
+    room.game.phase === PHASES.CHARACTER_SELECTION ||
+    room.game.phase === PHASES.EXPANSION_SELECTION ||
+    room.game.phase === PHASES.BATTLE_SELECTION
+  ) {
+    return Number.isInteger(room.game.currentplayer) && room.game.currentplayer >= 0
+      ? [room.game.currentplayer]
+      : [];
+  }
+
+  if (
+    (room.game.phase === PHASES.EXPANSION_QUESTION || room.game.phase === PHASES.BATTLE_QUESTION) &&
+    room.game.activeQuestion
+  ) {
+    return (Array.isArray(room.game.activeQuestion.participants) ? room.game.activeQuestion.participants : [])
+      .filter((pid) => {
+        const player = getPlayerByPid(room, pid);
+        if (!player || player.eliminated || !player.connected) return false;
+        return !room.game.activeQuestion.answers || !room.game.activeQuestion.answers[pid];
+      });
+  }
+
+  return [];
+}
+
+function clearActionInactivityTimer(room, pid) {
+  if (!room || !room.actionInactivityTimers) return;
+  if (!room.actionInactivityTimers.has(pid)) return;
+  clearTimeout(room.actionInactivityTimers.get(pid));
+  room.actionInactivityTimers.delete(pid);
+}
+
+function clearAllActionInactivityTimers(room) {
+  if (!room || !room.actionInactivityTimers) return;
+  Array.from(room.actionInactivityTimers.keys()).forEach((pid) => clearActionInactivityTimer(room, pid));
+}
+
+function isPlayerCurrentlyActionable(room, pid) {
+  return getActionablePlayerIds(room).includes(pid);
+}
+
+async function handlePlayerActionInactivity(room, pid) {
+  const player = getPlayerByPid(room, pid);
+  if (!room || !player || player.eliminated || !player.connected) {
+    clearActionInactivityTimer(room, pid);
+    return;
+  }
+
+  clearActionInactivityTimer(room, pid);
+
+  player.connected = false;
+  await persistPlayer(room, player);
+
+  const kickMessage = `${player.name} 15 másodpercig nem lépett, ezért kidobtuk. Ugyanazzal a névvel visszacsatlakozhat.`;
+  gameLog(room, kickMessage);
+  sendStatus(room, kickMessage);
+
+  if (
+    room.game &&
+    room.game.activeQuestion &&
+    Array.isArray(room.game.activeQuestion.participants) &&
+    room.game.activeQuestion.participants.includes(player.pid) &&
+    !room.game.activeQuestion.answers[player.pid]
+  ) {
+    room.game.activeQuestion.answers[player.pid] = {
+      submittedAt: Date.now(),
+      timedOut: true,
+    };
+    if (room.game.activeQuestion.type === 'mcq') {
+      room.game.activeQuestion.answers[player.pid].correct = false;
+    } else {
+      room.game.activeQuestion.answers[player.pid].guess = null;
+      room.game.activeQuestion.answers[player.pid].distance = Number.POSITIVE_INFINITY;
+    }
+    await persistGame(room);
+    await maybeResolveQuestionEarly(room);
+  }
+
+  for (const socket of room.namespace.sockets.values()) {
+    if (socket && socket.currentUsername === player.name) {
+      socket.emit('serverstatus', [kickMessage]);
+      try {
+        socket.disconnect(true);
+      } catch (error) {
+        console.error('AFK disconnect failed:', error);
+      }
+    }
+  }
+
+  if (
+    room.game.phase === PHASES.BASE_SELECTION ||
+    room.game.phase === PHASES.CHARACTER_SELECTION ||
+    room.game.phase === PHASES.EXPANSION_SELECTION ||
+    room.game.phase === PHASES.BATTLE_SELECTION
+  ) {
+    await maybeAdvanceWhenCurrentPlayerUnavailable(room);
+  }
+
+  emitSnapshot(room);
+  syncActionInactivityTimers(room);
+}
+
+function refreshActionInactivityTimer(room, pid) {
+  if (!room || !Number.isInteger(pid) || pid < 0) return;
+  if (!isPlayerCurrentlyActionable(room, pid)) {
+    clearActionInactivityTimer(room, pid);
+    return;
+  }
+
+  clearActionInactivityTimer(room, pid);
+  const timer = setTimeout(() => {
+    handlePlayerActionInactivity(room, pid).catch((error) => {
+      console.error('Action inactivity handling failed:', error);
+    });
+  }, ACTION_INACTIVITY_LIMIT_MS);
+  room.actionInactivityTimers.set(pid, timer);
+}
+
+function syncActionInactivityTimers(room) {
+  if (!room) return;
+  if (!room.actionInactivityTimers || !(room.actionInactivityTimers instanceof Map)) {
+    room.actionInactivityTimers = new Map();
+  }
+
+  const actionable = new Set(getActionablePlayerIds(room));
+
+  Array.from(room.actionInactivityTimers.keys()).forEach((pid) => {
+    if (!actionable.has(pid)) {
+      clearActionInactivityTimer(room, pid);
+    }
+  });
+
+  actionable.forEach((pid) => {
+    if (!room.actionInactivityTimers.has(pid)) {
+      refreshActionInactivityTimer(room, pid);
+    }
+  });
+}
 
 function emitServerError(socket, message) {
   if (!socket || !message) return;
@@ -849,6 +977,14 @@ async function handleDisconnect(room, socket) {
 
 
 
+  if (!player.connected) {
+    syncActionInactivityTimers(room);
+    return;
+  }
+
+
+
+
   player.connected = false;
   await persistPlayer(room, player);
   gameLog(room, `${username} lecsatlakozott.`);
@@ -881,6 +1017,7 @@ async function handleDisconnect(room, socket) {
 
 
   emitSnapshot(room);
+  syncActionInactivityTimers(room);
 }
 
 
@@ -914,6 +1051,7 @@ async function maybeStartGame(room) {
   sendStatus(room, `Bázisválasztás: ${starter.name} választ bázist.`);
   room.namespace.emit('matchStarted', { gameid: room.gameid });
   emitSnapshot(room);
+  syncActionInactivityTimers(room);
 }
 
 
@@ -1016,6 +1154,7 @@ async function startCharacterDraft(room) {
   sendStatus(room, current ? `Karakterválasztás: ${current.name} választ.` : 'Karakterválasztás indul.');
   gameLog(room, 'A bázisok kiosztása után karakterválasztás indul.');
   emitSnapshot(room);
+  syncActionInactivityTimers(room);
 }
 
 async function handleSelectCharacter(room, socket, characterId) {
@@ -1066,6 +1205,7 @@ async function handleSelectCharacter(room, socket, characterId) {
     sendStatus(room, 'Mindenki karaktert választott. Indul a foglalási kör.');
     gameLog(room, `${player.name} karaktere: ${CHARACTERS[characterId].name}. Minden karakter kiosztva.`);
     emitSnapshot(room);
+    syncActionInactivityTimers(room);
     await startExpansionRound(room, true);
     return;
   }
@@ -1078,6 +1218,7 @@ async function handleSelectCharacter(room, socket, characterId) {
   gameLog(room, `${player.name} karaktere: ${CHARACTERS[characterId].name}.`);
   sendStatus(room, `Karakterválasztás: ${nextPlayer.name} választ.`);
   emitSnapshot(room);
+  syncActionInactivityTimers(room);
 }
 
 async function startExpansionRound(room, firstRound = false) {
@@ -1134,6 +1275,7 @@ async function startExpansionRound(room, firstRound = false) {
   gameLog(room, `Foglalási kör ${room.game.expansionRound}. Sorrend: ${formatOrder(room, room.game.currentOrder)}.`);
   sendStatus(room, `Foglalási kör ${room.game.expansionRound}: ${current.name} választ.`);
   emitSnapshot(room);
+  syncActionInactivityTimers(room);
 }
 
 
@@ -1243,7 +1385,9 @@ async function handleSelectExpansionTarget(room, socket, tid) {
   if (currentSelections.length < requiredSelections) {
     await persistGame(room);
     sendStatus(room, `Foglalási kör: ${player.name} még választ ${requiredSelections - currentSelections.length} területet.`);
+    refreshActionInactivityTimer(room, player.pid);
     emitSnapshot(room);
+    syncActionInactivityTimers(room);
     return;
   }
 
@@ -1286,6 +1430,7 @@ async function startExpansionQuestion(room) {
     viewers: room.players.map((player) => player.pid),
   });
   sendStatus(room, 'Közös foglalási kérdés indul.');
+  syncActionInactivityTimers(room);
 }
 
 
@@ -1323,108 +1468,11 @@ async function startBattleRound(room, roundNumber) {
 
   gameLog(room, `Csatakör ${roundNumber}. Sorrend: ${formatOrder(room, room.game.currentOrder)}.`);
   emitSnapshot(room);
+  syncActionInactivityTimers(room);
   await maybeAdvanceWhenCurrentPlayerUnavailable(room);
 }
 
 
-
-
-function touchPlayerActivity(room, playerRef) {
-  if (!room || !room.activityByPid) return;
-  if (typeof playerRef === 'number' && Number.isInteger(playerRef)) {
-    room.activityByPid.set(playerRef, Date.now());
-    return;
-  }
-
-  const username = String(playerRef || '').trim();
-  if (!username) return;
-  const player = getPlayerByUsername(room, username);
-  if (!player) return;
-  room.activityByPid.set(player.pid, Date.now());
-}
-
-function handlePlayerActivity(room, socket, data = {}) {
-  if (!room) return;
-  const username = String((socket && socket.currentUsername) || (data && data.username) || '').trim();
-  if (!username) return;
-  if (socket && !socket.currentUsername) {
-    socket.currentUsername = username;
-  }
-  touchPlayerActivity(room, username);
-}
-
-function getRequiredActivePlayerPid(room) {
-  if (!room || !room.game) return null;
-  if (room.game.phase === PHASES.BASE_SELECTION || room.game.phase === PHASES.CHARACTER_SELECTION || room.game.phase === PHASES.EXPANSION_SELECTION || room.game.phase === PHASES.BATTLE_SELECTION) {
-    return Number.isInteger(room.game.currentplayer) && room.game.currentplayer >= 0 ? room.game.currentplayer : null;
-  }
-  return null;
-}
-
-async function disconnectInactivePlayer(room, player) {
-  if (!room || !player || !player.connected || player.eliminated || isBotPlayer(player)) return;
-
-  player.connected = false;
-  await persistPlayer(room, player);
-
-  const message = `${player.name} 20 másodpercig inaktív volt, ezért ideiglenesen lecsatlakozott. Ugyanazzal a névvel vissza tud csatlakozni.`;
-  gameLog(room, message);
-  sendStatus(room, message);
-
-  if (
-    room.game.activeQuestion &&
-    room.game.activeQuestion.participants.includes(player.pid) &&
-    !room.game.activeQuestion.answers[player.pid]
-  ) {
-    room.game.activeQuestion.answers[player.pid] = {
-      submittedAt: Date.now(),
-      timedOut: true,
-      inactiveDisconnect: true,
-    };
-    await persistGame(room);
-    await maybeResolveQuestionEarly(room);
-  }
-
-  await maybeAdvanceWhenCurrentPlayerUnavailable(room);
-  emitSnapshot(room);
-}
-
-async function evaluateRoomInactivity(room) {
-  if (!room || !room.game || room.game.phase === PHASES.WAITING || room.game.phase === PHASES.FINISHED) return;
-
-  const activePid = getRequiredActivePlayerPid(room);
-  if (!Number.isInteger(activePid)) return;
-
-  const player = getPlayerByPid(room, activePid);
-  if (!player || !player.connected || player.eliminated || isBotPlayer(player)) return;
-
-  const lastActivityAt = room.activityByPid.get(activePid);
-  if (!lastActivityAt) {
-    room.activityByPid.set(activePid, Date.now());
-    return;
-  }
-
-  if ((Date.now() - lastActivityAt) < PLAYER_INACTIVITY_LIMIT_MS) return;
-
-  room.activityByPid.set(activePid, Date.now());
-  await disconnectInactivePlayer(room, player);
-}
-
-function startInactivityMonitor(room) {
-  if (!room) return;
-  stopInactivityMonitor(room);
-  room.inactivityMonitor = setInterval(() => {
-    evaluateRoomInactivity(room).catch((error) => {
-      console.error('Inactivity monitor failed:', error);
-    });
-  }, INACTIVITY_CHECK_INTERVAL_MS);
-}
-
-function stopInactivityMonitor(room) {
-  if (!room || !room.inactivityMonitor) return;
-  clearInterval(room.inactivityMonitor);
-  room.inactivityMonitor = null;
-}
 
 
 async function maybeAdvanceWhenCurrentPlayerUnavailable(room) {
@@ -1438,6 +1486,7 @@ async function maybeAdvanceWhenCurrentPlayerUnavailable(room) {
         room.game.currentplayer = room.game.baseOrder[room.game.baseSelectionIndex];
         await persistGame(room);
         emitSnapshot(room);
+        syncActionInactivityTimers(room);
       }
     }
     return;
@@ -1457,6 +1506,7 @@ async function maybeAdvanceWhenCurrentPlayerUnavailable(room) {
         room.game.currentplayer = nextPid;
         await persistGame(room);
         emitSnapshot(room);
+        syncActionInactivityTimers(room);
       }
     }
     return;
@@ -1477,6 +1527,7 @@ async function maybeAdvanceWhenCurrentPlayerUnavailable(room) {
         room.game.currentplayer = nextPid;
         await persistGame(room);
         emitSnapshot(room);
+        syncActionInactivityTimers(room);
       }
     }
     return;
@@ -1504,6 +1555,7 @@ async function maybeAdvanceWhenCurrentPlayerUnavailable(room) {
     }
     sendStatus(room, `Csata ${room.game.battleRound}. kör: ${current.name} támadót választ.`);
     emitSnapshot(room);
+    syncActionInactivityTimers(room);
   }
 }
 
@@ -1659,6 +1711,7 @@ async function handleLaunchSzilardBomb(room, socket, data = {}) {
   });
 
   emitSnapshot(room);
+  syncActionInactivityTimers(room);
   await advanceBattleTurn(room);
 }
 
@@ -1686,6 +1739,7 @@ async function startBattleMcq(room, battleContext) {
   } else {
     sendStatus(room, `Csata: ${attacker.name} támad, ${defender.name} véd.`);
   }
+  syncActionInactivityTimers(room);
 }
 
 
@@ -1747,6 +1801,7 @@ async function handleSubmitAnswer(room, socket, data) {
 
   room.game.activeQuestion = question;
   await persistGame(room);
+  syncActionInactivityTimers(room);
   await maybeResolveQuestionEarly(room);
 }
 
@@ -2493,7 +2548,6 @@ async function advanceBattleTurn(room) {
 
 
 async function finishMatch(room, winnerPid) {
-  stopInactivityMonitor(room);
   room.game.phase = PHASES.FINISHED;
   room.game.currentplayer = -1;
   room.game.gamefinish = true;
@@ -2510,6 +2564,7 @@ async function finishMatch(room, winnerPid) {
   sendStatus(room, `A meccs véget ért. Győztes: ${winner.name}.`);
   emitSnapshot(room);
   room.namespace.emit('gamefinish', [{ winner: winner.pid }]);
+  clearAllActionInactivityTimers(room);
 
   try {
     MatchmakingStore.clearMatch(room.gameid);
@@ -3406,6 +3461,7 @@ async function handleActivateUltraSabotage(room, socket) {
 
   sendStatus(room, `${sourcePlayer ? sourcePlayer.name : 'Valaki'} szabotázst aktivált. ${targetPlayer ? targetPlayer.name : 'Az ellenfél'} ULTRA HARD kérdést kapott.`);
   gameLog(room, `${sourcePlayer ? sourcePlayer.name : 'Valaki'} szabotázst aktivált ${targetPlayer ? targetPlayer.name : 'az ellenfél'} ellen.`);
+  refreshActionInactivityTimer(room, player.pid);
 }
 
 async function handleActivateKozepsuliHelp(room, socket) {
@@ -3480,6 +3536,7 @@ async function handleActivateKozepsuliHelp(room, socket) {
 
   sendStatus(room, `${player.name} felhasználta a KÖZÉPSULINEKED HELP-et.`);
   gameLog(room, `${player.name} felhasználta a KÖZÉPSULINEKED HELP-et.`);
+  refreshActionInactivityTimer(room, player.pid);
 }
 
 
@@ -3536,6 +3593,7 @@ async function handleActivateKossuthGamble(room, socket) {
 
   sendStatus(room, `${player.name} aktiválta a Széchényi Kaszinót.`);
   gameLog(room, `${player.name} aktiválta a Széchényi Kaszinót.`);
+  refreshActionInactivityTimer(room, player.pid);
 }
 
 async function handleActivateBrutusMirror(room, socket) {
