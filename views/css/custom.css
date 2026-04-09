@@ -3567,12 +3567,6 @@ body.game-screen .phase-compact-sub {
   color: #fff7e5;
 }
 
-#chatmsgs,
-#gamelogs,
-body.game-screen #chatmsgs,
-body.game-screen #gamelogs {
-  background: #000 !important;
-}
 
 body.game-screen .compact-phase-card,
 body.game-screen .phase-compact,
