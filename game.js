@@ -1996,6 +1996,7 @@ async function resolveExpansionQuestion(room, question) {
     }
 
     if (question.answers[pid].correct) {
+      player.correctAnswers = (player.correctAnswers || 0) + 1;
       const capturedNames = [];
       const capturedTerritories = [];
       selectedTids.forEach((tid) => {
@@ -2233,8 +2234,12 @@ async function resolveBattleMcq(room, question) {
   const attackerCorrect = Boolean(question.answers[attackerPid]?.correct);
   const defenderCorrect = Boolean(question.answers[defenderPid]?.correct);
 
-
-
+  if (attackerCorrect && attacker) {
+    attacker.correctAnswers = (attacker.correctAnswers || 0) + 1;
+  }
+  if (defenderCorrect && defender) {
+    defender.correctAnswers = (defender.correctAnswers || 0) + 1;
+  }
 
   emitBattleResolved(room, question);
 
@@ -3135,6 +3140,7 @@ function emitSnapshot(room, socket = null) {
       eliminated: Boolean(player.eliminated),
       isBot: Boolean(player.isBot),
       castleCaptureBonus: player.castleCaptureBonus || 0,
+      correctAnswers: player.correctAnswers || 0,
       characterId: player.characterId || null,
       characterName: player.characterId && CHARACTERS[player.characterId] ? CHARACTERS[player.characterId].name : null,
       napoleonEuropeBonus: player.napoleonEuropeBonus || 0,
@@ -3987,6 +3993,7 @@ function createInitialPlayers(gameid, creatorUsername, howmany) {
       score: 0,
       defenseBonus: 0,
       castleCaptureBonus: 0,
+      correctAnswers: 0,
       horthyHomelandBonus: 0,
       napoleonEuropeBonus: 0,
       kossuthScoreModifier: 0,

@@ -50,6 +50,8 @@ var phaseSplashTitle = element('phase-splash-title');
 var winnerModal = element('winner-modal');
 var winnerTitle = element('winner-title');
 var winnerSubtitle = element('winner-subtitle');
+var winnerPodium = element('winner-podium');
+var winnerSummary = element('winner-summary');
 var lastPhaseGroupShown = null;
 var phaseSplashTimer = null;
 
@@ -2638,38 +2640,39 @@ function getCurrentPhaseGroup() {
 
 
 
+function getPlayerCastleTowers(player) {
+  var castle = state.castles.find(function (item) { return item.pid === player.pid && item.active; });
+  return castle ? castle.hp : 0;
+}
+
+function getPlayerStatusLabel(player) {
+  if (player.eliminated) return 'kiesett';
+  if (!player.connected) return 'offline';
+  if (state.game && state.game.currentplayer === player.pid) return 'soron';
+  return 'aktív';
+}
+
+function getPlayerStatusClass(player) {
+  if (player.eliminated) return 'is-eliminated';
+  if (!player.connected) return 'is-offline';
+  if (state.game && state.game.currentplayer === player.pid) return 'is-turn';
+  return 'is-active';
+}
+
 function renderPlayerCards() {
   var html = state.players
     .slice()
     .sort(function (a, b) { return a.pid - b.pid; })
     .map(function (player) {
-      var castle = state.castles.find(function (item) { return item.pid === player.pid && item.active; });
       var classes = ['player-card', 'player-card-sword'];
       if (USER && USER.pid === player.pid) classes.push('is-me');
       if (state.game && state.game.currentplayer === player.pid) classes.push('is-turn');
       if (!player.connected && !player.eliminated) classes.push('is-offline');
       if (player.eliminated) classes.push('is-eliminated');
 
-
-
-
-
-
-
-
-      var status = 'aktív';
-      if (player.eliminated) status = 'kiesett';
-      else if (!player.connected) status = 'offline';
-      else if (state.game && state.game.currentplayer === player.pid) status = 'soron van';
-
-
-
-
-
-
-
-
-      var castleTowers = castle ? castle.hp : 0;
+      var status = getPlayerStatusLabel(player);
+      var statusClass = getPlayerStatusClass(player);
+      var castleTowers = getPlayerCastleTowers(player);
       var activeDelta = getActiveScoreDelta(player.pid);
 
       return [
@@ -2677,10 +2680,11 @@ function renderPlayerCards() {
         '<div class="player-card-accent" style="background:' + getOwnerColor(player.pid) + ';"></div>',
         '<div class="player-card-gem" style="background:' + getOwnerColor(player.pid) + ';"></div>',
         '<div class="player-card-body">',
-        '<div class="player-name-row">',
+        '<div class="player-headline">',
         '<div class="player-name">' + escapeHtml(getPlayerDisplayName(player)) + '</div>',
-        '<div class="player-sub">' + escapeHtml(status) + '</div>',
+        (USER && USER.pid === player.pid ? '<div class="player-sub">te vagy</div>' : ''),
         '</div>',
+        '<span class="player-status-badge ' + statusClass + '">' + escapeHtml(status) + '</span>',
         '<div class="player-mini-stats">',
         '<span class="player-mini-stat player-mini-stat--score"><strong>' + player.score + '</strong><em>PONT</em>' + (activeDelta ? ('<span class="player-score-delta ' + (activeDelta.value > 0 ? 'is-positive' : 'is-negative') + '">' + (activeDelta.value > 0 ? '+' : '') + activeDelta.value + '</span>') : '') + '</span>',
         '<span class="player-mini-stat"><strong>' + player.territories.length + '</strong><em>TER.</em></span>',
@@ -2692,22 +2696,8 @@ function renderPlayerCards() {
     })
     .join('');
 
-
-
-
-
-
-
-
   playercards.innerHTML = html;
 }
-
-
-
-
-
-
-
 
 function renderPhaseBoard() {
   if (!state.game) {
@@ -3186,21 +3176,111 @@ function maybeShowPhaseSplash() {
 
 
 
-function showWinnerModal(winner) {
-  if (!winnerModal || !winnerTitle || !winnerSubtitle) return;
-  winnerTitle.textContent = winner ? (getPlayerDisplayName(winner) + ' nyert!') : 'A meccs véget ért';
-  winnerSubtitle.textContent = winner && USER && winner.pid === USER.pid
-    ? 'Gratulálok, te győztél.'
-    : (winner ? ('Győztes: ' + getPlayerDisplayName(winner)) : 'A győztes nem ismert.');
-  winnerModal.classList.add('is-visible');
+function getPlayerCorrectAnswers(player) {
+  return Number.isFinite(player && player.correctAnswers) ? player.correctAnswers : null;
 }
 
+function getWinnerRankingPlayers() {
+  return state.players
+    .slice()
+    .sort(function (a, b) {
+      return (b.score - a.score)
+        || (b.territories.length - a.territories.length)
+        || (getPlayerCastleTowers(b) - getPlayerCastleTowers(a))
+        || (Number(Boolean(b.connected)) - Number(Boolean(a.connected)))
+        || (a.pid - b.pid);
+    });
+}
 
+function getWinnerPlaceLine(player, placement) {
+  var name = getPlayerDisplayName(player);
+  if (placement === 1) return name + ' talán nem fog megbukni az érettségin.';
+  if (placement === 2) return name + ' hajszállal maradt le a porond tetejéről.';
+  if (placement === 3) return name + ' ma este még biztos átnézi a tételeket.';
+  return name + ' végül lecsúszott a dobogóról.';
+}
 
+function buildWinnerStatHtml(label, value) {
+  return '<div class="winner-summary-stat"><strong>' + escapeHtml(String(value)) + '</strong><span>' + escapeHtml(label) + '</span></div>';
+}
 
+function buildWinnerPodiumSlot(player, placement) {
+  if (!player) return '';
+  return [
+    '<div class="winner-podium-slot is-place-' + placement + '">',
+    '<div class="winner-podium-rank">' + placement + '.</div>',
+    '<div class="winner-podium-name">' + escapeHtml(getPlayerDisplayName(player)) + '</div>',
+    '<div class="winner-podium-tagline">' + escapeHtml(getWinnerPlaceLine(player, placement)) + '</div>',
+    '<div class="winner-podium-base"></div>',
+    '</div>'
+  ].join('');
+}
 
+function buildWinnerPodiumHtml(ranking) {
+  var second = ranking[1] || null;
+  var first = ranking[0] || null;
+  var third = ranking[2] || null;
 
+  return [
+    '<div class="winner-podium-stage">',
+    buildWinnerPodiumSlot(second, 2),
+    buildWinnerPodiumSlot(first, 1),
+    buildWinnerPodiumSlot(third, 3),
+    '</div>'
+  ].join('');
+}
 
+function buildWinnerSummaryHtml(ranking) {
+  var champion = ranking[0];
+  if (!champion) return '';
+
+  var stats = [
+    buildWinnerStatHtml('pont', champion.score),
+    buildWinnerStatHtml('terület', champion.territories.length),
+    buildWinnerStatHtml('torony', getPlayerCastleTowers(champion))
+  ];
+
+  var correctAnswers = getPlayerCorrectAnswers(champion);
+  if (correctAnswers !== null) {
+    stats.splice(1, 0, buildWinnerStatHtml('jó válasz', correctAnswers));
+  }
+
+  var rankingRows = ranking.slice(0, 3).map(function (player, index) {
+    return '<div class="winner-ranking-row"><span class="winner-ranking-place">' + (index + 1) + '.</span><span class="winner-ranking-name">' + escapeHtml(getPlayerDisplayName(player)) + '</span><span class="winner-ranking-score">' + escapeHtml(String(player.score)) + ' pont</span></div>';
+  }).join('');
+
+  return [
+    '<div class="winner-spotlight">',
+    '<div class="winner-spotlight-line">' + escapeHtml(getWinnerPlaceLine(champion, 1)) + '</div>',
+    '<div class="winner-summary-stats">' + stats.join('') + '</div>',
+    '<div class="winner-ranking-list">' + rankingRows + '</div>',
+    '</div>'
+  ].join('');
+}
+
+function showWinnerModal(winner) {
+  if (!winnerModal || !winnerTitle || !winnerSubtitle) return;
+
+  var ranking = getWinnerRankingPlayers();
+  var champion = winner || ranking[0] || null;
+
+  winnerTitle.textContent = champion ? (getPlayerDisplayName(champion) + ' nyert!') : 'A meccs véget ért';
+  winnerSubtitle.textContent = champion && USER && champion.pid === USER.pid
+    ? 'A porond tetején végeztél.'
+    : (champion ? (getPlayerDisplayName(champion) + ' vitte haza a győzelmet.') : 'A győztes nem ismert.');
+
+  if (winnerPodium) {
+    winnerPodium.innerHTML = buildWinnerPodiumHtml(ranking);
+  }
+
+  if (winnerSummary) {
+    winnerSummary.innerHTML = buildWinnerSummaryHtml(ranking);
+  }
+
+  winnerModal.classList.add('is-visible');
+  winnerModal.classList.add('is-animated');
+  winnerModal.setAttribute('aria-hidden', 'false');
+}
 
 function finishGame(winnerPid) {
   gameFinished = true;

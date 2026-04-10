@@ -8,6 +8,7 @@ const playersSchema = new mongoose.Schema({
   score: { type: Number, default: 0 },
   defenseBonus: { type: Number, default: 0 },
   castleCaptureBonus: { type: Number, default: 0 },
+  correctAnswers: { type: Number, default: 0 },
   active: { type: Boolean, default: true },
   eliminated: { type: Boolean, default: false },
   connected: { type: Boolean, default: false },
