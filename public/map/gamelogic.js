@@ -3195,17 +3195,13 @@ function getWinnerRankingPlayers() {
 function getWinnerPlaceLine(player, placement) {
   var name = getPlayerDisplayName(player);
   if (placement === 1) return name + ' talán nem fog megbukni az érettségin.';
-  if (placement === 2) return name + ' hajszállal maradt le a porond tetejéről.';
-  if (placement === 3) return name + ' ma este még biztos átnézi a tételeket.';
-  return name + ' végül lecsúszott a dobogóról.';
-}
-
-function buildWinnerStatHtml(label, value) {
-  return '<div class="winner-summary-stat"><strong>' + escapeHtml(String(value)) + '</strong><span>' + escapeHtml(label) + '</span></div>';
+  if (placement === 2) return 'majdnem megvolt';
+  if (placement === 3) return 'meg fog bukni az érettségin';
+  return name + ' lecsúszott a dobogóról.';
 }
 
 function buildWinnerPodiumSlot(player, placement) {
-  if (!player) return '';
+  if (!player) return '<div class="winner-podium-slot is-place-' + placement + ' is-empty"><div class="winner-podium-base"></div></div>';
   return [
     '<div class="winner-podium-slot is-place-' + placement + '">',
     '<div class="winner-podium-rank">' + placement + '.</div>',
@@ -3223,37 +3219,9 @@ function buildWinnerPodiumHtml(ranking) {
 
   return [
     '<div class="winner-podium-stage">',
-    buildWinnerPodiumSlot(second, 2),
-    buildWinnerPodiumSlot(first, 1),
     buildWinnerPodiumSlot(third, 3),
-    '</div>'
-  ].join('');
-}
-
-function buildWinnerSummaryHtml(ranking) {
-  var champion = ranking[0];
-  if (!champion) return '';
-
-  var stats = [
-    buildWinnerStatHtml('pont', champion.score),
-    buildWinnerStatHtml('terület', champion.territories.length),
-    buildWinnerStatHtml('torony', getPlayerCastleTowers(champion))
-  ];
-
-  var correctAnswers = getPlayerCorrectAnswers(champion);
-  if (correctAnswers !== null) {
-    stats.splice(1, 0, buildWinnerStatHtml('jó válasz', correctAnswers));
-  }
-
-  var rankingRows = ranking.slice(0, 3).map(function (player, index) {
-    return '<div class="winner-ranking-row"><span class="winner-ranking-place">' + (index + 1) + '.</span><span class="winner-ranking-name">' + escapeHtml(getPlayerDisplayName(player)) + '</span><span class="winner-ranking-score">' + escapeHtml(String(player.score)) + ' pont</span></div>';
-  }).join('');
-
-  return [
-    '<div class="winner-spotlight">',
-    '<div class="winner-spotlight-line">' + escapeHtml(getWinnerPlaceLine(champion, 1)) + '</div>',
-    '<div class="winner-summary-stats">' + stats.join('') + '</div>',
-    '<div class="winner-ranking-list">' + rankingRows + '</div>',
+    buildWinnerPodiumSlot(first, 1),
+    buildWinnerPodiumSlot(second, 2),
     '</div>'
   ].join('');
 }
@@ -3265,18 +3233,18 @@ function showWinnerModal(winner) {
   var champion = winner || ranking[0] || null;
 
   winnerTitle.textContent = champion ? (getPlayerDisplayName(champion) + ' nyert!') : 'A meccs véget ért';
-  winnerSubtitle.textContent = champion && USER && champion.pid === USER.pid
-    ? 'A porond tetején végeztél.'
-    : (champion ? (getPlayerDisplayName(champion) + ' vitte haza a győzelmet.') : 'A győztes nem ismert.');
+  winnerSubtitle.textContent = champion ? 'Dobogó kész. Vissza a lobbiba bármikor.' : 'A győztes nem ismert.';
 
   if (winnerPodium) {
     winnerPodium.innerHTML = buildWinnerPodiumHtml(ranking);
   }
 
   if (winnerSummary) {
-    winnerSummary.innerHTML = buildWinnerSummaryHtml(ranking);
+    winnerSummary.innerHTML = '';
   }
 
+  winnerModal.classList.remove('is-animated');
+  void winnerModal.offsetWidth;
   winnerModal.classList.add('is-visible');
   winnerModal.classList.add('is-animated');
   winnerModal.setAttribute('aria-hidden', 'false');
