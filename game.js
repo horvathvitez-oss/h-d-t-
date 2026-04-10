@@ -1401,6 +1401,23 @@ async function handlePlayerActivity(room, socket, data = {}) {
   }
 }
 
+function getRequiredActivePlayerPid(room) {
+  if (!room || !room.game) return null;
+
+  if (
+    room.game.phase === PHASES.BASE_SELECTION ||
+    room.game.phase === PHASES.CHARACTER_SELECTION ||
+    room.game.phase === PHASES.EXPANSION_SELECTION ||
+    room.game.phase === PHASES.BATTLE_SELECTION
+  ) {
+    return Number.isInteger(room.game.currentplayer) && room.game.currentplayer >= 0
+      ? room.game.currentplayer
+      : null;
+  }
+
+  return null;
+}
+
 async function disconnectInactivePlayer(room, player) {
   if (!room || !player || !player.connected || player.eliminated || isBotPlayer(player)) return;
 
