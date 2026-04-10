@@ -2276,7 +2276,7 @@ body.game-screen .player-card.is-turn::after {
 
 
 body.game-screen .hud-side {
-  top: 102px;
+  top: 50px;
   bottom: 14px;
   width: 244px;
   gap: 10px;
@@ -8154,7 +8154,7 @@ body.game-screen #chatmsgs {
   body.game-screen .compact-chat-card {
     position: fixed;
     right: 10px;
-    bottom: 10px;
+    bottom: 100px;
     width: 184px;
     max-width: calc(100vw - 20px);
     min-height: 0;
