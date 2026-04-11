@@ -1,17 +1,11 @@
 require('dotenv').config();
 
 const express = require('express');
-const compression = require('compression');
 const app = express();
 
 const LONG_CACHE_MS = 1000 * 60 * 60 * 24 * 30;
 const IMMUTABLE_CACHE_CONTROL = 'public, max-age=2592000, immutable';
 const STATIC_CACHEABLE_EXTENSIONS = /\.(?:css|js|mjs|json|map|png|jpe?g|gif|webp|svg|ico|mp3|wav|ogg|m4a|mp4|webm|woff2?|ttf|eot|geojson)$/i;
-
-function shouldCompress(req, res) {
-  if (req.headers['x-no-compression']) return false;
-  return compression.filter(req, res);
-}
 
 function setLongCacheHeaders(res, filePath) {
   if (STATIC_CACHEABLE_EXTENSIONS.test(filePath)) {
@@ -20,13 +14,8 @@ function setLongCacheHeaders(res, filePath) {
 }
 
 app.disable('x-powered-by');
-app.use(compression({
-  threshold: 1024,
-  filter: shouldCompress
-}));
 app.use(express.static('public', {
   maxAge: LONG_CACHE_MS,
-  immutable: true,
   setHeaders: setLongCacheHeaders
 }));
 
