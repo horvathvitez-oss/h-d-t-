@@ -17,10 +17,14 @@
 
 
   <script src="../../../public/map/lib/leaflet/leaflet.js"></script>
-  <script src="../../../public/map/data/countries.geojson"></script>
-  <script src="../../../public/map/data/countries30.geojson"></script>
+  <% if (maplevel === 'hungary13') { %>
   <script src="../../../public/map/data/hungary13.geojson"></script>
   <script src="../../../public/map/data/hungary13_background.geojson"></script>
+  <% } else if (maplevel === 'medium') { %>
+  <script src="../../../public/map/data/countries30.geojson"></script>
+  <% } else { %>
+  <script src="../../../public/map/data/countries.geojson"></script>
+  <% } %>
   <script src="/socket.io/socket.io.js"></script>
   <script src="https://code.jquery.com/jquery-3.3.1.min.js"></script>
 
@@ -125,6 +129,6 @@
     </aside>
   </div>
 
-  <script src="/map/gamelogic.js?v=winner-podium-2026-04-11-2"></script>
+  <script src="/map/gamelogic.js?v=bandwidth-optimized-2026-04-11-1"></script>
 </body>
 </html>

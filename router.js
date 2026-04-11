@@ -1,15 +1,40 @@
 module.exports = function(app, io, db) {
   var express = require('express');
   var nodemailer = require('nodemailer');
+  var path = require('path');
   var router = express.Router();
 
-  app.use('/get_map/public/map/', express.static(__dirname + '/public/map/'));
-  app.use('/views/', express.static(__dirname + '/views/'));
-  app.use('/views/login/', express.static(__dirname + '/views/login/'));
-  app.use('/public/map/', express.static(__dirname + '/public/map/'));
-  app.use('/profile/views/', express.static(__dirname + '/views/'));
-  app.use('/images', express.static(__dirname + '/public/images/'));
-  app.use('/game/', express.static(__dirname + '/public/game/'));
+  var IMMUTABLE_CACHE_CONTROL = 'public, max-age=2592000, immutable';
+  var REVALIDATED_CACHE_CONTROL = 'public, max-age=0, must-revalidate';
+  var STATIC_CACHEABLE_EXTENSIONS = new Set([
+    '.css', '.js', '.mjs', '.json', '.map', '.geojson',
+    '.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg', '.ico',
+    '.mp3', '.wav', '.ogg', '.m4a', '.mp4', '.webm',
+    '.woff', '.woff2', '.ttf', '.eot'
+  ]);
+
+  function createStaticOptions() {
+    return {
+      etag: true,
+      lastModified: true,
+      setHeaders: function(res, filePath) {
+        var ext = path.extname(String(filePath || '')).toLowerCase();
+        if (STATIC_CACHEABLE_EXTENSIONS.has(ext)) {
+          res.setHeader('Cache-Control', IMMUTABLE_CACHE_CONTROL);
+          return;
+        }
+        res.setHeader('Cache-Control', REVALIDATED_CACHE_CONTROL);
+      }
+    };
+  }
+
+  app.use('/get_map/public/map/', express.static(__dirname + '/public/map/', createStaticOptions()));
+  app.use('/views/', express.static(__dirname + '/views/', createStaticOptions()));
+  app.use('/views/login/', express.static(__dirname + '/views/login/', createStaticOptions()));
+  app.use('/public/map/', express.static(__dirname + '/public/map/', createStaticOptions()));
+  app.use('/profile/views/', express.static(__dirname + '/views/', createStaticOptions()));
+  app.use('/images', express.static(__dirname + '/public/images/', createStaticOptions()));
+  app.use('/game/', express.static(__dirname + '/public/game/', createStaticOptions()));
 
   var Territory = require('./public/models/territory');
   var Gameutils = require('./public/models/gameutils');

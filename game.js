@@ -3091,10 +3091,30 @@ async function playCastleDestroyed(room, { attacker, defender, territory }) {
 }
 
 
-function emitSnapshot(room, socket = null) {
-  if (!room.game) return;
-  const target = socket || room.namespace;
-  target.emit('stateSnapshot', {
+function buildTerritorySnapshot(room, includeStaticFields) {
+  return room.territories.map((territory) => {
+    if (includeStaticFields) {
+      return {
+        gameid: territory.gameid,
+        tid: territory.tid,
+        continent: territory.continent,
+        tname: territory.tname,
+        neighbors: territory.neighbors,
+        ownsto: territory.ownsto,
+        szechenyiCasinoOwnerPid: territory.szechenyiCasinoOwnerPid ?? null,
+      };
+    }
+
+    return {
+      tid: territory.tid,
+      ownsto: territory.ownsto,
+      szechenyiCasinoOwnerPid: territory.szechenyiCasinoOwnerPid ?? null,
+    };
+  });
+}
+
+function buildSnapshotPayload(room, includeStaticTerritories) {
+  return {
     game: {
       gameid: room.game.gameid,
       phase: room.game.phase,
@@ -3128,7 +3148,8 @@ function emitSnapshot(room, socket = null) {
       gamefinish: room.game.gamefinish,
       winner: room.game.winner ?? null,
     },
-    territories: room.territories,
+    territories: buildTerritorySnapshot(room, includeStaticTerritories),
+    territoriesMode: includeStaticTerritories ? 'full' : 'dynamic',
     players: room.players.map((player) => ({
       pid: player.pid,
       name: player.name,
@@ -3153,7 +3174,14 @@ function emitSnapshot(room, socket = null) {
       hp: castle.hp,
       active: castle.active,
     })),
-  });
+  };
+}
+
+function emitSnapshot(room, socket = null) {
+  if (!room.game) return;
+  const target = socket || room.namespace;
+  const includeStaticTerritories = Boolean(socket);
+  target.emit('stateSnapshot', buildSnapshotPayload(room, includeStaticTerritories));
 
   if (!socket) {
     queueBotStateEvaluation(room);

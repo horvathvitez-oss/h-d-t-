@@ -1,8 +1,34 @@
 require('dotenv').config();
 
 const express = require('express');
+const compression = require('compression');
 const app = express();
-app.use(express.static('public'));
+
+const LONG_CACHE_MS = 1000 * 60 * 60 * 24 * 30;
+const IMMUTABLE_CACHE_CONTROL = 'public, max-age=2592000, immutable';
+const STATIC_CACHEABLE_EXTENSIONS = /\.(?:css|js|mjs|json|map|png|jpe?g|gif|webp|svg|ico|mp3|wav|ogg|m4a|mp4|webm|woff2?|ttf|eot|geojson)$/i;
+
+function shouldCompress(req, res) {
+  if (req.headers['x-no-compression']) return false;
+  return compression.filter(req, res);
+}
+
+function setLongCacheHeaders(res, filePath) {
+  if (STATIC_CACHEABLE_EXTENSIONS.test(filePath)) {
+    res.setHeader('Cache-Control', IMMUTABLE_CACHE_CONTROL);
+  }
+}
+
+app.disable('x-powered-by');
+app.use(compression({
+  threshold: 1024,
+  filter: shouldCompress
+}));
+app.use(express.static('public', {
+  maxAge: LONG_CACHE_MS,
+  immutable: true,
+  setHeaders: setLongCacheHeaders
+}));
 
 const session = require('express-session');
 const MongoStore = require('connect-mongo')(session);
@@ -38,7 +64,15 @@ const server = app.listen(PORT, '0.0.0.0', () => {
   console.log(`\nServer has started on Port ${PORT}. Time: ${currentTime}`);
 });
 
-const io = require('socket.io')(server);
+const io = require('socket.io')(server, {
+  transports: ['websocket', 'polling'],
+  httpCompression: {
+    threshold: 1024
+  },
+  perMessageDeflate: {
+    threshold: 1024
+  }
+});
 
 const router = require('./router')(app, io, db);
 
