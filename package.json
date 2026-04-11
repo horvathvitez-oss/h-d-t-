@@ -1,7 +1,7 @@
 {
-  "name": "Hódító",
+  "name": "riskbudur",
   "version": "1.0.0",
-  "description": "Érettségi kérdéses online területfoglalós társasjáték. A kozepsulineked.com jóvoltából.",
+  "description": "Online Risk Strategy game.",
   "main": "app.js",
   "scripts": {
     "start": "node app.js",
@@ -9,7 +9,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "Hódító"
+    "url": "riskbudur"
   },
   "keywords": [
     "risk",
