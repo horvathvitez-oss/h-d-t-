@@ -56,8 +56,10 @@ var winnerTitle = element('winner-title');
 var winnerSubtitle = element('winner-subtitle');
 var winnerPodium = element('winner-podium');
 var winnerSummary = element('winner-summary');
+var winnerActions = element('winner-actions');
 var lastPhaseGroupShown = null;
 var phaseSplashTimer = null;
+var winnerActionRevealTimer = null;
 
 
 var currentQuestionData = null;
@@ -3198,19 +3200,96 @@ function getWinnerRankingPlayers() {
 
 function getWinnerPlaceLine(player, placement) {
   var name = getPlayerDisplayName(player);
-  if (placement === 1) return name + ' talán nem fog megbukni az érettségin.';
-  if (placement === 2) return 'majdnem megvolt';
-  if (placement === 3) return 'meg fog bukni az érettségin';
+  if (placement === 1) return name + ' fogja a legnagyobb eséllyel átverekedni magát az érettségin.';
+  if (placement === 2) return name + ' nagyon közel volt az első helyhez.';
+  if (placement === 3) return name + ' még felérhet a csúcsra, de most bronzérmes.';
   return name + ' lecsúszott a dobogóról.';
 }
 
+function getWinnerPlacementLabel(placement) {
+  if (placement === 1) return '1. HELY';
+  if (placement === 2) return '2. HELY';
+  if (placement === 3) return '3. HELY';
+  return placement + '. HELY';
+}
+
+function getWinnerPodiumSequence(placement) {
+  if (placement === 3) return 1;
+  if (placement === 2) return 2;
+  return 3;
+}
+
+function getWinnerCharacterImage(player) {
+  if (!player || !player.characterId) return '';
+  return CHARACTER_IMAGE_BY_ID[player.characterId] || '';
+}
+
+function buildWinnerCharacterHtml(player) {
+  if (!player) {
+    return '<div class="winner-podium-character-shell is-empty"><div class="winner-podium-character-fallback">?</div></div>';
+  }
+
+  var characterImage = getWinnerCharacterImage(player);
+  var characterDef = getCharacterDefinition(player.characterId);
+  var alt = characterDef && characterDef.name ? (characterDef.name + ' - ' + getPlayerDisplayName(player)) : getPlayerDisplayName(player);
+  if (characterImage) {
+    return '<div class="winner-podium-character-shell"><img class="winner-podium-character" src="' + escapeHtml(characterImage) + '" alt="' + escapeHtml(alt) + '" loading="lazy"></div>';
+  }
+  return '<div class="winner-podium-character-shell is-empty"><div class="winner-podium-character-fallback">' + escapeHtml(getPlayerDisplayName(player).charAt(0) || '?') + '</div></div>';
+}
+
+function buildWinnerStatHtml(player, placement) {
+  if (!player) return '<div class="winner-podium-stat"><span class="winner-podium-score">—</span></div>';
+  var score = Number.isFinite(player.score) ? player.score : 0;
+  var correctAnswers = getPlayerCorrectAnswers(player);
+  var lines = ['<div class="winner-podium-stat">'];
+  lines.push('<span class="winner-podium-score">' + score + '</span>');
+  if (correctAnswers !== null) {
+    lines.push('<span class="winner-podium-score-sub">' + correctAnswers + ' jó válasz</span>');
+  } else {
+    lines.push('<span class="winner-podium-score-sub">' + escapeHtml(getWinnerPlacementLabel(placement)) + '</span>');
+  }
+  lines.push('</div>');
+  return lines.join('');
+}
+
+function buildWinnerConfettiHtml() {
+  var pieces = [];
+  for (var i = 0; i < 18; i += 1) {
+    var left = ((i * 17) % 100);
+    var delay = (i * 0.14).toFixed(2);
+    var duration = (3.8 + (i % 5) * 0.35).toFixed(2);
+    var rotate = (i % 2 === 0 ? -1 : 1) * (12 + (i % 4) * 8);
+    pieces.push('<span class="winner-confetti-piece" style="left:' + left + '%; animation-delay:' + delay + 's; animation-duration:' + duration + 's; --winner-confetti-rotate:' + rotate + 'deg;"></span>');
+  }
+  return '<div class="winner-confetti" aria-hidden="true">' + pieces.join('') + '</div>';
+}
+
 function buildWinnerPodiumSlot(player, placement) {
-  if (!player) return '<div class="winner-podium-slot is-place-' + placement + ' is-empty"><div class="winner-podium-base"></div></div>';
+  var sequence = getWinnerPodiumSequence(placement);
+  if (!player) {
+    return [
+      '<div class="winner-podium-slot is-place-' + placement + ' is-empty is-reveal-seq-' + sequence + '">',
+      '<div class="winner-podium-rank">' + placement + '. HELY</div>',
+      '<div class="winner-podium-character-shell is-empty"><div class="winner-podium-character-fallback">?</div></div>',
+      '<div class="winner-podium-meta">',
+      '<div class="winner-podium-name">Nincs játékos</div>',
+      '<div class="winner-podium-tagline">Ez a hely most üres maradt.</div>',
+      '</div>',
+      '<div class="winner-podium-base"></div>',
+      '</div>'
+    ].join('');
+  }
+
   return [
-    '<div class="winner-podium-slot is-place-' + placement + '">',
-    '<div class="winner-podium-rank">' + placement + '.</div>',
+    '<div class="winner-podium-slot is-place-' + placement + ' is-reveal-seq-' + sequence + '">',
+    '<div class="winner-podium-rank">' + getWinnerPlacementLabel(placement) + '</div>',
+    buildWinnerCharacterHtml(player),
+    '<div class="winner-podium-meta">',
     '<div class="winner-podium-name">' + escapeHtml(getPlayerDisplayName(player)) + '</div>',
     '<div class="winner-podium-tagline">' + escapeHtml(getWinnerPlaceLine(player, placement)) + '</div>',
+    '</div>',
+    buildWinnerStatHtml(player, placement),
     '<div class="winner-podium-base"></div>',
     '</div>'
   ].join('');
@@ -3222,6 +3301,7 @@ function buildWinnerPodiumHtml(ranking) {
   var third = ranking[2] || null;
 
   return [
+    buildWinnerConfettiHtml(),
     '<div class="winner-podium-stage">',
     buildWinnerPodiumSlot(third, 3),
     buildWinnerPodiumSlot(first, 1),
@@ -3236,22 +3316,42 @@ function showWinnerModal(winner) {
   var ranking = getWinnerRankingPlayers();
   var champion = winner || ranking[0] || null;
 
-  winnerTitle.textContent = champion ? (getPlayerDisplayName(champion) + ' nyert!') : 'A meccs véget ért';
-  winnerSubtitle.textContent = champion ? 'Dobogó kész. Vissza a lobbiba bármikor.' : 'A győztes nem ismert.';
+  if (winnerActionRevealTimer) {
+    clearTimeout(winnerActionRevealTimer);
+    winnerActionRevealTimer = null;
+  }
+
+  winnerTitle.textContent = 'Ki fog átmenni az érettségin?';
+  if (champion) {
+    winnerSubtitle.textContent = getPlayerDisplayName(champion) + ' végzett az első helyen. A dobogó eldőlt.';
+  } else {
+    winnerSubtitle.textContent = 'A meccs véget ért. A dobogó összeállt.';
+  }
 
   if (winnerPodium) {
     winnerPodium.innerHTML = buildWinnerPodiumHtml(ranking);
   }
 
   if (winnerSummary) {
-    winnerSummary.innerHTML = '';
+    winnerSummary.innerHTML = champion ? ('<div class="winner-summary-line">Győztes: <strong>' + escapeHtml(getPlayerDisplayName(champion)) + '</strong></div>') : '';
   }
 
+  if (winnerActions) {
+    winnerActions.classList.remove('is-visible');
+  }
+
+  document.body.classList.add('winner-modal-open');
   winnerModal.classList.remove('is-animated');
+  winnerModal.classList.remove('is-actions-visible');
   void winnerModal.offsetWidth;
   winnerModal.classList.add('is-visible');
   winnerModal.classList.add('is-animated');
   winnerModal.setAttribute('aria-hidden', 'false');
+
+  winnerActionRevealTimer = setTimeout(function () {
+    winnerModal.classList.add('is-actions-visible');
+    if (winnerActions) winnerActions.classList.add('is-visible');
+  }, 2350);
 }
 
 function finishGame(winnerPid) {

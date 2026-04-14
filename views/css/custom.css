@@ -8652,3 +8652,552 @@ body.game-screen .player-card.is-turn {
   }
 }
 
+
+
+/* =========================================
+   CINEMATIC WINNER CEREMONY OVERRIDE 2026-04
+   ========================================= */
+body.game-screen.winner-modal-open {
+  overflow: hidden !important;
+}
+
+body.game-screen .winner-modal {
+  align-items: stretch !important;
+  justify-content: stretch !important;
+  padding: clamp(12px, 2vw, 24px) !important;
+  background:
+    radial-gradient(circle at 50% 14%, rgba(255, 211, 110, 0.08), rgba(0,0,0,0) 24%),
+    radial-gradient(circle at 50% 50%, rgba(18, 18, 18, 0.12), rgba(0,0,0,0.76) 54%, rgba(0,0,0,0.94) 100%) !important;
+}
+
+body.game-screen .winner-modal-panel--podium {
+  width: min(100%, 1180px) !important;
+  max-height: 100% !important;
+  min-height: 100% !important;
+  margin: 0 auto !important;
+  padding: clamp(24px, 3vw, 40px) clamp(16px, 2.6vw, 34px) clamp(18px, 2.4vw, 30px) !important;
+  border-radius: 32px !important;
+  background:
+    radial-gradient(circle at 50% 18%, rgba(255, 212, 120, 0.10), rgba(255, 212, 120, 0.02) 22%, rgba(0,0,0,0) 40%),
+    linear-gradient(180deg, rgba(12,12,14,0.98) 0%, rgba(7,7,8,0.99) 100%) !important;
+  border: 1px solid rgba(255, 194, 92, 0.18) !important;
+  box-shadow: 0 40px 120px rgba(0,0,0,0.58), inset 0 1px 0 rgba(255,255,255,0.06) !important;
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: space-between !important;
+  overflow: hidden !important;
+  position: relative !important;
+  isolation: isolate !important;
+}
+
+body.game-screen .winner-modal-panel--podium::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 50% 28%, rgba(255, 214, 118, 0.14), rgba(255, 214, 118, 0) 28%),
+    linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0));
+  z-index: -1;
+}
+
+body.game-screen .winner-modal-kicker {
+  margin-bottom: 14px !important;
+  color: #f2b24b !important;
+  font-size: clamp(11px, 1vw, 14px) !important;
+  letter-spacing: 0.34em !important;
+}
+
+body.game-screen .winner-modal-title {
+  max-width: 14ch;
+  margin: 0 auto !important;
+  font-size: clamp(34px, 6vw, 74px) !important;
+  line-height: 0.95 !important;
+  letter-spacing: 0.04em !important;
+  text-transform: uppercase;
+  color: #ffffff !important;
+  text-shadow: 0 10px 30px rgba(0,0,0,0.45);
+}
+
+body.game-screen .winner-modal-subtitle {
+  margin: 16px auto 0 !important;
+  max-width: 720px;
+  font-size: clamp(14px, 1.5vw, 18px) !important;
+  line-height: 1.45 !important;
+  color: rgba(255,255,255,0.78) !important;
+}
+
+body.game-screen .winner-summary {
+  display: block !important;
+  min-height: 22px;
+  margin-top: 12px;
+  color: rgba(255,255,255,0.62);
+  font-size: 13px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+body.game-screen .winner-summary strong {
+  color: #fff0c2;
+}
+
+body.game-screen .winner-podium {
+  position: relative !important;
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  margin-top: clamp(18px, 3vw, 32px) !important;
+  padding: clamp(18px, 2.4vw, 28px) clamp(2px, 1vw, 10px) 0 !important;
+  display: flex !important;
+  align-items: flex-end !important;
+  justify-content: center !important;
+  overflow: hidden !important;
+}
+
+body.game-screen .winner-podium::before {
+  content: '';
+  position: absolute;
+  inset: auto 6% 0;
+  height: 38%;
+  border-radius: 50%;
+  pointer-events: none;
+  background: radial-gradient(circle at center, rgba(255, 220, 138, 0.18), rgba(255, 220, 138, 0.04) 36%, rgba(0,0,0,0) 70%);
+  filter: blur(18px);
+}
+
+body.game-screen .winner-podium-stage {
+  position: relative !important;
+  z-index: 2 !important;
+  width: min(100%, 1060px) !important;
+  display: grid !important;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  gap: clamp(10px, 1.3vw, 18px) !important;
+  align-items: end !important;
+}
+
+body.game-screen .winner-podium-slot {
+  position: relative;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  opacity: 1;
+  transform-origin: center bottom;
+}
+
+body.game-screen .winner-modal.is-animated .winner-podium-slot {
+  opacity: 0;
+  transform: translateY(46px) scale(0.88);
+  animation: winnerPodiumReveal 760ms cubic-bezier(0.2, 0.84, 0.26, 1) forwards;
+}
+
+body.game-screen .winner-modal.is-animated .winner-podium-slot.is-reveal-seq-1 {
+  animation-delay: 0.18s;
+}
+
+body.game-screen .winner-modal.is-animated .winner-podium-slot.is-reveal-seq-2 {
+  animation-delay: 0.85s;
+}
+
+body.game-screen .winner-modal.is-animated .winner-podium-slot.is-reveal-seq-3 {
+  animation-delay: 1.55s;
+}
+
+body.game-screen .winner-podium-slot.is-place-1 {
+  z-index: 3;
+  filter: drop-shadow(0 0 22px rgba(255, 216, 118, 0.18));
+}
+
+body.game-screen .winner-podium-slot.is-place-1 .winner-podium-character-shell {
+  box-shadow: 0 0 0 1px rgba(255,214,124,0.18), 0 0 40px rgba(255,214,124,0.22), inset 0 1px 0 rgba(255,255,255,0.08);
+}
+
+body.game-screen .winner-podium-slot.is-place-1 .winner-podium-base {
+  background: linear-gradient(180deg, rgba(45,45,49,0.98) 0%, rgba(17,17,20,1) 100%) !important;
+}
+
+body.game-screen .winner-podium-slot.is-place-2 .winner-podium-base {
+  background: linear-gradient(180deg, rgba(34,34,38,0.98) 0%, rgba(13,13,15,1) 100%) !important;
+}
+
+body.game-screen .winner-podium-slot.is-place-3 .winner-podium-base {
+  background: linear-gradient(180deg, rgba(28,28,32,0.98) 0%, rgba(10,10,12,1) 100%) !important;
+}
+
+body.game-screen .winner-podium-rank {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  min-width: auto !important;
+  height: auto !important;
+  padding: 9px 14px !important;
+  border-radius: 999px !important;
+  border: 1px solid rgba(255,255,255,0.12) !important;
+  background: rgba(255,255,255,0.05) !important;
+  color: #f5f5f5 !important;
+  font-size: clamp(11px, 1.1vw, 14px) !important;
+  font-weight: 900 !important;
+  letter-spacing: 0.18em !important;
+  text-transform: uppercase;
+}
+
+body.game-screen .winner-podium-character-shell {
+  position: relative;
+  width: min(100%, 230px);
+  aspect-ratio: 1 / 1.08;
+  border-radius: 28px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  overflow: hidden;
+  padding: 8px;
+  background:
+    radial-gradient(circle at 50% 18%, rgba(255, 214, 118, 0.14), rgba(255,214,118,0.02) 28%, rgba(255,255,255,0) 58%),
+    linear-gradient(180deg, rgba(255,255,255,0.07), rgba(255,255,255,0.02));
+  border: 1px solid rgba(255,255,255,0.08);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.05), 0 20px 50px rgba(0,0,0,0.28);
+}
+
+body.game-screen .winner-podium-character-shell::after {
+  content: '';
+  position: absolute;
+  inset: auto 12% -6% 12%;
+  height: 18%;
+  border-radius: 50%;
+  background: radial-gradient(circle at center, rgba(255, 214, 118, 0.30), rgba(255, 214, 118, 0) 72%);
+  pointer-events: none;
+  filter: blur(16px);
+}
+
+body.game-screen .winner-podium-character {
+  position: relative;
+  z-index: 2;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  object-position: center bottom;
+  filter: drop-shadow(0 12px 30px rgba(0,0,0,0.42));
+}
+
+body.game-screen .winner-podium-character-shell.is-empty {
+  align-items: center;
+}
+
+body.game-screen .winner-podium-character-fallback {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(180deg, #2c2c31, #151519);
+  color: #ffffff;
+  font-size: 32px;
+  font-weight: 900;
+}
+
+body.game-screen .winner-podium-meta {
+  max-width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+body.game-screen .winner-podium-name {
+  font-size: clamp(16px, 2.2vw, 28px) !important;
+  font-weight: 900 !important;
+  line-height: 1 !important;
+  color: #ffffff !important;
+  text-align: center !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  text-shadow: 0 8px 22px rgba(0,0,0,0.38);
+}
+
+body.game-screen .winner-podium-tagline {
+  max-width: 24ch;
+  margin: 0 auto;
+  font-size: clamp(11px, 1.1vw, 13px) !important;
+  line-height: 1.4 !important;
+  color: rgba(255,255,255,0.66) !important;
+  text-align: center !important;
+}
+
+body.game-screen .winner-podium-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px 2px;
+}
+
+body.game-screen .winner-podium-score {
+  font-size: clamp(22px, 3.2vw, 42px);
+  font-weight: 900;
+  line-height: 1;
+  color: #ffffff;
+}
+
+body.game-screen .winner-podium-score-sub {
+  font-size: clamp(10px, 1vw, 12px);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.56);
+}
+
+body.game-screen .winner-podium-base {
+  width: 100% !important;
+  border-radius: 18px 18px 0 0 !important;
+  border: 1px solid rgba(255,255,255,0.08) !important;
+  background: linear-gradient(180deg, rgba(30,30,34,0.98), rgba(10,10,12,1)) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.06), 0 16px 36px rgba(0,0,0,0.34) !important;
+  position: relative;
+  overflow: hidden;
+}
+
+body.game-screen .winner-podium-base::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0));
+}
+
+body.game-screen .winner-podium-slot.is-place-1 .winner-podium-base {
+  min-height: clamp(150px, 26vh, 250px) !important;
+}
+
+body.game-screen .winner-podium-slot.is-place-2 .winner-podium-base {
+  min-height: clamp(118px, 21vh, 196px) !important;
+}
+
+body.game-screen .winner-podium-slot.is-place-3 .winner-podium-base {
+  min-height: clamp(96px, 17vh, 160px) !important;
+}
+
+body.game-screen .winner-confetti {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: 3;
+}
+
+body.game-screen .winner-confetti-piece {
+  position: absolute;
+  top: -10%;
+  width: 10px;
+  height: 18px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, #ffffff 0%, #f2b24b 100%);
+  opacity: 0;
+  transform: translate3d(0, 0, 0) rotate(0deg);
+  animation-name: winnerConfettiFall;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
+
+body.game-screen .winner-modal-actions {
+  position: relative !important;
+  z-index: 6 !important;
+  margin-top: clamp(16px, 2vw, 24px) !important;
+  padding-top: 16px !important;
+  background: linear-gradient(180deg, rgba(10,10,12,0), rgba(10,10,12,0.86) 30%, rgba(10,10,12,1) 100%) !important;
+  opacity: 0;
+  transform: translateY(18px);
+  pointer-events: none;
+  transition: opacity 320ms ease, transform 320ms ease;
+}
+
+body.game-screen .winner-modal.is-actions-visible .winner-modal-actions,
+body.game-screen .winner-modal-actions.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+body.game-screen .winner-modal-back-button {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: min(100%, 420px) !important;
+  min-height: 58px;
+  margin: 0 auto !important;
+  border-radius: 999px !important;
+  font-size: clamp(14px, 1.2vw, 18px) !important;
+  font-weight: 900 !important;
+  letter-spacing: 0.12em !important;
+  text-transform: uppercase;
+  background: linear-gradient(180deg, #f0b554 0%, #c78729 100%) !important;
+  color: #120d07 !important;
+  box-shadow: 0 18px 36px rgba(0,0,0,0.38), 0 0 0 1px rgba(255,255,255,0.18) inset !important;
+}
+
+body.game-screen .winner-modal-back-button:hover,
+body.game-screen .winner-modal-back-button:focus {
+  color: #120d07 !important;
+  transform: translateY(-1px);
+}
+
+@keyframes winnerPodiumReveal {
+  0% {
+    opacity: 0;
+    transform: translateY(46px) scale(0.88);
+  }
+  60% {
+    opacity: 1;
+    transform: translateY(-8px) scale(1.02);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes winnerConfettiFall {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, -8vh, 0) rotate(0deg);
+  }
+  10% {
+    opacity: 0.95;
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(0, 116vh, 0) rotate(var(--winner-confetti-rotate, 18deg));
+  }
+}
+
+@media (max-width: 991px) {
+  body.game-screen .winner-modal-panel--podium {
+    border-radius: 24px !important;
+  }
+
+  body.game-screen .winner-podium-stage {
+    gap: 10px !important;
+  }
+
+  body.game-screen .winner-podium-character-shell {
+    width: min(100%, 190px);
+  }
+}
+
+@media (max-width: 767px) {
+  body.game-screen .winner-modal {
+    padding: 10px !important;
+  }
+
+  body.game-screen .winner-modal-panel--podium {
+    padding: 20px 12px 16px !important;
+  }
+
+  body.game-screen .winner-modal-title {
+    max-width: 12ch;
+  }
+
+  body.game-screen .winner-podium-stage {
+    gap: 8px !important;
+  }
+
+  body.game-screen .winner-podium-rank {
+    padding: 7px 10px !important;
+    font-size: 10px !important;
+    letter-spacing: 0.12em !important;
+  }
+
+  body.game-screen .winner-podium-character-shell {
+    border-radius: 20px;
+  }
+
+  body.game-screen .winner-podium-tagline {
+    max-width: 16ch;
+  }
+
+  body.game-screen .winner-modal-back-button {
+    width: 100% !important;
+    min-height: 52px;
+    font-size: 13px !important;
+  }
+}
+
+@media (max-width: 640px) {
+  body.game-screen .winner-modal-panel--podium {
+    min-height: auto !important;
+  }
+
+  body.game-screen .winner-podium {
+    align-items: stretch !important;
+    padding-top: 8px !important;
+  }
+
+  body.game-screen .winner-podium-stage {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    gap: 6px !important;
+  }
+
+  body.game-screen .winner-podium-slot {
+    gap: 7px;
+  }
+
+  body.game-screen .winner-podium-character-shell {
+    width: 100%;
+    max-width: 120px;
+    aspect-ratio: 1 / 1.1;
+    padding: 4px;
+    border-radius: 16px;
+  }
+
+  body.game-screen .winner-podium-name {
+    font-size: 14px !important;
+  }
+
+  body.game-screen .winner-podium-tagline {
+    font-size: 9px !important;
+    max-width: 12ch;
+  }
+
+  body.game-screen .winner-podium-score {
+    font-size: 18px;
+  }
+
+  body.game-screen .winner-podium-score-sub {
+    font-size: 8px;
+    letter-spacing: 0.1em;
+  }
+
+  body.game-screen .winner-podium-slot.is-place-1 .winner-podium-base {
+    min-height: 108px !important;
+  }
+
+  body.game-screen .winner-podium-slot.is-place-2 .winner-podium-base {
+    min-height: 82px !important;
+  }
+
+  body.game-screen .winner-podium-slot.is-place-3 .winner-podium-base {
+    min-height: 62px !important;
+  }
+}
+
+@media (max-width: 430px) {
+  body.game-screen .winner-modal-title {
+    font-size: 28px !important;
+  }
+
+  body.game-screen .winner-modal-subtitle {
+    font-size: 12px !important;
+  }
+
+  body.game-screen .winner-podium-stage {
+    gap: 4px !important;
+  }
+
+  body.game-screen .winner-podium-character-shell {
+    max-width: 100px;
+  }
+
+  body.game-screen .winner-podium-rank {
+    padding: 6px 8px !important;
+    font-size: 9px !important;
+  }
+}
