@@ -56,10 +56,12 @@ var winnerTitle = element('winner-title');
 var winnerSubtitle = element('winner-subtitle');
 var winnerPodium = element('winner-podium');
 var winnerSummary = element('winner-summary');
+var winnerConfettiLayer = element('winner-confetti-layer');
 var winnerActions = element('winner-actions');
 var lastPhaseGroupShown = null;
 var phaseSplashTimer = null;
 var winnerActionRevealTimer = null;
+var winnerRevealTimers = [];
 
 
 var currentQuestionData = null;
@@ -3253,6 +3255,18 @@ function buildWinnerStatHtml(player, placement) {
   return lines.join('');
 }
 
+function clearWinnerRevealTimers() {
+  while (winnerRevealTimers.length) {
+    clearTimeout(winnerRevealTimers.pop());
+  }
+}
+
+function queueWinnerRevealTimer(fn, delay) {
+  var timer = setTimeout(fn, delay);
+  winnerRevealTimers.push(timer);
+  return timer;
+}
+
 function buildWinnerConfettiHtml() {
   var pieces = [];
   for (var i = 0; i < 18; i += 1) {
@@ -3269,7 +3283,7 @@ function buildWinnerPodiumSlot(player, placement) {
   var sequence = getWinnerPodiumSequence(placement);
   if (!player) {
     return [
-      '<div class="winner-podium-slot is-place-' + placement + ' is-empty is-reveal-seq-' + sequence + '">',
+      '<div class="winner-podium-slot is-place-' + placement + ' is-empty is-reveal-seq-' + sequence + '" data-reveal-seq="' + sequence + '">',
       '<div class="winner-podium-rank">' + placement + '. HELY</div>',
       '<div class="winner-podium-character-shell is-empty"><div class="winner-podium-character-fallback">?</div></div>',
       '<div class="winner-podium-meta">',
@@ -3282,7 +3296,7 @@ function buildWinnerPodiumSlot(player, placement) {
   }
 
   return [
-    '<div class="winner-podium-slot is-place-' + placement + ' is-reveal-seq-' + sequence + '">',
+    '<div class="winner-podium-slot is-place-' + placement + ' is-reveal-seq-' + sequence + '" data-reveal-seq="' + sequence + '">',
     '<div class="winner-podium-rank">' + getWinnerPlacementLabel(placement) + '</div>',
     buildWinnerCharacterHtml(player),
     '<div class="winner-podium-meta">',
@@ -3301,7 +3315,6 @@ function buildWinnerPodiumHtml(ranking) {
   var third = ranking[2] || null;
 
   return [
-    buildWinnerConfettiHtml(),
     '<div class="winner-podium-stage">',
     buildWinnerPodiumSlot(third, 3),
     buildWinnerPodiumSlot(first, 1),
@@ -3320,6 +3333,7 @@ function showWinnerModal(winner) {
     clearTimeout(winnerActionRevealTimer);
     winnerActionRevealTimer = null;
   }
+  clearWinnerRevealTimers();
 
   winnerTitle.textContent = 'Ki fog átmenni az érettségin?';
   if (champion) {
@@ -3336,6 +3350,11 @@ function showWinnerModal(winner) {
     winnerSummary.innerHTML = champion ? ('<div class="winner-summary-line">Győztes: <strong>' + escapeHtml(getPlayerDisplayName(champion)) + '</strong></div>') : '';
   }
 
+  if (winnerConfettiLayer) {
+    winnerConfettiLayer.innerHTML = buildWinnerConfettiHtml();
+    winnerConfettiLayer.classList.remove('is-visible');
+  }
+
   if (winnerActions) {
     winnerActions.classList.remove('is-visible');
   }
@@ -3343,15 +3362,38 @@ function showWinnerModal(winner) {
   document.body.classList.add('winner-modal-open');
   winnerModal.classList.remove('is-animated');
   winnerModal.classList.remove('is-actions-visible');
-  void winnerModal.offsetWidth;
   winnerModal.classList.add('is-visible');
-  winnerModal.classList.add('is-animated');
   winnerModal.setAttribute('aria-hidden', 'false');
 
-  winnerActionRevealTimer = setTimeout(function () {
+  var slots = winnerPodium ? Array.prototype.slice.call(winnerPodium.querySelectorAll('.winner-podium-slot')) : [];
+  slots.sort(function (a, b) {
+    return Number(a.getAttribute('data-reveal-seq') || 999) - Number(b.getAttribute('data-reveal-seq') || 999);
+  });
+  slots.forEach(function (slot) {
+    slot.classList.remove('is-revealed');
+  });
+
+  queueWinnerRevealTimer(function () {
+    winnerModal.classList.add('is-animated');
+  }, 40);
+
+  var revealDelays = [220, 980, 1740];
+  slots.forEach(function (slot, index) {
+    queueWinnerRevealTimer(function () {
+      slot.classList.add('is-revealed');
+    }, revealDelays[index] || (220 + index * 760));
+  });
+
+  queueWinnerRevealTimer(function () {
+    if (winnerConfettiLayer) {
+      winnerConfettiLayer.classList.add('is-visible');
+    }
+  }, 2360);
+
+  winnerActionRevealTimer = queueWinnerRevealTimer(function () {
     winnerModal.classList.add('is-actions-visible');
     if (winnerActions) winnerActions.classList.add('is-visible');
-  }, 2350);
+  }, 2520);
 }
 
 function finishGame(winnerPid) {
