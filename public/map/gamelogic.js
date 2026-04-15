@@ -56,12 +56,8 @@ var winnerTitle = element('winner-title');
 var winnerSubtitle = element('winner-subtitle');
 var winnerPodium = element('winner-podium');
 var winnerSummary = element('winner-summary');
-var winnerConfettiLayer = element('winner-confetti-layer');
-var winnerActions = element('winner-actions');
 var lastPhaseGroupShown = null;
 var phaseSplashTimer = null;
-var winnerActionRevealTimer = null;
-var winnerRevealTimers = [];
 
 
 var currentQuestionData = null;
@@ -237,15 +233,6 @@ function stopActivityHeartbeat() {
   clearInterval(activityHeartbeatTimer);
   activityHeartbeatTimer = null;
 }
-
-function syncWinnerViewportHeight() {
-  var vh = window.innerHeight || document.documentElement.clientHeight || 0;
-  document.documentElement.style.setProperty('--winner-viewport-height', vh + 'px');
-}
-
-syncWinnerViewportHeight();
-window.addEventListener('resize', syncWinnerViewportHeight);
-window.addEventListener('orientationchange', syncWinnerViewportHeight);
 
 initializeChatCard();
 ['click', 'keydown', 'touchstart', 'mousedown'].forEach(function (eventName) {
@@ -3211,121 +3198,19 @@ function getWinnerRankingPlayers() {
 
 function getWinnerPlaceLine(player, placement) {
   var name = getPlayerDisplayName(player);
-  if (placement === 1) return name + ' fogja a legnagyobb eséllyel átverekedni magát az érettségin.';
-  if (placement === 2) return name + ' nagyon közel volt az első helyhez.';
-  if (placement === 3) return name + ' még felérhet a csúcsra, de most bronzérmes.';
+  if (placement === 1) return name + ' talán nem fog megbukni az érettségin.';
+  if (placement === 2) return 'majdnem megvolt';
+  if (placement === 3) return 'meg fog bukni az érettségin';
   return name + ' lecsúszott a dobogóról.';
 }
 
-function getWinnerPlacementLabel(placement) {
-  if (placement === 1) return '1. HELY';
-  if (placement === 2) return '2. HELY';
-  if (placement === 3) return '3. HELY';
-  return placement + '. HELY';
-}
-
-function getWinnerPodiumSequence(placement) {
-  if (placement === 3) return 1;
-  if (placement === 2) return 2;
-  return 3;
-}
-
-function getWinnerCharacterImage(player) {
-  if (!player || !player.characterId) return '';
-  return CHARACTER_IMAGE_BY_ID[player.characterId] || '';
-}
-
-function buildWinnerCharacterHtml(player) {
-  if (!player) {
-    return '<div class="winner-podium-character-shell is-empty"><div class="winner-podium-character-fallback">?</div></div>';
-  }
-
-  var characterImage = getWinnerCharacterImage(player);
-  var characterDef = getCharacterDefinition(player.characterId);
-  var alt = characterDef && characterDef.name ? (characterDef.name + ' - ' + getPlayerDisplayName(player)) : getPlayerDisplayName(player);
-  if (characterImage) {
-    return '<div class="winner-podium-character-shell"><img class="winner-podium-character" src="' + escapeHtml(characterImage) + '" alt="' + escapeHtml(alt) + '" loading="lazy"></div>';
-  }
-  return '<div class="winner-podium-character-shell is-empty"><div class="winner-podium-character-fallback">' + escapeHtml(getPlayerDisplayName(player).charAt(0) || '?') + '</div></div>';
-}
-
-function buildWinnerStatHtml(player, placement) {
-  if (!player) return '<div class="winner-podium-stat"><span class="winner-podium-score">—</span></div>';
-  var score = Number.isFinite(player.score) ? player.score : 0;
-  var correctAnswers = getPlayerCorrectAnswers(player);
-  var lines = ['<div class="winner-podium-stat">'];
-  lines.push('<span class="winner-podium-score">' + score + '</span>');
-  if (correctAnswers !== null) {
-    lines.push('<span class="winner-podium-score-sub">' + correctAnswers + ' jó válasz</span>');
-  } else {
-    lines.push('<span class="winner-podium-score-sub">' + escapeHtml(getWinnerPlacementLabel(placement)) + '</span>');
-  }
-  lines.push('</div>');
-  return lines.join('');
-}
-
-function clearWinnerRevealTimers() {
-  while (winnerRevealTimers.length) {
-    clearTimeout(winnerRevealTimers.pop());
-  }
-}
-
-function queueWinnerRevealTimer(fn, delay) {
-  var timer = setTimeout(fn, delay);
-  winnerRevealTimers.push(timer);
-  return timer;
-}
-
-function buildWinnerConfettiHtml() {
-  var pieces = [];
-  var palettes = [
-    ['#56b8ff', '#9ee0ff'],
-    ['#ff5c73', '#ff9aad'],
-    ['#55d67a', '#b4ffcb'],
-    ['#ff79df', '#ffd0f6'],
-    ['#ffd252', '#fff0a8'],
-    ['#9d7bff', '#dacdff']
-  ];
-
-  for (var i = 0; i < 34; i += 1) {
-    var left = ((i * 11) % 100) + Math.random() * 6;
-    var delay = (i * 0.11).toFixed(2);
-    var duration = (5.4 + (i % 6) * 0.38).toFixed(2);
-    var rotate = (i % 2 === 0 ? -1 : 1) * (16 + (i % 5) * 9);
-    var drift = (((i % 7) - 3) * 14).toFixed(1);
-    var size = (8 + (i % 4) * 2);
-    var palette = palettes[i % palettes.length];
-    pieces.push('<span class="winner-confetti-piece" style="left:' + left.toFixed(2) + '%; width:' + size + 'px; height:' + Math.round(size * 1.9) + 'px; animation-delay:' + delay + 's; animation-duration:' + duration + 's; --winner-confetti-rotate:' + rotate + 'deg; --winner-confetti-drift:' + drift + 'px; --winner-confetti-color-1:' + palette[0] + '; --winner-confetti-color-2:' + palette[1] + ';"></span>');
-  }
-
-  return '<div class="winner-confetti" aria-hidden="true">' + pieces.join('') + '</div>';
-}
-
 function buildWinnerPodiumSlot(player, placement) {
-  var sequence = getWinnerPodiumSequence(placement);
-  if (!player) {
-    return [
-      '<div class="winner-podium-slot is-place-' + placement + ' is-empty is-reveal-seq-' + sequence + '" data-reveal-seq="' + sequence + '">',
-      '<div class="winner-podium-rank">' + placement + '. HELY</div>',
-      '<div class="winner-podium-character-shell is-empty"><div class="winner-podium-character-fallback">?</div></div>',
-      '<div class="winner-podium-meta">',
-      '<div class="winner-podium-name">Nincs játékos</div>',
-      '<div class="winner-podium-tagline">Ez a hely most üres maradt.</div>',
-      '</div>',
-      '<div class="winner-podium-base"></div>',
-      '</div>'
-    ].join('');
-  }
-
+  if (!player) return '<div class="winner-podium-slot is-place-' + placement + ' is-empty"><div class="winner-podium-base"></div></div>';
   return [
-    '<div class="winner-podium-slot is-place-' + placement + ' is-reveal-seq-' + sequence + '" data-reveal-seq="' + sequence + '">',
-    '<div class="winner-podium-rank">' + getWinnerPlacementLabel(placement) + '</div>',
-    buildWinnerCharacterHtml(player),
-    '<div class="winner-podium-meta">',
+    '<div class="winner-podium-slot is-place-' + placement + '">',
+    '<div class="winner-podium-rank">' + placement + '.</div>',
     '<div class="winner-podium-name">' + escapeHtml(getPlayerDisplayName(player)) + '</div>',
     '<div class="winner-podium-tagline">' + escapeHtml(getWinnerPlaceLine(player, placement)) + '</div>',
-    '</div>',
-    buildWinnerStatHtml(player, placement),
     '<div class="winner-podium-base"></div>',
     '</div>'
   ].join('');
@@ -3351,19 +3236,8 @@ function showWinnerModal(winner) {
   var ranking = getWinnerRankingPlayers();
   var champion = winner || ranking[0] || null;
 
-  if (winnerActionRevealTimer) {
-    clearTimeout(winnerActionRevealTimer);
-    winnerActionRevealTimer = null;
-  }
-  clearWinnerRevealTimers();
-  syncWinnerViewportHeight();
-
-  winnerTitle.textContent = 'Ki fog átmenni az érettségin?';
-  if (champion) {
-    winnerSubtitle.textContent = getPlayerDisplayName(champion) + ' végzett az első helyen.';
-  } else {
-    winnerSubtitle.textContent = 'A meccs véget ért. A dobogó összeállt.';
-  }
+  winnerTitle.textContent = champion ? (getPlayerDisplayName(champion) + ' nyert!') : 'A meccs véget ért';
+  winnerSubtitle.textContent = champion ? 'Dobogó kész. Vissza a lobbiba bármikor.' : 'A győztes nem ismert.';
 
   if (winnerPodium) {
     winnerPodium.innerHTML = buildWinnerPodiumHtml(ranking);
@@ -3373,73 +3247,11 @@ function showWinnerModal(winner) {
     winnerSummary.innerHTML = '';
   }
 
-  if (winnerConfettiLayer) {
-    winnerConfettiLayer.innerHTML = buildWinnerConfettiHtml();
-    winnerConfettiLayer.classList.remove('is-visible');
-  }
-
-  if (winnerActions) {
-    winnerActions.classList.remove('is-visible');
-  }
-
-  document.body.classList.add('winner-modal-open');
-  winnerModal.classList.remove('is-animated', 'is-actions-visible', 'is-finale-dark', 'is-spotlight-active', 'is-finale-bright');
+  winnerModal.classList.remove('is-animated');
+  void winnerModal.offsetWidth;
   winnerModal.classList.add('is-visible');
+  winnerModal.classList.add('is-animated');
   winnerModal.setAttribute('aria-hidden', 'false');
-
-  var slots = winnerPodium ? Array.prototype.slice.call(winnerPodium.querySelectorAll('.winner-podium-slot')) : [];
-  slots.forEach(function (slot) {
-    slot.classList.remove('is-revealed', 'is-celebrating', 'is-champion-launch');
-  });
-
-  var thirdSlot = winnerPodium ? winnerPodium.querySelector('.winner-podium-slot.is-place-3') : null;
-  var secondSlot = winnerPodium ? winnerPodium.querySelector('.winner-podium-slot.is-place-2') : null;
-  var firstSlot = winnerPodium ? winnerPodium.querySelector('.winner-podium-slot.is-place-1') : null;
-
-  queueWinnerRevealTimer(function () {
-    winnerModal.classList.add('is-animated');
-  }, 40);
-
-  queueWinnerRevealTimer(function () {
-    if (thirdSlot) thirdSlot.classList.add('is-revealed');
-  }, 500);
-
-  queueWinnerRevealTimer(function () {
-    if (secondSlot) secondSlot.classList.add('is-revealed');
-  }, 2450);
-
-  queueWinnerRevealTimer(function () {
-    winnerModal.classList.add('is-finale-dark');
-  }, 4550);
-
-  queueWinnerRevealTimer(function () {
-    winnerModal.classList.add('is-spotlight-active');
-  }, 5000);
-
-  queueWinnerRevealTimer(function () {
-    if (firstSlot) {
-      firstSlot.classList.add('is-revealed');
-      firstSlot.classList.add('is-champion-launch');
-    }
-  }, 5550);
-
-  queueWinnerRevealTimer(function () {
-    winnerModal.classList.remove('is-finale-dark');
-    winnerModal.classList.remove('is-spotlight-active');
-    winnerModal.classList.add('is-finale-bright');
-    if (firstSlot) {
-      firstSlot.classList.remove('is-champion-launch');
-      firstSlot.classList.add('is-celebrating');
-    }
-    if (winnerConfettiLayer) {
-      winnerConfettiLayer.classList.add('is-visible');
-    }
-  }, 7000);
-
-  winnerActionRevealTimer = queueWinnerRevealTimer(function () {
-    winnerModal.classList.add('is-actions-visible');
-    if (winnerActions) winnerActions.classList.add('is-visible');
-  }, 7480);
 }
 
 function finishGame(winnerPid) {
@@ -3858,3 +3670,216 @@ window.onbeforeunload = function (e) {
   }
   return 'Biztosan bezárod az oldalt?';
 };
+
+
+/* ===== WINNER CEREMONY OVERRIDE v4 ===== */
+var winnerRevealTimers = [];
+var winnerConfettiCleanupTimer = null;
+
+function clearWinnerRevealTimers() {
+  while (winnerRevealTimers.length) {
+    clearTimeout(winnerRevealTimers.pop());
+  }
+  if (winnerConfettiCleanupTimer) {
+    clearTimeout(winnerConfettiCleanupTimer);
+    winnerConfettiCleanupTimer = null;
+  }
+}
+
+function queueWinnerRevealTimer(fn, ms) {
+  var timer = setTimeout(fn, ms);
+  winnerRevealTimers.push(timer);
+  return timer;
+}
+
+function syncWinnerViewportUnit() {
+  var vh = window.innerHeight * 0.01;
+  document.documentElement.style.setProperty('--winner-vh', vh + 'px');
+}
+
+window.addEventListener('resize', syncWinnerViewportUnit);
+window.addEventListener('orientationchange', syncWinnerViewportUnit);
+syncWinnerViewportUnit();
+
+function getWinnerCharacterImageSrc(player) {
+  if (!player || !player.characterId) return '';
+  return CHARACTER_IMAGE_BY_ID[player.characterId] || '';
+}
+
+function buildWinnerCharacterCardHtml(player, placement) {
+  var src = getWinnerCharacterImageSrc(player);
+  var name = getPlayerDisplayName(player);
+  if (!src) {
+    return '<div class="winner-podium-avatar winner-podium-avatar--placeholder"><span>' + escapeHtml(String(placement)) + '</span></div>';
+  }
+  return '<div class="winner-podium-avatar"><img src="' + escapeHtml(src) + '" alt="' + escapeHtml(name) + '" loading="eager"></div>';
+}
+
+function buildWinnerMetaLine(player, placement) {
+  if (!player) return '';
+  var correct = getPlayerCorrectAnswers(player);
+  if (Number.isFinite(correct)) {
+    return String(correct) + ' jó válasz';
+  }
+  return getWinnerPlaceLine(player, placement);
+}
+
+function buildWinnerPodiumSlot(player, placement) {
+  var placeLabel = placement + '. HELY';
+  if (!player) {
+    return [
+      '<div class="winner-podium-slot is-place-' + placement + ' is-empty" data-placement="' + placement + '">',
+        '<div class="winner-podium-rank">' + placeLabel + '</div>',
+        '<div class="winner-podium-avatar winner-podium-avatar--placeholder"><span>' + placement + '</span></div>',
+        '<div class="winner-podium-name">—</div>',
+        '<div class="winner-podium-tagline">&nbsp;</div>',
+        '<div class="winner-podium-base"><span class="winner-podium-place-number">' + placement + '</span></div>',
+      '</div>'
+    ].join('');
+  }
+
+  return [
+    '<div class="winner-podium-slot is-place-' + placement + '" data-placement="' + placement + '">',
+      '<div class="winner-podium-rank">' + placeLabel + '</div>',
+      buildWinnerCharacterCardHtml(player, placement),
+      '<div class="winner-podium-name">' + escapeHtml(getPlayerDisplayName(player)) + '</div>',
+      '<div class="winner-podium-tagline">' + escapeHtml(buildWinnerMetaLine(player, placement)) + '</div>',
+      '<div class="winner-podium-base"><span class="winner-podium-place-number">' + placement + '</span></div>',
+    '</div>'
+  ].join('');
+}
+
+function buildWinnerPodiumHtml(ranking) {
+  var second = ranking[1] || null;
+  var first = ranking[0] || null;
+  var third = ranking[2] || null;
+
+  return [
+    '<div class="winner-podium-stage">',
+      buildWinnerPodiumSlot(third, 3),
+      buildWinnerPodiumSlot(first, 1),
+      buildWinnerPodiumSlot(second, 2),
+    '</div>'
+  ].join('');
+}
+
+function resetWinnerCeremonyUi() {
+  clearWinnerRevealTimers();
+  if (!winnerModal) return;
+  winnerModal.classList.remove('is-visible', 'is-animated', 'is-finale-dark', 'is-spotlight', 'is-finale-complete');
+  winnerModal.setAttribute('aria-hidden', 'true');
+
+  var confettiLayer = document.getElementById('winner-confetti-layer');
+  if (confettiLayer) {
+    confettiLayer.innerHTML = '';
+  }
+
+  Array.prototype.slice.call(document.querySelectorAll('.winner-podium-slot')).forEach(function (slot) {
+    slot.classList.remove('is-revealed', 'is-champion-pop', 'is-celebrating');
+  });
+}
+
+function spawnWinnerConfettiBurst() {
+  var confettiLayer = document.getElementById('winner-confetti-layer');
+  if (!confettiLayer) return;
+
+  confettiLayer.innerHTML = '';
+  var colors = ['#ff4d6d', '#ffb703', '#3a86ff', '#06d6a0', '#c77dff', '#f72585', '#ffffff'];
+  var pieces = 120;
+
+  for (var i = 0; i < pieces; i += 1) {
+    var piece = document.createElement('span');
+    var size = 6 + Math.random() * 10;
+    var left = Math.random() * 100;
+    var duration = 3.8 + Math.random() * 2.8;
+    var delay = Math.random() * 0.9;
+    var drift = -18 + Math.random() * 36;
+    var rotate = Math.floor(Math.random() * 360);
+    var shape = Math.random() > 0.7 ? '999px' : '2px';
+    var color = colors[Math.floor(Math.random() * colors.length)];
+
+    piece.className = 'winner-confetti-piece';
+    piece.style.left = left.toFixed(3) + '%';
+    piece.style.top = (-12 - Math.random() * 26).toFixed(2) + '%';
+    piece.style.width = size.toFixed(2) + 'px';
+    piece.style.height = (size * (Math.random() > 0.72 ? 0.55 : 1.45)).toFixed(2) + 'px';
+    piece.style.background = color;
+    piece.style.borderRadius = shape;
+    piece.style.setProperty('--fall-duration', duration.toFixed(2) + 's');
+    piece.style.setProperty('--fall-delay', delay.toFixed(2) + 's');
+    piece.style.setProperty('--fall-drift', drift.toFixed(2) + 'vw');
+    piece.style.setProperty('--fall-rotate', rotate + 'deg');
+    confettiLayer.appendChild(piece);
+  }
+
+  winnerConfettiCleanupTimer = setTimeout(function () {
+    if (confettiLayer) confettiLayer.innerHTML = '';
+  }, 7800);
+}
+
+function revealWinnerPlacement(placement, className) {
+  var stage = winnerPodium ? winnerPodium.querySelector('.winner-podium-stage') : null;
+  if (!stage) return null;
+  var slot = stage.querySelector('.winner-podium-slot[data-placement="' + placement + '"]');
+  if (!slot) return null;
+  slot.classList.remove('is-revealed', 'is-champion-pop', 'is-celebrating');
+  void slot.offsetWidth;
+  slot.classList.add('is-revealed');
+  if (className) slot.classList.add(className);
+  return slot;
+}
+
+function showWinnerModal(winner) {
+  if (!winnerModal || !winnerTitle || !winnerSubtitle || !winnerPodium) return;
+
+  syncWinnerViewportUnit();
+  clearWinnerRevealTimers();
+
+  var ranking = getWinnerRankingPlayers();
+  var champion = winner || ranking[0] || null;
+  var championName = champion ? getPlayerDisplayName(champion) : 'Ismeretlen';
+
+  winnerTitle.textContent = 'KI FOG ÁTMENNI AZ ÉRETTSÉGIN?';
+  winnerSubtitle.textContent = champion
+    ? (championName + ' végzett az első helyen. A dobogó eldőlt.')
+    : 'A meccs véget ért. A győztes nem ismert.';
+
+  winnerPodium.innerHTML = buildWinnerPodiumHtml(ranking);
+  if (winnerSummary) winnerSummary.innerHTML = '';
+  winnerModal.classList.remove('is-finale-dark', 'is-spotlight', 'is-finale-complete', 'is-animated');
+  winnerModal.classList.add('is-visible');
+  winnerModal.setAttribute('aria-hidden', 'false');
+
+  var allSlots = Array.prototype.slice.call(winnerPodium.querySelectorAll('.winner-podium-slot'));
+  allSlots.forEach(function (slot) {
+    slot.classList.remove('is-revealed', 'is-champion-pop', 'is-celebrating');
+  });
+
+  queueWinnerRevealTimer(function () {
+    revealWinnerPlacement(3);
+  }, 500);
+
+  queueWinnerRevealTimer(function () {
+    revealWinnerPlacement(2);
+  }, 2450);
+
+  queueWinnerRevealTimer(function () {
+    winnerModal.classList.add('is-finale-dark', 'is-spotlight');
+  }, 4550);
+
+  queueWinnerRevealTimer(function () {
+    var championSlot = revealWinnerPlacement(1, 'is-champion-pop');
+    spawnWinnerConfettiBurst();
+    if (championSlot) {
+      queueWinnerRevealTimer(function () {
+        championSlot.classList.add('is-celebrating');
+      }, 1450);
+    }
+  }, 5650);
+
+  queueWinnerRevealTimer(function () {
+    winnerModal.classList.remove('is-finale-dark', 'is-spotlight');
+    winnerModal.classList.add('is-finale-complete');
+  }, 6900);
+}
+

@@ -11,7 +11,7 @@
   <link rel="stylesheet" href="../../../public/map/lib/leaflet/leaflet.css" />
   <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" />
   <link rel="stylesheet" href="../../../public/map/style/style.css" />
-  <link rel="stylesheet" href="/views/css/custom.css" />
+  <link rel="stylesheet" href="/views/css/custom.css?v=winner-stage-20260415-4" />
 
 
 
@@ -58,15 +58,21 @@
 
 
 
-    <div id="winner-modal" class="winner-modal" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="winner-title">
+    <div id="winner-modal" class="winner-modal" aria-hidden="true">
+      <div class="winner-modal-backdrop"></div>
+      <div id="winner-confetti-layer" class="winner-confetti-layer" aria-hidden="true"></div>
       <div class="winner-modal-panel winner-modal-panel--podium">
-        <div class="winner-modal-kicker">A meccs véget ért</div>
-        <h2 id="winner-title" class="winner-modal-title">Ki fog átmenni az érettségin?</h2>
-        <p id="winner-subtitle" class="winner-modal-subtitle"></p>
-        <div id="winner-podium" class="winner-podium"></div>
-        <div id="winner-summary" class="winner-summary"></div>
-        <div id="winner-actions" class="winner-modal-actions">
-          <a href="/lobby" class="btn btn-primary btn-lg parchment-btn-primary winner-modal-back-button">Vissza a lobbiba</a>
+        <div id="winner-finale-overlay" class="winner-finale-overlay" aria-hidden="true"></div>
+        <div id="winner-spotlight" class="winner-spotlight" aria-hidden="true"></div>
+        <div class="winner-modal-scroll">
+          <div class="winner-modal-kicker">A meccs véget ért</div>
+          <h2 id="winner-title" class="winner-modal-title">Ki fog átmenni az érettségin?</h2>
+          <p id="winner-subtitle" class="winner-modal-subtitle"></p>
+          <div id="winner-podium" class="winner-podium"></div>
+          <div id="winner-summary" class="winner-summary"></div>
+        </div>
+        <div class="winner-modal-actions">
+          <a href="/lobby" class="btn btn-primary btn-lg parchment-btn-primary">Vissza a lobbiba</a>
         </div>
       </div>
     </div>
@@ -129,6 +135,6 @@
     </aside>
   </div>
 
-  <script src="/map/gamelogic.js?v=bandwidth-optimized-2026-04-11-1"></script>
+  <script src="/map/gamelogic.js?v=winner-stage-20260415-4"></script>
 </body>
 </html>

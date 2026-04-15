@@ -8654,360 +8654,25 @@ body.game-screen .player-card.is-turn {
 
 
 
-/* =========================================
-   CINEMATIC WINNER CEREMONY OVERRIDE 2026-04
-   ========================================= */
-body.game-screen.winner-modal-open {
-  overflow: hidden !important;
+
+/* ===== WINNER CEREMONY OVERRIDE v4 ===== */
+:root {
+  --winner-vh: 1vh;
 }
 
 body.game-screen .winner-modal {
-  align-items: center !important;
-  justify-content: center !important;
-  padding: clamp(8px, 1.4vw, 18px) !important;
-  background:
-    radial-gradient(circle at 50% 10%, rgba(255, 211, 110, 0.07), rgba(0,0,0,0) 22%),
-    radial-gradient(circle at 50% 50%, rgba(14, 14, 14, 0.18), rgba(0,0,0,0.80) 56%, rgba(0,0,0,0.96) 100%) !important;
-}
-
-body.game-screen .winner-modal::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: rgba(0,0,0,0);
-  pointer-events: none;
-  z-index: 3;
-  transition: opacity 720ms ease, background 720ms ease;
-  opacity: 0;
-}
-
-body.game-screen .winner-modal.is-finale-dark::before {
-  opacity: 1;
-  background: rgba(0,0,0,0.60);
-}
-
-body.game-screen .winner-modal-panel--podium {
-  width: min(100%, 1180px) !important;
-  height: min(900px, calc(var(--winner-viewport-height, 100vh) - 16px)) !important;
-  min-height: min(900px, calc(var(--winner-viewport-height, 100vh) - 16px)) !important;
-  margin: 0 auto !important;
-  padding: clamp(16px, 2.4vw, 28px) clamp(12px, 2vw, 24px) clamp(12px, 1.7vw, 20px) !important;
-  border-radius: 28px !important;
-  background:
-    radial-gradient(circle at 50% 18%, rgba(255, 212, 120, 0.08), rgba(255, 212, 120, 0.02) 22%, rgba(0,0,0,0) 38%),
-    linear-gradient(180deg, rgba(12,12,14,0.985) 0%, rgba(7,7,8,0.995) 100%) !important;
-  border: 1px solid rgba(255, 194, 92, 0.16) !important;
-  box-shadow: 0 40px 120px rgba(0,0,0,0.58), inset 0 1px 0 rgba(255,255,255,0.06) !important;
-  display: grid !important;
-  grid-template-rows: auto auto auto minmax(0, 1fr) auto auto !important;
-  align-items: start !important;
-  overflow: hidden !important;
-  position: relative !important;
-  isolation: isolate !important;
-}
-
-body.game-screen .winner-modal-panel--podium::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background:
-    radial-gradient(circle at 50% 24%, rgba(255, 214, 118, 0.12), rgba(255, 214, 118, 0) 28%),
-    linear-gradient(180deg, rgba(255,255,255,0.035), rgba(255,255,255,0));
-  z-index: -2;
-}
-
-body.game-screen .winner-modal-panel--podium::after {
-  content: '';
-  position: absolute;
-  top: -10%;
-  left: 50%;
-  width: min(42vw, 460px);
-  height: 130%;
-  transform: translateX(-50%) translateY(-2%) scale(0.85);
-  transform-origin: center top;
-  background:
-    radial-gradient(circle at 50% 14%, rgba(255,244,210,0.42), rgba(255,244,210,0.16) 10%, rgba(255,244,210,0) 22%),
-    linear-gradient(180deg, rgba(255,243,205,0.30) 0%, rgba(255,243,205,0.16) 18%, rgba(255,243,205,0.02) 56%, rgba(255,243,205,0) 78%);
-  clip-path: polygon(46% 0, 54% 0, 75% 100%, 25% 100%);
-  filter: blur(18px);
-  opacity: 0;
-  pointer-events: none;
-  z-index: 4;
-  transition: opacity 600ms ease, transform 760ms ease;
-}
-
-body.game-screen .winner-modal.is-spotlight-active .winner-modal-panel--podium::after {
-  opacity: 1;
-  transform: translateX(-50%) translateY(0) scale(1);
-}
-
-body.game-screen .winner-modal-kicker {
-  margin-bottom: 8px !important;
-  color: #f2b24b !important;
-  font-size: clamp(10px, 0.85vw, 13px) !important;
-  letter-spacing: 0.30em !important;
-  text-transform: uppercase;
-  text-align: center;
-}
-
-body.game-screen .winner-modal-title {
-  max-width: 11ch;
-  margin: 0 auto !important;
-  font-size: clamp(28px, 4.2vw, 60px) !important;
-  line-height: 0.94 !important;
-  letter-spacing: 0.03em !important;
-  text-transform: uppercase;
-  color: #ffffff !important;
-  text-align: center;
-  text-shadow: 0 10px 30px rgba(0,0,0,0.45);
-}
-
-body.game-screen .winner-modal-subtitle {
-  margin: 10px auto 0 !important;
-  max-width: 620px;
-  font-size: clamp(12px, 1.05vw, 16px) !important;
-  line-height: 1.35 !important;
-  color: rgba(255,255,255,0.74) !important;
-  text-align: center !important;
-}
-
-body.game-screen .winner-summary {
-  display: none !important;
-}
-
-body.game-screen .winner-podium {
-  position: relative !important;
-  min-height: 0 !important;
-  margin-top: clamp(8px, 1.5vw, 14px) !important;
-  padding: clamp(8px, 1.2vw, 14px) clamp(0px, 0.6vw, 6px) 0 !important;
-  display: flex !important;
-  align-items: flex-end !important;
-  justify-content: center !important;
-  overflow: hidden !important;
-}
-
-body.game-screen .winner-podium::before {
-  content: '';
-  position: absolute;
-  inset: auto 4% 0;
-  height: 34%;
-  border-radius: 50%;
-  pointer-events: none;
-  background: radial-gradient(circle at center, rgba(255, 220, 138, 0.16), rgba(255, 220, 138, 0.03) 34%, rgba(0,0,0,0) 72%);
-  filter: blur(18px);
-}
-
-body.game-screen .winner-podium-stage {
-  position: relative !important;
-  z-index: 2 !important;
-  width: min(100%, 1020px) !important;
-  min-height: 100%;
-  display: grid !important;
-  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
-  gap: clamp(8px, 1.2vw, 16px) !important;
-  align-items: end !important;
-}
-
-body.game-screen .winner-podium-slot {
-  position: relative;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: flex-end;
-  gap: clamp(5px, 0.8vw, 10px);
-  opacity: 0;
-  transform: translateY(56px) scale(0.84);
-  transform-origin: center bottom;
-  will-change: transform, opacity, filter;
-}
-
-body.game-screen .winner-podium-slot.is-revealed {
-  animation: winnerPodiumReveal 1500ms cubic-bezier(0.2, 0.84, 0.26, 1) forwards;
-}
-
-body.game-screen .winner-modal.is-finale-dark .winner-podium-slot.is-revealed:not(.is-place-1) {
-  filter: saturate(0.45) brightness(0.48);
-}
-
-body.game-screen .winner-podium-slot.is-place-1 {
-  z-index: 6;
-  filter: drop-shadow(0 0 22px rgba(255, 216, 118, 0.12));
-}
-
-body.game-screen .winner-podium-slot.is-place-1.is-champion-launch {
-  animation: winnerChampionLaunch 1250ms cubic-bezier(0.14, 0.88, 0.26, 1.12) forwards;
-}
-
-body.game-screen .winner-podium-slot.is-place-1.is-celebrating .winner-podium-character-shell {
-  animation: winnerChampionCelebrate 1.8s ease-in-out infinite;
-}
-
-body.game-screen .winner-podium-slot.is-place-1.is-celebrating .winner-podium-character {
-  animation: winnerChampionCelebrateInner 1.8s ease-in-out infinite;
-}
-
-body.game-screen .winner-podium-slot.is-place-1 .winner-podium-character-shell {
-  box-shadow: 0 0 0 1px rgba(255,214,124,0.18), 0 0 42px rgba(255,214,124,0.20), inset 0 1px 0 rgba(255,255,255,0.08);
-}
-
-body.game-screen .winner-podium-slot.is-place-1 .winner-podium-base {
-  background: linear-gradient(180deg, rgba(45,45,49,0.98) 0%, rgba(17,17,20,1) 100%) !important;
-}
-
-body.game-screen .winner-podium-slot.is-place-2 .winner-podium-base {
-  background: linear-gradient(180deg, rgba(34,34,38,0.98) 0%, rgba(13,13,15,1) 100%) !important;
-}
-
-body.game-screen .winner-podium-slot.is-place-3 .winner-podium-base {
-  background: linear-gradient(180deg, rgba(28,28,32,0.98) 0%, rgba(10,10,12,1) 100%) !important;
-}
-
-body.game-screen .winner-podium-rank {
-  display: inline-flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  min-width: auto !important;
-  height: auto !important;
-  padding: 8px 12px !important;
-  border-radius: 999px !important;
-  border: 1px solid rgba(255,255,255,0.12) !important;
-  background: rgba(255,255,255,0.05) !important;
-  color: #f5f5f5 !important;
-  font-size: clamp(10px, 0.95vw, 13px) !important;
-  font-weight: 900 !important;
-  letter-spacing: 0.14em !important;
-  text-transform: uppercase;
-}
-
-body.game-screen .winner-podium-character-shell {
-  position: relative;
-  width: min(100%, 220px);
-  aspect-ratio: 1 / 1.06;
-  border-radius: 26px;
-  display: flex;
-  align-items: flex-end;
-  justify-content: center;
-  overflow: hidden;
-  padding: 8px;
-  background:
-    radial-gradient(circle at 50% 18%, rgba(255, 214, 118, 0.14), rgba(255,214,118,0.02) 28%, rgba(255,255,255,0) 58%),
-    linear-gradient(180deg, rgba(255,255,255,0.07), rgba(255,255,255,0.02));
-  border: 1px solid rgba(255,255,255,0.08);
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.05), 0 20px 50px rgba(0,0,0,0.28);
-}
-
-body.game-screen .winner-podium-character-shell::after {
-  content: '';
-  position: absolute;
-  inset: auto 12% -6% 12%;
-  height: 18%;
-  border-radius: 50%;
-  background: radial-gradient(circle at center, rgba(255, 214, 118, 0.30), rgba(255, 214, 118, 0) 72%);
-  pointer-events: none;
-  filter: blur(16px);
-}
-
-body.game-screen .winner-podium-character {
-  position: relative;
-  z-index: 2;
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-  object-position: center bottom;
-  filter: drop-shadow(0 12px 30px rgba(0,0,0,0.42));
-}
-
-body.game-screen .winner-podium-character-shell.is-empty {
-  align-items: center;
-}
-
-body.game-screen .winner-podium-character-fallback {
-  width: 66px;
-  height: 66px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: linear-gradient(180deg, #2c2c31, #151519);
-  color: #ffffff;
-  font-size: 30px;
-  font-weight: 900;
-}
-
-body.game-screen .winner-podium-meta {
-  max-width: 100%;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-body.game-screen .winner-podium-name {
-  font-size: clamp(14px, 1.8vw, 26px) !important;
-  font-weight: 900 !important;
-  line-height: 1 !important;
-  color: #ffffff !important;
-  text-align: center !important;
-  white-space: nowrap !important;
-  overflow: hidden !important;
-  text-overflow: ellipsis !important;
-  text-shadow: 0 8px 22px rgba(0,0,0,0.38);
-}
-
-body.game-screen .winner-podium-tagline {
-  display: none !important;
-}
-
-body.game-screen .winner-podium-stat {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 3px;
-  padding: 2px 8px 0;
-}
-
-body.game-screen .winner-podium-score {
-  font-size: clamp(18px, 2.6vw, 38px);
-  font-weight: 900;
-  line-height: 1;
-  color: #ffffff;
-}
-
-body.game-screen .winner-podium-score-sub {
-  font-size: clamp(9px, 0.8vw, 12px);
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: rgba(255,255,255,0.56);
-}
-
-body.game-screen .winner-podium-base {
-  width: 100% !important;
-  border-radius: 18px 18px 0 0 !important;
-  border: 1px solid rgba(255,255,255,0.08) !important;
-  background: linear-gradient(180deg, rgba(30,30,34,0.98), rgba(10,10,12,1)) !important;
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.06), 0 16px 36px rgba(0,0,0,0.34) !important;
-  position: relative;
+  background: rgba(0, 0, 0, 0.78) !important;
   overflow: hidden;
 }
 
-body.game-screen .winner-podium-base::before {
-  content: '';
+body.game-screen .winner-modal-backdrop {
   position: absolute;
   inset: 0;
-  background: linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0));
-}
-
-body.game-screen .winner-podium-slot.is-place-1 .winner-podium-base {
-  min-height: clamp(126px, 24vh, 214px) !important;
-}
-
-body.game-screen .winner-podium-slot.is-place-2 .winner-podium-base {
-  min-height: clamp(102px, 19vh, 172px) !important;
-}
-
-body.game-screen .winner-podium-slot.is-place-3 .winner-podium-base {
-  min-height: clamp(84px, 15vh, 142px) !important;
+  background:
+    radial-gradient(circle at 50% 18%, rgba(255, 184, 68, 0.08), rgba(0, 0, 0, 0) 30%),
+    radial-gradient(circle at 50% 120%, rgba(255, 184, 68, 0.05), rgba(0, 0, 0, 0) 34%),
+    linear-gradient(180deg, rgba(0,0,0,0.10), rgba(0,0,0,0.24));
+  pointer-events: none;
 }
 
 body.game-screen .winner-confetti-layer {
@@ -9015,323 +8680,544 @@ body.game-screen .winner-confetti-layer {
   inset: 0;
   overflow: hidden;
   pointer-events: none;
-  z-index: 7;
-  opacity: 0;
-  transition: opacity 520ms ease;
-}
-
-body.game-screen .winner-confetti-layer.is-visible {
-  opacity: 1;
-}
-
-body.game-screen .winner-confetti {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  overflow: hidden;
+  z-index: 1;
 }
 
 body.game-screen .winner-confetti-piece {
   position: absolute;
-  top: -12%;
-  width: 10px;
-  height: 18px;
-  border-radius: 999px;
-  background: linear-gradient(180deg, var(--winner-confetti-color-1, #ffffff) 0%, var(--winner-confetti-color-2, #f2b24b) 100%);
   opacity: 0;
-  transform: translate3d(0, 0, 0) rotate(0deg);
-  animation-name: winnerConfettiFall;
-  animation-timing-function: linear;
-  animation-iteration-count: infinite;
-  box-shadow: 0 0 10px rgba(255,255,255,0.16);
+  box-shadow: 0 0 6px rgba(255,255,255,0.16);
+  animation: winnerConfettiFall var(--fall-duration) linear var(--fall-delay) forwards;
+}
+
+body.game-screen .winner-modal-panel.winner-modal-panel--podium {
+  position: relative;
+  z-index: 2;
+  width: min(94vw, 980px) !important;
+  height: min(calc(var(--winner-vh, 1vh) * 92), 860px) !important;
+  max-height: min(calc(var(--winner-vh, 1vh) * 92), 860px) !important;
+  min-height: min(calc(var(--winner-vh, 1vh) * 84), 640px) !important;
+  padding: clamp(16px, 2.2vh, 24px) clamp(14px, 2vw, 26px) clamp(14px, 2vh, 18px) !important;
+  display: grid !important;
+  grid-template-rows: minmax(0, 1fr) auto;
+  gap: clamp(12px, 2vh, 18px);
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 50% 24%, rgba(255, 192, 84, 0.10), rgba(255,255,255,0) 20%),
+    linear-gradient(180deg, rgba(12,12,14,0.98), rgba(3,3,5,0.98)) !important;
+  border: 1px solid rgba(255, 177, 67, 0.22) !important;
+  box-shadow: 0 28px 90px rgba(0,0,0,0.68), inset 0 0 0 1px rgba(255,255,255,0.03) !important;
+}
+
+body.game-screen .winner-modal-scroll {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  gap: clamp(8px, 1.3vh, 12px);
+}
+
+body.game-screen .winner-finale-overlay,
+body.game-screen .winner-spotlight {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 520ms ease;
+}
+
+body.game-screen .winner-finale-overlay {
+  z-index: 3;
+  background: rgba(0, 0, 0, 0.64);
+}
+
+body.game-screen .winner-spotlight {
+  z-index: 4;
+  background:
+    radial-gradient(ellipse at 50% 72%, rgba(255, 221, 149, 0.38), rgba(255, 221, 149, 0.16) 16%, rgba(255, 221, 149, 0) 34%),
+    linear-gradient(180deg, rgba(255, 230, 164, 0.52) 0%, rgba(255,230,164,0.18) 18%, rgba(255,230,164,0) 44%);
+  clip-path: polygon(44% 0%, 56% 0%, 69% 100%, 31% 100%);
+  mix-blend-mode: screen;
+  filter: blur(4px);
+}
+
+body.game-screen .winner-modal.is-finale-dark .winner-finale-overlay,
+body.game-screen .winner-modal.is-spotlight .winner-spotlight {
+  opacity: 1;
+}
+
+body.game-screen .winner-modal-kicker {
+  margin-bottom: 0 !important;
+  font-size: clamp(11px, 1.1vw, 14px) !important;
+  letter-spacing: 0.44em !important;
+}
+
+body.game-screen .winner-modal-title {
+  max-width: min(82vw, 820px);
+  margin: 0 auto !important;
+  font-size: clamp(34px, 5vw, 76px) !important;
+  line-height: 0.92 !important;
+  letter-spacing: 0.02em !important;
+  color: #f7f4ef !important;
+  text-transform: uppercase;
+  text-wrap: balance;
+}
+
+body.game-screen .winner-modal-subtitle {
+  margin: 0 !important;
+  max-width: min(82vw, 760px);
+  min-height: 1.4em;
+  font-size: clamp(14px, 1.45vw, 28px) !important;
+  line-height: 1.25 !important;
+  color: rgba(255, 255, 255, 0.78) !important;
+}
+
+body.game-screen .winner-summary {
+  display: none !important;
+}
+
+body.game-screen .winner-podium {
+  position: relative;
+  flex: 1 1 auto;
+  width: 100%;
+  min-height: 0;
+  margin-top: clamp(2px, 0.5vh, 8px);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  overflow: visible;
+}
+
+body.game-screen .winner-podium::before {
+  content: '';
+  position: absolute;
+  inset: auto 3% 0 3%;
+  height: clamp(110px, 24vh, 240px);
+  background:
+    radial-gradient(ellipse at center, rgba(255, 200, 92, 0.14), rgba(255, 200, 92, 0) 62%),
+    linear-gradient(180deg, rgba(255,255,255,0), rgba(255,255,255,0));
+  pointer-events: none;
+}
+
+body.game-screen .winner-podium-stage {
+  width: 100%;
+  max-width: 920px;
+  height: 100%;
+  display: grid !important;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: clamp(10px, 1.2vw, 18px);
+  align-items: end;
+}
+
+body.game-screen .winner-podium-slot {
+  position: relative;
+  min-width: 0;
+  display: flex !important;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  gap: clamp(4px, 0.8vh, 8px);
+  opacity: 0 !important;
+  visibility: hidden !important;
+  transform: translateY(84px) scale(0.92);
+  transform-origin: center bottom;
+  transition: filter 420ms ease, opacity 320ms ease;
+  animation: none !important;
+  filter: none !important;
+  z-index: 2;
+}
+
+body.game-screen .winner-podium-slot.is-revealed {
+  opacity: 1 !important;
+  visibility: visible !important;
+  animation: winnerPodiumRiseSlow 1200ms cubic-bezier(0.2, 0.85, 0.24, 1) both !important;
+}
+
+body.game-screen .winner-podium-slot.is-place-1.is-champion-pop {
+  animation: winnerChampionPop 1400ms cubic-bezier(0.18, 0.88, 0.22, 1) both !important;
+  z-index: 6;
+}
+
+body.game-screen .winner-modal.is-finale-dark .winner-podium-slot.is-revealed {
+  filter: brightness(0.32) saturate(0.72) !important;
+}
+
+body.game-screen .winner-modal.is-finale-dark .winner-podium-slot.is-place-1 {
+  filter: brightness(1) saturate(1.08) !important;
+}
+
+body.game-screen .winner-podium-rank {
+  order: 1;
+  min-width: clamp(74px, 8vw, 104px);
+  height: clamp(30px, 3.6vh, 38px);
+  padding: 0 12px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.14);
+  color: #ffffff;
+  font-size: clamp(12px, 1.1vw, 15px);
+  font-weight: 900;
+  letter-spacing: 0.08em;
+}
+
+body.game-screen .winner-podium-avatar {
+  order: 2;
+  width: clamp(88px, 10vw, 132px);
+  aspect-ratio: 0.86;
+  border-radius: clamp(16px, 2vw, 24px);
+  overflow: hidden;
+  border: 1px solid rgba(255, 191, 94, 0.28);
+  background:
+    radial-gradient(circle at 50% 20%, rgba(255, 204, 120, 0.16), rgba(255,255,255,0) 30%),
+    linear-gradient(180deg, rgba(38,40,50,0.95), rgba(12,14,20,0.98));
+  box-shadow:
+    0 12px 28px rgba(0,0,0,0.38),
+    inset 0 0 0 1px rgba(255,255,255,0.04);
+  display: grid;
+  place-items: end center;
+}
+
+body.game-screen .winner-podium-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
+
+body.game-screen .winner-podium-avatar--placeholder {
+  place-items: center;
+  font-size: clamp(28px, 3vw, 42px);
+  font-weight: 900;
+  color: rgba(255,255,255,0.56);
+}
+
+body.game-screen .winner-podium-name {
+  order: 3;
+  max-width: 100%;
+  font-size: clamp(16px, 1.8vw, 28px) !important;
+  font-weight: 900;
+  color: #ffffff !important;
+  line-height: 1.04;
+  text-align: center;
+  text-transform: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+body.game-screen .winner-podium-tagline {
+  order: 4;
+  max-width: 100%;
+  font-size: clamp(11px, 1vw, 14px) !important;
+  line-height: 1.2;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.76) !important;
+  text-align: center;
+}
+
+body.game-screen .winner-podium-base {
+  order: 5;
+  position: relative;
+  width: 100%;
+  min-height: 100px;
+  border-radius: clamp(16px, 2vw, 24px) clamp(16px, 2vw, 24px) 0 0;
+  border: 1px solid rgba(255, 196, 104, 0.18);
+  background:
+    linear-gradient(180deg, rgba(52, 54, 66, 0.96), rgba(8, 10, 16, 0.98));
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.10),
+    0 14px 30px rgba(0,0,0,0.32);
+  overflow: hidden;
+}
+
+body.game-screen .winner-podium-base::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0));
+  pointer-events: none;
+}
+
+body.game-screen .winner-podium-place-number {
+  position: absolute;
+  inset: auto auto 14px 16px;
+  font-size: clamp(30px, 3.1vw, 44px);
+  line-height: 1;
+  font-weight: 900;
+  color: rgba(255,255,255,0.10);
+}
+
+body.game-screen .winner-podium-slot.is-place-1 .winner-podium-base {
+  min-height: clamp(136px, 24vh, 236px);
+}
+
+body.game-screen .winner-podium-slot.is-place-2 .winner-podium-base {
+  min-height: clamp(102px, 18vh, 184px);
+}
+
+body.game-screen .winner-podium-slot.is-place-3 .winner-podium-base {
+  min-height: clamp(84px, 14vh, 142px);
+}
+
+body.game-screen .winner-podium-slot.is-place-1 .winner-podium-avatar {
+  width: clamp(102px, 11vw, 150px);
+  filter: drop-shadow(0 0 20px rgba(255, 214, 114, 0.18));
+}
+
+body.game-screen .winner-podium-slot.is-place-1 .winner-podium-rank,
+body.game-screen .winner-podium-slot.is-place-1 .winner-podium-name {
+  color: #fff5d8 !important;
+}
+
+body.game-screen .winner-podium-slot.is-place-1.is-celebrating .winner-podium-avatar {
+  animation: winnerChampionJoy 1.75s ease-in-out infinite;
 }
 
 body.game-screen .winner-modal-actions {
   position: relative !important;
-  z-index: 8 !important;
-  margin-top: clamp(8px, 1.6vw, 16px) !important;
-  padding-top: 10px !important;
-  background: linear-gradient(180deg, rgba(10,10,12,0), rgba(10,10,12,0.72) 28%, rgba(10,10,12,0.96) 100%) !important;
+  z-index: 8;
+  margin: 0 !important;
+  padding: 0 !important;
+  background: none !important;
   opacity: 0;
-  transform: translateY(18px);
+  transform: translateY(16px);
   pointer-events: none;
-  transition: opacity 320ms ease, transform 320ms ease;
+  transition: opacity 340ms ease, transform 340ms ease;
 }
 
-body.game-screen .winner-modal.is-actions-visible .winner-modal-actions,
-body.game-screen .winner-modal-actions.is-visible {
+body.game-screen .winner-modal.is-finale-complete .winner-modal-actions {
   opacity: 1;
   transform: translateY(0);
   pointer-events: auto;
 }
 
-body.game-screen .winner-modal-back-button {
-  display: inline-flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  width: min(100%, 400px) !important;
-  min-height: 54px;
-  margin: 0 auto !important;
+body.game-screen .winner-modal-actions .btn {
+  width: 100%;
+  min-height: clamp(54px, 7.6vh, 72px);
   border-radius: 999px !important;
-  font-size: clamp(13px, 1.1vw, 17px) !important;
+  font-size: clamp(16px, 1.6vw, 28px) !important;
+  letter-spacing: 0.12em;
   font-weight: 900 !important;
-  letter-spacing: 0.12em !important;
-  text-transform: uppercase;
-  background: linear-gradient(180deg, #f0b554 0%, #c78729 100%) !important;
-  color: #120d07 !important;
-  box-shadow: 0 18px 36px rgba(0,0,0,0.38), 0 0 0 1px rgba(255,255,255,0.18) inset !important;
 }
 
-body.game-screen .winner-modal-back-button:hover,
-body.game-screen .winner-modal-back-button:focus {
-  color: #120d07 !important;
-  transform: translateY(-1px);
+body.game-screen .winner-modal .winner-podium-slot.is-place-2,
+body.game-screen .winner-modal .winner-podium-slot.is-place-3,
+body.game-screen .winner-modal.is-animated .winner-podium-slot.is-place-1 {
+  animation: none !important;
 }
 
-@keyframes winnerPodiumReveal {
+@keyframes winnerPodiumRiseSlow {
   0% {
     opacity: 0;
-    transform: translateY(56px) scale(0.84);
+    visibility: visible;
+    transform: translateY(88px) scale(0.9);
   }
-  54% {
+  55% {
     opacity: 1;
-    transform: translateY(-14px) scale(1.03);
+    transform: translateY(-6px) scale(1.02);
   }
-  76% {
+  74% {
     opacity: 1;
-    transform: translateY(4px) scale(0.992);
+    transform: translateY(0) scale(0.995);
   }
   100% {
     opacity: 1;
+    visibility: visible;
     transform: translateY(0) scale(1);
   }
 }
 
-@keyframes winnerChampionLaunch {
+@keyframes winnerChampionPop {
   0% {
     opacity: 0;
-    transform: translateY(74px) scale(0.76);
+    visibility: visible;
+    transform: translateY(118px) scale(0.84);
+    filter: drop-shadow(0 0 0 rgba(255, 214, 114, 0));
+  }
+  46% {
+    opacity: 1;
+    transform: translateY(-18px) scale(1.06);
+    filter: drop-shadow(0 0 22px rgba(255, 214, 114, 0.32));
+  }
+  66% {
+    opacity: 1;
+    transform: translateY(0) scale(0.985);
+  }
+  82% {
+    opacity: 1;
+    transform: translateY(-7px) scale(1.02);
+  }
+  100% {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0) scale(1);
+    filter: drop-shadow(0 0 22px rgba(255, 214, 114, 0.28));
+  }
+}
+
+@keyframes winnerChampionJoy {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  18% {
+    transform: translateY(-8px);
+  }
+  34% {
+    transform: translateY(0);
   }
   52% {
-    opacity: 1;
-    transform: translateY(-28px) scale(1.06);
+    transform: translateY(-4px);
   }
-  72% {
-    opacity: 1;
-    transform: translateY(10px) scale(0.985);
-  }
-  100% {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
-}
-
-@keyframes winnerChampionCelebrate {
-  0%, 100% {
-    transform: translateY(0) scale(1);
-  }
-  25% {
-    transform: translateY(-9px) scale(1.015);
-  }
-  50% {
-    transform: translateY(0) scale(1);
-  }
-  75% {
-    transform: translateY(-4px) scale(1.008);
-  }
-}
-
-@keyframes winnerChampionCelebrateInner {
-  0%, 100% {
+  68% {
     transform: translateY(0);
-  }
-  25% {
-    transform: translateY(-3px);
-  }
-  50% {
-    transform: translateY(0);
-  }
-  75% {
-    transform: translateY(-1px);
   }
 }
 
 @keyframes winnerConfettiFall {
   0% {
     opacity: 0;
-    transform: translate3d(0, -8vh, 0) rotate(0deg);
+    transform: translate3d(0, -10vh, 0) rotate(0deg);
   }
   8% {
-    opacity: 0.96;
+    opacity: 1;
   }
   100% {
-    opacity: 0;
-    transform: translate3d(var(--winner-confetti-drift, 0px), 116vh, 0) rotate(var(--winner-confetti-rotate, 18deg));
+    opacity: 0.96;
+    transform: translate3d(var(--fall-drift), 120vh, 0) rotate(calc(var(--fall-rotate) + 360deg));
   }
 }
 
-@media (max-width: 991px) {
-  body.game-screen .winner-modal-panel--podium {
-    width: min(100%, 940px) !important;
-    border-radius: 24px !important;
+@media (max-width: 900px) {
+  body.game-screen .winner-modal-panel.winner-modal-panel--podium {
+    width: min(95vw, 760px) !important;
+    min-height: min(calc(var(--winner-vh, 1vh) * 84), 700px) !important;
+    height: min(calc(var(--winner-vh, 1vh) * 90), 760px) !important;
   }
 
   body.game-screen .winner-modal-title {
-    font-size: clamp(26px, 5vw, 50px) !important;
-  }
-
-  body.game-screen .winner-podium-character-shell {
-    width: min(100%, 180px);
-  }
-}
-
-@media (max-width: 767px) {
-  body.game-screen .winner-modal {
-    padding: 8px !important;
-  }
-
-  body.game-screen .winner-modal-panel--podium {
-    width: min(100%, 560px) !important;
-    height: calc(var(--winner-viewport-height, 100vh) - 12px) !important;
-    min-height: calc(var(--winner-viewport-height, 100vh) - 12px) !important;
-    padding: 14px 10px 12px !important;
-    grid-template-rows: auto auto auto minmax(0, 1fr) auto auto !important;
-  }
-
-  body.game-screen .winner-modal-title {
-    max-width: 10ch;
-    font-size: clamp(24px, 8vw, 42px) !important;
-  }
-
-  body.game-screen .winner-modal-subtitle {
     max-width: 92%;
-    font-size: 12px !important;
-  }
-
-  body.game-screen .winner-podium {
-    margin-top: 6px !important;
-    padding-top: 6px !important;
+    font-size: clamp(30px, 7vw, 54px) !important;
   }
 
   body.game-screen .winner-podium-stage {
-    gap: 6px !important;
+    gap: 10px;
   }
 
   body.game-screen .winner-podium-rank {
-    padding: 6px 9px !important;
-    font-size: 9px !important;
-    letter-spacing: 0.10em !important;
+    min-width: 68px;
+    font-size: 11px;
+  }
+}
+
+@media (max-width: 640px) {
+  body.game-screen .winner-modal-panel.winner-modal-panel--podium {
+    width: min(96vw, 540px) !important;
+    min-height: calc(var(--winner-vh, 1vh) * 82) !important;
+    height: calc(var(--winner-vh, 1vh) * 88) !important;
+    max-height: calc(var(--winner-vh, 1vh) * 88) !important;
+    padding: 14px 12px 12px !important;
   }
 
-  body.game-screen .winner-podium-character-shell {
-    border-radius: 18px;
-    width: 100%;
-    max-width: 126px;
-    padding: 4px;
+  body.game-screen .winner-modal-scroll {
+    gap: 8px;
   }
 
-  body.game-screen .winner-podium-name {
+  body.game-screen .winner-modal-kicker {
+    font-size: 10px !important;
+    letter-spacing: 0.34em !important;
+  }
+
+  body.game-screen .winner-modal-title {
+    max-width: 100%;
+    font-size: clamp(26px, 10vw, 42px) !important;
+    line-height: 0.96 !important;
+  }
+
+  body.game-screen .winner-modal-subtitle {
+    max-width: 100%;
     font-size: 14px !important;
   }
 
-  body.game-screen .winner-podium-score {
-    font-size: 18px;
+  body.game-screen .winner-podium {
+    min-height: 0;
   }
 
-  body.game-screen .winner-podium-score-sub {
-    font-size: 8px;
+  body.game-screen .winner-podium-stage {
+    gap: 8px;
+  }
+
+  body.game-screen .winner-podium-avatar {
+    width: clamp(74px, 22vw, 110px);
+    border-radius: 16px;
+  }
+
+  body.game-screen .winner-podium-slot.is-place-1 .winner-podium-avatar {
+    width: clamp(84px, 24vw, 118px);
+  }
+
+  body.game-screen .winner-podium-name {
+    font-size: clamp(14px, 4vw, 20px) !important;
+  }
+
+  body.game-screen .winner-podium-tagline {
+    font-size: 9px !important;
     letter-spacing: 0.08em;
   }
 
   body.game-screen .winner-podium-slot.is-place-1 .winner-podium-base {
-    min-height: clamp(84px, 18vh, 124px) !important;
+    min-height: clamp(118px, 22vh, 190px);
   }
 
   body.game-screen .winner-podium-slot.is-place-2 .winner-podium-base {
-    min-height: clamp(66px, 14vh, 94px) !important;
+    min-height: clamp(92px, 17vh, 152px);
   }
 
   body.game-screen .winner-podium-slot.is-place-3 .winner-podium-base {
-    min-height: clamp(52px, 11vh, 76px) !important;
+    min-height: clamp(72px, 14vh, 116px);
   }
 
-  body.game-screen .winner-modal-back-button {
-    width: 100% !important;
-    min-height: 48px;
-    font-size: 12px !important;
+  body.game-screen .winner-modal-actions .btn {
+    min-height: 56px;
+    font-size: 16px !important;
   }
 }
 
-@media (max-width: 430px) {
-  body.game-screen .winner-modal-panel--podium {
-    padding: 12px 8px 10px !important;
+@media (max-width: 420px) {
+  body.game-screen .winner-modal-panel.winner-modal-panel--podium {
+    width: calc(100vw - 10px) !important;
+    min-height: calc(var(--winner-vh, 1vh) * 84) !important;
+    height: calc(var(--winner-vh, 1vh) * 90) !important;
+    max-height: calc(var(--winner-vh, 1vh) * 90) !important;
+    padding: 12px 10px 10px !important;
+    border-radius: 20px !important;
   }
 
   body.game-screen .winner-modal-title {
-    font-size: clamp(22px, 7.6vw, 34px) !important;
+    font-size: clamp(24px, 10vw, 36px) !important;
   }
 
   body.game-screen .winner-modal-subtitle {
-    margin-top: 8px !important;
-    font-size: 11px !important;
-  }
-
-  body.game-screen .winner-podium-stage {
-    gap: 4px !important;
-  }
-
-  body.game-screen .winner-podium-character-shell {
-    max-width: 104px;
-  }
-
-  body.game-screen .winner-podium-name {
-    font-size: 12px !important;
+    font-size: 13px !important;
   }
 
   body.game-screen .winner-podium-rank {
-    padding: 5px 7px !important;
-    font-size: 8px !important;
+    min-width: 60px;
+    height: 26px;
+    padding: 0 8px;
+    font-size: 10px;
   }
 
-  body.game-screen .winner-podium-slot {
-    gap: 5px;
+  body.game-screen .winner-podium-place-number {
+    left: 10px;
+    bottom: 10px;
+    font-size: 26px;
+  }
+
+  body.game-screen .winner-modal-actions .btn {
+    min-height: 54px;
+    letter-spacing: 0.09em;
   }
 }
 
-@media (max-height: 760px) {
-  body.game-screen .winner-modal-panel--podium {
-    padding-top: 12px !important;
-  }
-
-  body.game-screen .winner-modal-kicker {
-    margin-bottom: 6px !important;
-  }
-
-  body.game-screen .winner-modal-title {
-    font-size: clamp(22px, 4vw, 46px) !important;
-  }
-
-  body.game-screen .winner-modal-subtitle {
-    margin-top: 6px !important;
-  }
-
-  body.game-screen .winner-podium-character-shell {
-    width: min(100%, 162px);
-  }
-
-  body.game-screen .winner-podium-slot.is-place-1 .winner-podium-base {
-    min-height: clamp(76px, 17vh, 136px) !important;
-  }
-
-  body.game-screen .winner-podium-slot.is-place-2 .winner-podium-base {
-    min-height: clamp(60px, 13vh, 108px) !important;
-  }
-
-  body.game-screen .winner-podium-slot.is-place-3 .winner-podium-base {
-    min-height: clamp(48px, 10vh, 84px) !important;
-  }
-
-  body.game-screen .winner-modal-back-button {
-    min-height: 44px;
-  }
-}
