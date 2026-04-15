@@ -238,6 +238,15 @@ function stopActivityHeartbeat() {
   activityHeartbeatTimer = null;
 }
 
+function syncWinnerViewportHeight() {
+  var vh = window.innerHeight || document.documentElement.clientHeight || 0;
+  document.documentElement.style.setProperty('--winner-viewport-height', vh + 'px');
+}
+
+syncWinnerViewportHeight();
+window.addEventListener('resize', syncWinnerViewportHeight);
+window.addEventListener('orientationchange', syncWinnerViewportHeight);
+
 initializeChatCard();
 ['click', 'keydown', 'touchstart', 'mousedown'].forEach(function (eventName) {
   document.addEventListener(eventName, function () {
@@ -3269,13 +3278,26 @@ function queueWinnerRevealTimer(fn, delay) {
 
 function buildWinnerConfettiHtml() {
   var pieces = [];
-  for (var i = 0; i < 18; i += 1) {
-    var left = ((i * 17) % 100);
-    var delay = (i * 0.14).toFixed(2);
-    var duration = (3.8 + (i % 5) * 0.35).toFixed(2);
-    var rotate = (i % 2 === 0 ? -1 : 1) * (12 + (i % 4) * 8);
-    pieces.push('<span class="winner-confetti-piece" style="left:' + left + '%; animation-delay:' + delay + 's; animation-duration:' + duration + 's; --winner-confetti-rotate:' + rotate + 'deg;"></span>');
+  var palettes = [
+    ['#56b8ff', '#9ee0ff'],
+    ['#ff5c73', '#ff9aad'],
+    ['#55d67a', '#b4ffcb'],
+    ['#ff79df', '#ffd0f6'],
+    ['#ffd252', '#fff0a8'],
+    ['#9d7bff', '#dacdff']
+  ];
+
+  for (var i = 0; i < 34; i += 1) {
+    var left = ((i * 11) % 100) + Math.random() * 6;
+    var delay = (i * 0.11).toFixed(2);
+    var duration = (5.4 + (i % 6) * 0.38).toFixed(2);
+    var rotate = (i % 2 === 0 ? -1 : 1) * (16 + (i % 5) * 9);
+    var drift = (((i % 7) - 3) * 14).toFixed(1);
+    var size = (8 + (i % 4) * 2);
+    var palette = palettes[i % palettes.length];
+    pieces.push('<span class="winner-confetti-piece" style="left:' + left.toFixed(2) + '%; width:' + size + 'px; height:' + Math.round(size * 1.9) + 'px; animation-delay:' + delay + 's; animation-duration:' + duration + 's; --winner-confetti-rotate:' + rotate + 'deg; --winner-confetti-drift:' + drift + 'px; --winner-confetti-color-1:' + palette[0] + '; --winner-confetti-color-2:' + palette[1] + ';"></span>');
   }
+
   return '<div class="winner-confetti" aria-hidden="true">' + pieces.join('') + '</div>';
 }
 
@@ -3334,10 +3356,11 @@ function showWinnerModal(winner) {
     winnerActionRevealTimer = null;
   }
   clearWinnerRevealTimers();
+  syncWinnerViewportHeight();
 
   winnerTitle.textContent = 'Ki fog átmenni az érettségin?';
   if (champion) {
-    winnerSubtitle.textContent = getPlayerDisplayName(champion) + ' végzett az első helyen. A dobogó eldőlt.';
+    winnerSubtitle.textContent = getPlayerDisplayName(champion) + ' végzett az első helyen.';
   } else {
     winnerSubtitle.textContent = 'A meccs véget ért. A dobogó összeállt.';
   }
@@ -3347,7 +3370,7 @@ function showWinnerModal(winner) {
   }
 
   if (winnerSummary) {
-    winnerSummary.innerHTML = champion ? ('<div class="winner-summary-line">Győztes: <strong>' + escapeHtml(getPlayerDisplayName(champion)) + '</strong></div>') : '';
+    winnerSummary.innerHTML = '';
   }
 
   if (winnerConfettiLayer) {
@@ -3360,40 +3383,63 @@ function showWinnerModal(winner) {
   }
 
   document.body.classList.add('winner-modal-open');
-  winnerModal.classList.remove('is-animated');
-  winnerModal.classList.remove('is-actions-visible');
+  winnerModal.classList.remove('is-animated', 'is-actions-visible', 'is-finale-dark', 'is-spotlight-active', 'is-finale-bright');
   winnerModal.classList.add('is-visible');
   winnerModal.setAttribute('aria-hidden', 'false');
 
   var slots = winnerPodium ? Array.prototype.slice.call(winnerPodium.querySelectorAll('.winner-podium-slot')) : [];
-  slots.sort(function (a, b) {
-    return Number(a.getAttribute('data-reveal-seq') || 999) - Number(b.getAttribute('data-reveal-seq') || 999);
-  });
   slots.forEach(function (slot) {
-    slot.classList.remove('is-revealed');
+    slot.classList.remove('is-revealed', 'is-celebrating', 'is-champion-launch');
   });
+
+  var thirdSlot = winnerPodium ? winnerPodium.querySelector('.winner-podium-slot.is-place-3') : null;
+  var secondSlot = winnerPodium ? winnerPodium.querySelector('.winner-podium-slot.is-place-2') : null;
+  var firstSlot = winnerPodium ? winnerPodium.querySelector('.winner-podium-slot.is-place-1') : null;
 
   queueWinnerRevealTimer(function () {
     winnerModal.classList.add('is-animated');
   }, 40);
 
-  var revealDelays = [220, 980, 1740];
-  slots.forEach(function (slot, index) {
-    queueWinnerRevealTimer(function () {
-      slot.classList.add('is-revealed');
-    }, revealDelays[index] || (220 + index * 760));
-  });
+  queueWinnerRevealTimer(function () {
+    if (thirdSlot) thirdSlot.classList.add('is-revealed');
+  }, 500);
 
   queueWinnerRevealTimer(function () {
+    if (secondSlot) secondSlot.classList.add('is-revealed');
+  }, 2450);
+
+  queueWinnerRevealTimer(function () {
+    winnerModal.classList.add('is-finale-dark');
+  }, 4550);
+
+  queueWinnerRevealTimer(function () {
+    winnerModal.classList.add('is-spotlight-active');
+  }, 5000);
+
+  queueWinnerRevealTimer(function () {
+    if (firstSlot) {
+      firstSlot.classList.add('is-revealed');
+      firstSlot.classList.add('is-champion-launch');
+    }
+  }, 5550);
+
+  queueWinnerRevealTimer(function () {
+    winnerModal.classList.remove('is-finale-dark');
+    winnerModal.classList.remove('is-spotlight-active');
+    winnerModal.classList.add('is-finale-bright');
+    if (firstSlot) {
+      firstSlot.classList.remove('is-champion-launch');
+      firstSlot.classList.add('is-celebrating');
+    }
     if (winnerConfettiLayer) {
       winnerConfettiLayer.classList.add('is-visible');
     }
-  }, 2360);
+  }, 7000);
 
   winnerActionRevealTimer = queueWinnerRevealTimer(function () {
     winnerModal.classList.add('is-actions-visible');
     if (winnerActions) winnerActions.classList.add('is-visible');
-  }, 2520);
+  }, 7480);
 }
 
 function finishGame(winnerPid) {

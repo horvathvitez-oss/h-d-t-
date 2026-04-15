@@ -8662,29 +8662,45 @@ body.game-screen.winner-modal-open {
 }
 
 body.game-screen .winner-modal {
-  align-items: stretch !important;
-  justify-content: stretch !important;
-  padding: clamp(12px, 2vw, 24px) !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: clamp(8px, 1.4vw, 18px) !important;
   background:
-    radial-gradient(circle at 50% 14%, rgba(255, 211, 110, 0.08), rgba(0,0,0,0) 24%),
-    radial-gradient(circle at 50% 50%, rgba(18, 18, 18, 0.12), rgba(0,0,0,0.76) 54%, rgba(0,0,0,0.94) 100%) !important;
+    radial-gradient(circle at 50% 10%, rgba(255, 211, 110, 0.07), rgba(0,0,0,0) 22%),
+    radial-gradient(circle at 50% 50%, rgba(14, 14, 14, 0.18), rgba(0,0,0,0.80) 56%, rgba(0,0,0,0.96) 100%) !important;
+}
+
+body.game-screen .winner-modal::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,0);
+  pointer-events: none;
+  z-index: 3;
+  transition: opacity 720ms ease, background 720ms ease;
+  opacity: 0;
+}
+
+body.game-screen .winner-modal.is-finale-dark::before {
+  opacity: 1;
+  background: rgba(0,0,0,0.60);
 }
 
 body.game-screen .winner-modal-panel--podium {
   width: min(100%, 1180px) !important;
-  max-height: 100% !important;
-  min-height: 100% !important;
+  height: min(900px, calc(var(--winner-viewport-height, 100vh) - 16px)) !important;
+  min-height: min(900px, calc(var(--winner-viewport-height, 100vh) - 16px)) !important;
   margin: 0 auto !important;
-  padding: clamp(24px, 3vw, 40px) clamp(16px, 2.6vw, 34px) clamp(18px, 2.4vw, 30px) !important;
-  border-radius: 32px !important;
+  padding: clamp(16px, 2.4vw, 28px) clamp(12px, 2vw, 24px) clamp(12px, 1.7vw, 20px) !important;
+  border-radius: 28px !important;
   background:
-    radial-gradient(circle at 50% 18%, rgba(255, 212, 120, 0.10), rgba(255, 212, 120, 0.02) 22%, rgba(0,0,0,0) 40%),
-    linear-gradient(180deg, rgba(12,12,14,0.98) 0%, rgba(7,7,8,0.99) 100%) !important;
-  border: 1px solid rgba(255, 194, 92, 0.18) !important;
+    radial-gradient(circle at 50% 18%, rgba(255, 212, 120, 0.08), rgba(255, 212, 120, 0.02) 22%, rgba(0,0,0,0) 38%),
+    linear-gradient(180deg, rgba(12,12,14,0.985) 0%, rgba(7,7,8,0.995) 100%) !important;
+  border: 1px solid rgba(255, 194, 92, 0.16) !important;
   box-shadow: 0 40px 120px rgba(0,0,0,0.58), inset 0 1px 0 rgba(255,255,255,0.06) !important;
-  display: flex !important;
-  flex-direction: column !important;
-  justify-content: space-between !important;
+  display: grid !important;
+  grid-template-rows: auto auto auto minmax(0, 1fr) auto auto !important;
+  align-items: start !important;
   overflow: hidden !important;
   position: relative !important;
   isolation: isolate !important;
@@ -8696,57 +8712,75 @@ body.game-screen .winner-modal-panel--podium::before {
   inset: 0;
   pointer-events: none;
   background:
-    radial-gradient(circle at 50% 28%, rgba(255, 214, 118, 0.14), rgba(255, 214, 118, 0) 28%),
-    linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0));
-  z-index: -1;
+    radial-gradient(circle at 50% 24%, rgba(255, 214, 118, 0.12), rgba(255, 214, 118, 0) 28%),
+    linear-gradient(180deg, rgba(255,255,255,0.035), rgba(255,255,255,0));
+  z-index: -2;
+}
+
+body.game-screen .winner-modal-panel--podium::after {
+  content: '';
+  position: absolute;
+  top: -10%;
+  left: 50%;
+  width: min(42vw, 460px);
+  height: 130%;
+  transform: translateX(-50%) translateY(-2%) scale(0.85);
+  transform-origin: center top;
+  background:
+    radial-gradient(circle at 50% 14%, rgba(255,244,210,0.42), rgba(255,244,210,0.16) 10%, rgba(255,244,210,0) 22%),
+    linear-gradient(180deg, rgba(255,243,205,0.30) 0%, rgba(255,243,205,0.16) 18%, rgba(255,243,205,0.02) 56%, rgba(255,243,205,0) 78%);
+  clip-path: polygon(46% 0, 54% 0, 75% 100%, 25% 100%);
+  filter: blur(18px);
+  opacity: 0;
+  pointer-events: none;
+  z-index: 4;
+  transition: opacity 600ms ease, transform 760ms ease;
+}
+
+body.game-screen .winner-modal.is-spotlight-active .winner-modal-panel--podium::after {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0) scale(1);
 }
 
 body.game-screen .winner-modal-kicker {
-  margin-bottom: 14px !important;
+  margin-bottom: 8px !important;
   color: #f2b24b !important;
-  font-size: clamp(11px, 1vw, 14px) !important;
-  letter-spacing: 0.34em !important;
+  font-size: clamp(10px, 0.85vw, 13px) !important;
+  letter-spacing: 0.30em !important;
+  text-transform: uppercase;
+  text-align: center;
 }
 
 body.game-screen .winner-modal-title {
-  max-width: 14ch;
+  max-width: 11ch;
   margin: 0 auto !important;
-  font-size: clamp(34px, 6vw, 74px) !important;
-  line-height: 0.95 !important;
-  letter-spacing: 0.04em !important;
+  font-size: clamp(28px, 4.2vw, 60px) !important;
+  line-height: 0.94 !important;
+  letter-spacing: 0.03em !important;
   text-transform: uppercase;
   color: #ffffff !important;
+  text-align: center;
   text-shadow: 0 10px 30px rgba(0,0,0,0.45);
 }
 
 body.game-screen .winner-modal-subtitle {
-  margin: 16px auto 0 !important;
-  max-width: 720px;
-  font-size: clamp(14px, 1.5vw, 18px) !important;
-  line-height: 1.45 !important;
-  color: rgba(255,255,255,0.78) !important;
+  margin: 10px auto 0 !important;
+  max-width: 620px;
+  font-size: clamp(12px, 1.05vw, 16px) !important;
+  line-height: 1.35 !important;
+  color: rgba(255,255,255,0.74) !important;
+  text-align: center !important;
 }
 
 body.game-screen .winner-summary {
-  display: block !important;
-  min-height: 22px;
-  margin-top: 12px;
-  color: rgba(255,255,255,0.62);
-  font-size: 13px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-body.game-screen .winner-summary strong {
-  color: #fff0c2;
+  display: none !important;
 }
 
 body.game-screen .winner-podium {
   position: relative !important;
-  flex: 1 1 auto !important;
   min-height: 0 !important;
-  margin-top: clamp(18px, 3vw, 32px) !important;
-  padding: clamp(18px, 2.4vw, 28px) clamp(2px, 1vw, 10px) 0 !important;
+  margin-top: clamp(8px, 1.5vw, 14px) !important;
+  padding: clamp(8px, 1.2vw, 14px) clamp(0px, 0.6vw, 6px) 0 !important;
   display: flex !important;
   align-items: flex-end !important;
   justify-content: center !important;
@@ -8756,21 +8790,22 @@ body.game-screen .winner-podium {
 body.game-screen .winner-podium::before {
   content: '';
   position: absolute;
-  inset: auto 6% 0;
-  height: 38%;
+  inset: auto 4% 0;
+  height: 34%;
   border-radius: 50%;
   pointer-events: none;
-  background: radial-gradient(circle at center, rgba(255, 220, 138, 0.18), rgba(255, 220, 138, 0.04) 36%, rgba(0,0,0,0) 70%);
+  background: radial-gradient(circle at center, rgba(255, 220, 138, 0.16), rgba(255, 220, 138, 0.03) 34%, rgba(0,0,0,0) 72%);
   filter: blur(18px);
 }
 
 body.game-screen .winner-podium-stage {
   position: relative !important;
   z-index: 2 !important;
-  width: min(100%, 1060px) !important;
+  width: min(100%, 1020px) !important;
+  min-height: 100%;
   display: grid !important;
   grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
-  gap: clamp(10px, 1.3vw, 18px) !important;
+  gap: clamp(8px, 1.2vw, 16px) !important;
   align-items: end !important;
 }
 
@@ -8781,36 +8816,40 @@ body.game-screen .winner-podium-slot {
   flex-direction: column;
   align-items: center;
   justify-content: flex-end;
-  gap: 10px;
-  opacity: 1;
-  transform-origin: center bottom;
-}
-
-body.game-screen .winner-modal.is-animated .winner-podium-slot {
+  gap: clamp(5px, 0.8vw, 10px);
   opacity: 0;
-  transform: translateY(46px) scale(0.88);
-  animation: winnerPodiumReveal 760ms cubic-bezier(0.2, 0.84, 0.26, 1) forwards;
+  transform: translateY(56px) scale(0.84);
+  transform-origin: center bottom;
+  will-change: transform, opacity, filter;
 }
 
-body.game-screen .winner-modal.is-animated .winner-podium-slot.is-reveal-seq-1 {
-  animation-delay: 0.18s;
+body.game-screen .winner-podium-slot.is-revealed {
+  animation: winnerPodiumReveal 1500ms cubic-bezier(0.2, 0.84, 0.26, 1) forwards;
 }
 
-body.game-screen .winner-modal.is-animated .winner-podium-slot.is-reveal-seq-2 {
-  animation-delay: 0.85s;
-}
-
-body.game-screen .winner-modal.is-animated .winner-podium-slot.is-reveal-seq-3 {
-  animation-delay: 1.55s;
+body.game-screen .winner-modal.is-finale-dark .winner-podium-slot.is-revealed:not(.is-place-1) {
+  filter: saturate(0.45) brightness(0.48);
 }
 
 body.game-screen .winner-podium-slot.is-place-1 {
-  z-index: 3;
-  filter: drop-shadow(0 0 22px rgba(255, 216, 118, 0.18));
+  z-index: 6;
+  filter: drop-shadow(0 0 22px rgba(255, 216, 118, 0.12));
+}
+
+body.game-screen .winner-podium-slot.is-place-1.is-champion-launch {
+  animation: winnerChampionLaunch 1250ms cubic-bezier(0.14, 0.88, 0.26, 1.12) forwards;
+}
+
+body.game-screen .winner-podium-slot.is-place-1.is-celebrating .winner-podium-character-shell {
+  animation: winnerChampionCelebrate 1.8s ease-in-out infinite;
+}
+
+body.game-screen .winner-podium-slot.is-place-1.is-celebrating .winner-podium-character {
+  animation: winnerChampionCelebrateInner 1.8s ease-in-out infinite;
 }
 
 body.game-screen .winner-podium-slot.is-place-1 .winner-podium-character-shell {
-  box-shadow: 0 0 0 1px rgba(255,214,124,0.18), 0 0 40px rgba(255,214,124,0.22), inset 0 1px 0 rgba(255,255,255,0.08);
+  box-shadow: 0 0 0 1px rgba(255,214,124,0.18), 0 0 42px rgba(255,214,124,0.20), inset 0 1px 0 rgba(255,255,255,0.08);
 }
 
 body.game-screen .winner-podium-slot.is-place-1 .winner-podium-base {
@@ -8831,22 +8870,22 @@ body.game-screen .winner-podium-rank {
   justify-content: center !important;
   min-width: auto !important;
   height: auto !important;
-  padding: 9px 14px !important;
+  padding: 8px 12px !important;
   border-radius: 999px !important;
   border: 1px solid rgba(255,255,255,0.12) !important;
   background: rgba(255,255,255,0.05) !important;
   color: #f5f5f5 !important;
-  font-size: clamp(11px, 1.1vw, 14px) !important;
+  font-size: clamp(10px, 0.95vw, 13px) !important;
   font-weight: 900 !important;
-  letter-spacing: 0.18em !important;
+  letter-spacing: 0.14em !important;
   text-transform: uppercase;
 }
 
 body.game-screen .winner-podium-character-shell {
   position: relative;
-  width: min(100%, 230px);
-  aspect-ratio: 1 / 1.08;
-  border-radius: 28px;
+  width: min(100%, 220px);
+  aspect-ratio: 1 / 1.06;
+  border-radius: 26px;
   display: flex;
   align-items: flex-end;
   justify-content: center;
@@ -8885,15 +8924,15 @@ body.game-screen .winner-podium-character-shell.is-empty {
 }
 
 body.game-screen .winner-podium-character-fallback {
-  width: 72px;
-  height: 72px;
+  width: 66px;
+  height: 66px;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
   background: linear-gradient(180deg, #2c2c31, #151519);
   color: #ffffff;
-  font-size: 32px;
+  font-size: 30px;
   font-weight: 900;
 }
 
@@ -8901,11 +8940,11 @@ body.game-screen .winner-podium-meta {
   max-width: 100%;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 4px;
 }
 
 body.game-screen .winner-podium-name {
-  font-size: clamp(16px, 2.2vw, 28px) !important;
+  font-size: clamp(14px, 1.8vw, 26px) !important;
   font-weight: 900 !important;
   line-height: 1 !important;
   color: #ffffff !important;
@@ -8917,32 +8956,27 @@ body.game-screen .winner-podium-name {
 }
 
 body.game-screen .winner-podium-tagline {
-  max-width: 24ch;
-  margin: 0 auto;
-  font-size: clamp(11px, 1.1vw, 13px) !important;
-  line-height: 1.4 !important;
-  color: rgba(255,255,255,0.66) !important;
-  text-align: center !important;
+  display: none !important;
 }
 
 body.game-screen .winner-podium-stat {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
-  padding: 4px 10px 2px;
+  gap: 3px;
+  padding: 2px 8px 0;
 }
 
 body.game-screen .winner-podium-score {
-  font-size: clamp(22px, 3.2vw, 42px);
+  font-size: clamp(18px, 2.6vw, 38px);
   font-weight: 900;
   line-height: 1;
   color: #ffffff;
 }
 
 body.game-screen .winner-podium-score-sub {
-  font-size: clamp(10px, 1vw, 12px);
-  letter-spacing: 0.16em;
+  font-size: clamp(9px, 0.8vw, 12px);
+  letter-spacing: 0.14em;
   text-transform: uppercase;
   color: rgba(255,255,255,0.56);
 }
@@ -8965,15 +8999,29 @@ body.game-screen .winner-podium-base::before {
 }
 
 body.game-screen .winner-podium-slot.is-place-1 .winner-podium-base {
-  min-height: clamp(150px, 26vh, 250px) !important;
+  min-height: clamp(126px, 24vh, 214px) !important;
 }
 
 body.game-screen .winner-podium-slot.is-place-2 .winner-podium-base {
-  min-height: clamp(118px, 21vh, 196px) !important;
+  min-height: clamp(102px, 19vh, 172px) !important;
 }
 
 body.game-screen .winner-podium-slot.is-place-3 .winner-podium-base {
-  min-height: clamp(96px, 17vh, 160px) !important;
+  min-height: clamp(84px, 15vh, 142px) !important;
+}
+
+body.game-screen .winner-confetti-layer {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 7;
+  opacity: 0;
+  transition: opacity 520ms ease;
+}
+
+body.game-screen .winner-confetti-layer.is-visible {
+  opacity: 1;
 }
 
 body.game-screen .winner-confetti {
@@ -8981,29 +9029,29 @@ body.game-screen .winner-confetti {
   inset: 0;
   pointer-events: none;
   overflow: hidden;
-  z-index: 3;
 }
 
 body.game-screen .winner-confetti-piece {
   position: absolute;
-  top: -10%;
+  top: -12%;
   width: 10px;
   height: 18px;
   border-radius: 999px;
-  background: linear-gradient(180deg, #ffffff 0%, #f2b24b 100%);
+  background: linear-gradient(180deg, var(--winner-confetti-color-1, #ffffff) 0%, var(--winner-confetti-color-2, #f2b24b) 100%);
   opacity: 0;
   transform: translate3d(0, 0, 0) rotate(0deg);
   animation-name: winnerConfettiFall;
   animation-timing-function: linear;
   animation-iteration-count: infinite;
+  box-shadow: 0 0 10px rgba(255,255,255,0.16);
 }
 
 body.game-screen .winner-modal-actions {
   position: relative !important;
-  z-index: 6 !important;
-  margin-top: clamp(16px, 2vw, 24px) !important;
-  padding-top: 16px !important;
-  background: linear-gradient(180deg, rgba(10,10,12,0), rgba(10,10,12,0.86) 30%, rgba(10,10,12,1) 100%) !important;
+  z-index: 8 !important;
+  margin-top: clamp(8px, 1.6vw, 16px) !important;
+  padding-top: 10px !important;
+  background: linear-gradient(180deg, rgba(10,10,12,0), rgba(10,10,12,0.72) 28%, rgba(10,10,12,0.96) 100%) !important;
   opacity: 0;
   transform: translateY(18px);
   pointer-events: none;
@@ -9021,11 +9069,11 @@ body.game-screen .winner-modal-back-button {
   display: inline-flex !important;
   align-items: center !important;
   justify-content: center !important;
-  width: min(100%, 420px) !important;
-  min-height: 58px;
+  width: min(100%, 400px) !important;
+  min-height: 54px;
   margin: 0 auto !important;
   border-radius: 999px !important;
-  font-size: clamp(14px, 1.2vw, 18px) !important;
+  font-size: clamp(13px, 1.1vw, 17px) !important;
   font-weight: 900 !important;
   letter-spacing: 0.12em !important;
   text-transform: uppercase;
@@ -9043,15 +9091,68 @@ body.game-screen .winner-modal-back-button:focus {
 @keyframes winnerPodiumReveal {
   0% {
     opacity: 0;
-    transform: translateY(46px) scale(0.88);
+    transform: translateY(56px) scale(0.84);
   }
-  60% {
+  54% {
     opacity: 1;
-    transform: translateY(-8px) scale(1.02);
+    transform: translateY(-14px) scale(1.03);
+  }
+  76% {
+    opacity: 1;
+    transform: translateY(4px) scale(0.992);
   }
   100% {
     opacity: 1;
     transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes winnerChampionLaunch {
+  0% {
+    opacity: 0;
+    transform: translateY(74px) scale(0.76);
+  }
+  52% {
+    opacity: 1;
+    transform: translateY(-28px) scale(1.06);
+  }
+  72% {
+    opacity: 1;
+    transform: translateY(10px) scale(0.985);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes winnerChampionCelebrate {
+  0%, 100% {
+    transform: translateY(0) scale(1);
+  }
+  25% {
+    transform: translateY(-9px) scale(1.015);
+  }
+  50% {
+    transform: translateY(0) scale(1);
+  }
+  75% {
+    transform: translateY(-4px) scale(1.008);
+  }
+}
+
+@keyframes winnerChampionCelebrateInner {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  25% {
+    transform: translateY(-3px);
+  }
+  50% {
+    transform: translateY(0);
+  }
+  75% {
+    transform: translateY(-1px);
   }
 }
 
@@ -9060,101 +9161,77 @@ body.game-screen .winner-modal-back-button:focus {
     opacity: 0;
     transform: translate3d(0, -8vh, 0) rotate(0deg);
   }
-  10% {
-    opacity: 0.95;
+  8% {
+    opacity: 0.96;
   }
   100% {
     opacity: 0;
-    transform: translate3d(0, 116vh, 0) rotate(var(--winner-confetti-rotate, 18deg));
+    transform: translate3d(var(--winner-confetti-drift, 0px), 116vh, 0) rotate(var(--winner-confetti-rotate, 18deg));
   }
 }
 
 @media (max-width: 991px) {
   body.game-screen .winner-modal-panel--podium {
+    width: min(100%, 940px) !important;
     border-radius: 24px !important;
   }
 
-  body.game-screen .winner-podium-stage {
-    gap: 10px !important;
+  body.game-screen .winner-modal-title {
+    font-size: clamp(26px, 5vw, 50px) !important;
   }
 
   body.game-screen .winner-podium-character-shell {
-    width: min(100%, 190px);
+    width: min(100%, 180px);
   }
 }
 
 @media (max-width: 767px) {
   body.game-screen .winner-modal {
-    padding: 10px !important;
+    padding: 8px !important;
   }
 
   body.game-screen .winner-modal-panel--podium {
-    padding: 20px 12px 16px !important;
+    width: min(100%, 560px) !important;
+    height: calc(var(--winner-viewport-height, 100vh) - 12px) !important;
+    min-height: calc(var(--winner-viewport-height, 100vh) - 12px) !important;
+    padding: 14px 10px 12px !important;
+    grid-template-rows: auto auto auto minmax(0, 1fr) auto auto !important;
   }
 
   body.game-screen .winner-modal-title {
-    max-width: 12ch;
+    max-width: 10ch;
+    font-size: clamp(24px, 8vw, 42px) !important;
   }
 
-  body.game-screen .winner-podium-stage {
-    gap: 8px !important;
-  }
-
-  body.game-screen .winner-podium-rank {
-    padding: 7px 10px !important;
-    font-size: 10px !important;
-    letter-spacing: 0.12em !important;
-  }
-
-  body.game-screen .winner-podium-character-shell {
-    border-radius: 20px;
-  }
-
-  body.game-screen .winner-podium-tagline {
-    max-width: 16ch;
-  }
-
-  body.game-screen .winner-modal-back-button {
-    width: 100% !important;
-    min-height: 52px;
-    font-size: 13px !important;
-  }
-}
-
-@media (max-width: 640px) {
-  body.game-screen .winner-modal-panel--podium {
-    min-height: auto !important;
+  body.game-screen .winner-modal-subtitle {
+    max-width: 92%;
+    font-size: 12px !important;
   }
 
   body.game-screen .winner-podium {
-    align-items: stretch !important;
-    padding-top: 8px !important;
+    margin-top: 6px !important;
+    padding-top: 6px !important;
   }
 
   body.game-screen .winner-podium-stage {
-    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
     gap: 6px !important;
   }
 
-  body.game-screen .winner-podium-slot {
-    gap: 7px;
+  body.game-screen .winner-podium-rank {
+    padding: 6px 9px !important;
+    font-size: 9px !important;
+    letter-spacing: 0.10em !important;
   }
 
   body.game-screen .winner-podium-character-shell {
+    border-radius: 18px;
     width: 100%;
-    max-width: 120px;
-    aspect-ratio: 1 / 1.1;
+    max-width: 126px;
     padding: 4px;
-    border-radius: 16px;
   }
 
   body.game-screen .winner-podium-name {
     font-size: 14px !important;
-  }
-
-  body.game-screen .winner-podium-tagline {
-    font-size: 9px !important;
-    max-width: 12ch;
   }
 
   body.game-screen .winner-podium-score {
@@ -9163,29 +9240,40 @@ body.game-screen .winner-modal-back-button:focus {
 
   body.game-screen .winner-podium-score-sub {
     font-size: 8px;
-    letter-spacing: 0.1em;
+    letter-spacing: 0.08em;
   }
 
   body.game-screen .winner-podium-slot.is-place-1 .winner-podium-base {
-    min-height: 108px !important;
+    min-height: clamp(84px, 18vh, 124px) !important;
   }
 
   body.game-screen .winner-podium-slot.is-place-2 .winner-podium-base {
-    min-height: 82px !important;
+    min-height: clamp(66px, 14vh, 94px) !important;
   }
 
   body.game-screen .winner-podium-slot.is-place-3 .winner-podium-base {
-    min-height: 62px !important;
+    min-height: clamp(52px, 11vh, 76px) !important;
+  }
+
+  body.game-screen .winner-modal-back-button {
+    width: 100% !important;
+    min-height: 48px;
+    font-size: 12px !important;
   }
 }
 
 @media (max-width: 430px) {
+  body.game-screen .winner-modal-panel--podium {
+    padding: 12px 8px 10px !important;
+  }
+
   body.game-screen .winner-modal-title {
-    font-size: 28px !important;
+    font-size: clamp(22px, 7.6vw, 34px) !important;
   }
 
   body.game-screen .winner-modal-subtitle {
-    font-size: 12px !important;
+    margin-top: 8px !important;
+    font-size: 11px !important;
   }
 
   body.game-screen .winner-podium-stage {
@@ -9193,11 +9281,57 @@ body.game-screen .winner-modal-back-button:focus {
   }
 
   body.game-screen .winner-podium-character-shell {
-    max-width: 100px;
+    max-width: 104px;
+  }
+
+  body.game-screen .winner-podium-name {
+    font-size: 12px !important;
   }
 
   body.game-screen .winner-podium-rank {
-    padding: 6px 8px !important;
-    font-size: 9px !important;
+    padding: 5px 7px !important;
+    font-size: 8px !important;
+  }
+
+  body.game-screen .winner-podium-slot {
+    gap: 5px;
+  }
+}
+
+@media (max-height: 760px) {
+  body.game-screen .winner-modal-panel--podium {
+    padding-top: 12px !important;
+  }
+
+  body.game-screen .winner-modal-kicker {
+    margin-bottom: 6px !important;
+  }
+
+  body.game-screen .winner-modal-title {
+    font-size: clamp(22px, 4vw, 46px) !important;
+  }
+
+  body.game-screen .winner-modal-subtitle {
+    margin-top: 6px !important;
+  }
+
+  body.game-screen .winner-podium-character-shell {
+    width: min(100%, 162px);
+  }
+
+  body.game-screen .winner-podium-slot.is-place-1 .winner-podium-base {
+    min-height: clamp(76px, 17vh, 136px) !important;
+  }
+
+  body.game-screen .winner-podium-slot.is-place-2 .winner-podium-base {
+    min-height: clamp(60px, 13vh, 108px) !important;
+  }
+
+  body.game-screen .winner-podium-slot.is-place-3 .winner-podium-base {
+    min-height: clamp(48px, 10vh, 84px) !important;
+  }
+
+  body.game-screen .winner-modal-back-button {
+    min-height: 44px;
   }
 }
