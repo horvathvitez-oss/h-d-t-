@@ -1,356 +1,48 @@
 <!DOCTYPE html>
 <html lang="hu">
 <head>
-  <title>Hódító.com – Profil</title>
-
+  <title>HÓDÍTÓ / Profil</title>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
 
   <link rel="stylesheet" href="/views/css/bootstrap.min.css">
   <link rel="stylesheet" href="/views/css/ionicons.min.css">
   <link rel="stylesheet" href="/views/css/pace.css">
-  <link rel="stylesheet" href="/views/css/custom.css">
+  <link rel="stylesheet" href="/views/css/custom.css?v=waiting-profile-2026-04-16-1">
 
   <script src="/views/js/jquery-2.1.3.min.js"></script>
   <script src="/views/js/bootstrap.min.js"></script>
   <script src="/views/js/pace.min.js"></script>
   <script src="/views/js/modernizr.custom.js"></script>
-
-  <script>
-    var username = '<%= username %>';
-    var email = '<%= email %>';
-  </script>
-
-  <style>
-    :root {
-      --hodito-bg: #0d0805;
-      --hodito-surface: rgba(35, 20, 11, 0.94);
-      --hodito-surface-soft: rgba(56, 32, 18, 0.92);
-      --hodito-border: rgba(197, 147, 97, 0.28);
-      --hodito-accent: #c59361;
-      --hodito-accent-strong: #e5bc8d;
-      --hodito-text: #f6eadc;
-      --hodito-text-soft: #d7c1ab;
-      --hodito-shadow: 0 20px 45px rgba(0, 0, 0, 0.35);
-    }
-
-    html, body {
-      min-height: 100%;
-      background:
-        radial-gradient(circle at top, rgba(120, 72, 32, 0.22), transparent 38%),
-        linear-gradient(180deg, #1b0f08 0%, #0d0805 100%);
-      color: var(--hodito-text);
-      font-family: "Helvetica Neue", Arial, sans-serif;
-    }
-
-    body {
-      margin: 0;
-    }
-
-    .profile-shell {
-      width: min(1120px, calc(100% - 28px));
-      margin: 22px auto;
-      background: rgba(17, 10, 6, 0.72);
-      border: 1px solid rgba(197, 147, 97, 0.12);
-      border-radius: 28px;
-      box-shadow: var(--hodito-shadow);
-      overflow: hidden;
-      backdrop-filter: blur(6px);
-    }
-
-    #site-header {
-      padding: 24px 28px 10px;
-      background: linear-gradient(180deg, rgba(70, 41, 21, 0.75), rgba(24, 14, 8, 0.2));
-      border-bottom: 1px solid rgba(197, 147, 97, 0.12);
-    }
-
-    .logo img {
-      max-width: 100%;
-      height: auto;
-      filter: drop-shadow(0 8px 18px rgba(0,0,0,0.22));
-    }
-
-    .main-nav .navbar-nav {
-      margin-top: 8px;
-    }
-
-    .main-nav .navbar-nav > li > a {
-      color: var(--hodito-text-soft) !important;
-      font-weight: 700;
-      letter-spacing: 0.06em;
-      text-transform: uppercase;
-      transition: color .2s ease, transform .2s ease;
-    }
-
-    .main-nav .navbar-nav > li > a:hover,
-    .main-nav .navbar-nav > li > a:focus {
-      color: var(--hodito-accent-strong) !important;
-      background: transparent;
-      transform: translateY(-1px);
-    }
-
-    .content-body {
-      padding: 18px 28px 36px;
-    }
-
-    .profile-stage {
-      max-width: 940px;
-      margin: 0 auto;
-    }
-
-    .entry-header {
-      text-align: center;
-      margin-bottom: 20px;
-    }
-
-    .entry-title {
-      margin: 0;
-      color: var(--hodito-text);
-      font-size: clamp(32px, 4vw, 48px);
-      font-weight: 900;
-      letter-spacing: 0.02em;
-    }
-
-    .entry-subtitle {
-      margin: 12px auto 0;
-      max-width: 620px;
-      color: var(--hodito-text-soft);
-      font-size: 16px;
-      line-height: 1.55;
-    }
-
-    .profile-card {
-      margin-top: 28px;
-      padding: 28px;
-      border-radius: 24px;
-      background: linear-gradient(180deg, var(--hodito-surface), rgba(27, 15, 8, 0.98));
-      border: 1px solid var(--hodito-border);
-      box-shadow: var(--hodito-shadow);
-    }
-
-    .profile-layout {
-      display: grid;
-      grid-template-columns: 260px minmax(0, 1fr);
-      gap: 26px;
-      align-items: stretch;
-    }
-
-    .profile-avatar-panel {
-      background: linear-gradient(180deg, rgba(77, 46, 25, 0.92), rgba(39, 22, 13, 0.96));
-      border: 1px solid rgba(197, 147, 97, 0.22);
-      border-radius: 22px;
-      padding: 18px;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      align-items: center;
-      gap: 14px;
-    }
-
-    .profile-avatar {
-      width: 100%;
-      aspect-ratio: 4 / 5;
-      border-radius: 18px;
-      object-fit: cover;
-      border: 2px solid rgba(229, 188, 141, 0.4);
-      background: linear-gradient(180deg, rgba(89, 54, 31, 0.9), rgba(33, 19, 11, 0.95));
-    }
-
-    .profile-badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      padding: 8px 14px;
-      border-radius: 999px;
-      background: rgba(229, 188, 141, 0.12);
-      border: 1px solid rgba(229, 188, 141, 0.18);
-      color: var(--hodito-accent-strong);
-      font-size: 12px;
-      font-weight: 800;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-    }
-
-    .profile-main {
-      display: flex;
-      flex-direction: column;
-      gap: 18px;
-    }
-
-    .profile-headline {
-      padding: 18px 20px;
-      border-radius: 20px;
-      background: rgba(255, 255, 255, 0.03);
-      border: 1px solid rgba(197, 147, 97, 0.16);
-    }
-
-    .profile-name {
-      margin: 0;
-      font-size: clamp(28px, 3vw, 38px);
-      font-weight: 900;
-      color: var(--hodito-text);
-    }
-
-    .profile-email {
-      margin-top: 10px;
-      color: var(--hodito-text-soft);
-      font-size: 16px;
-      word-break: break-word;
-    }
-
-    .profile-email i {
-      margin-right: 10px;
-      color: var(--hodito-accent);
-    }
-
-    .profile-section-title {
-      margin: 0 0 12px;
-      color: var(--hodito-accent-strong);
-      font-size: 14px;
-      font-weight: 800;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
-    }
-
-    .profile-stats {
-      display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 16px;
-    }
-
-    .profile-stat-card {
-      padding: 20px 18px;
-      border-radius: 20px;
-      background: linear-gradient(180deg, rgba(80, 47, 24, 0.35), rgba(32, 18, 10, 0.78));
-      border: 1px solid rgba(197, 147, 97, 0.18);
-      min-height: 132px;
-      display: flex;
-      flex-direction: column;
-      justify-content: space-between;
-    }
-
-    .profile-stat-label {
-      color: var(--hodito-text-soft);
-      font-size: 13px;
-      font-weight: 700;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-      line-height: 1.45;
-    }
-
-    .profile-stat-value {
-      margin-top: 18px;
-      color: var(--hodito-text);
-      font-size: clamp(28px, 3vw, 40px);
-      font-weight: 900;
-      line-height: 1;
-    }
-
-    .profile-stat-note {
-      margin-top: 10px;
-      color: rgba(215, 193, 171, 0.78);
-      font-size: 13px;
-      line-height: 1.45;
-    }
-
-    .profile-info-box {
-      padding: 18px 20px;
-      border-radius: 20px;
-      background: rgba(255,255,255,0.03);
-      border: 1px solid rgba(197, 147, 97, 0.16);
-      color: var(--hodito-text-soft);
-      line-height: 1.65;
-      font-size: 15px;
-    }
-
-    #site-footer {
-      padding: 14px 28px 24px;
-      color: rgba(215, 193, 171, 0.76);
-      text-align: center;
-      border-top: 1px solid rgba(197, 147, 97, 0.08);
-    }
-
-    .copyright {
-      margin: 0;
-      font-size: 13px;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-    }
-
-    @media (max-width: 991px) {
-      #site-header,
-      .content-body,
-      #site-footer {
-        padding-left: 20px;
-        padding-right: 20px;
-      }
-
-      .profile-layout {
-        grid-template-columns: 1fr;
-      }
-
-      .profile-avatar-panel {
-        max-width: 320px;
-        margin: 0 auto;
-      }
-
-      .profile-stats {
-        grid-template-columns: 1fr;
-      }
-    }
-
-    @media (max-width: 767px) {
-      .profile-shell {
-        width: calc(100% - 16px);
-        margin: 8px auto;
-        border-radius: 20px;
-      }
-
-      #site-header,
-      .content-body,
-      #site-footer {
-        padding-left: 14px;
-        padding-right: 14px;
-      }
-
-      .profile-card {
-        padding: 18px;
-      }
-
-      .entry-title {
-        font-size: 30px;
-      }
-
-      .entry-subtitle,
-      .profile-info-box,
-      .profile-email {
-        font-size: 14px;
-      }
-    }
-  </style>
 </head>
-<body>
-  <div class="profile-shell">
-    <header id="site-header">
+<body class="parchment-screen app-shell-screen lobby-screen-modern profile-modern-screen" data-sound-base="/sounds">
+  <div class="parchment-overlay"></div>
+
+  <div class="top-promo-strip">
+    <div class="top-promo-strip-track">
+      <span>NEM MENNEK A KÉRDÉSEK? - KÖZÉPSULINEKED.COM</span>
+      <span>NEM MENNEK A KÉRDÉSEK? - KÖZÉPSULINEKED.COM</span>
+      <span>NEM MENNEK A KÉRDÉSEK? - KÖZÉPSULINEKED.COM</span>
+    </div>
+  </div>
+
+  <div class="container parchment-app-container profile-modern-shell">
+    <header id="site-header" class="parchment-header profile-modern-header">
       <div class="row">
         <div class="col-md-4 col-sm-5 col-xs-8">
-          <div class="logo">
-            <h1><a href="/"><img src="views/img/logo.png" width="232" height="89" alt="Hódító.com"></a></h1>
+          <div class="logo parchment-wordmark-wrap">
+            <a href="/lobby" class="parchment-wordmark-link">
+              <div class="brand-wordmark">HÓDÍTÓ</div>
+              <div class="brand-tagline">az érettségi-játék</div>
+            </a>
           </div>
         </div>
         <div class="col-md-8 col-sm-7 col-xs-4">
-          <nav class="main-nav" role="navigation">
-            <div class="navbar-header">
-              <button type="button" id="trigger-overlay" class="navbar-toggle">
-                <span class="ion-navicon"></span>
-              </button>
-            </div>
-
-            <div class="collapse navbar-collapse" id="bs-example-navbar-collapse-1">
+          <nav class="main-nav main-nav-modern" role="navigation">
+            <div class="collapse navbar-collapse">
               <ul class="nav navbar-nav navbar-right">
                 <li class="cl-effect-11"><a href="/lobby" data-hover="Lobby">Lobby</a></li>
                 <li class="cl-effect-11"><a href="/profile" data-hover="Profil">Profil</a></li>
-                <li class="cl-effect-11"><a href="/newgame" data-hover="Új meccs">Új meccs</a></li>
                 <li class="cl-effect-11"><a href="/logout" data-hover="Kilépés">Kilépés</a></li>
               </ul>
             </div>
@@ -359,72 +51,69 @@
       </div>
     </header>
 
-    <div class="content-body">
-      <div class="profile-stage">
-        <header class="entry-header">
-          <h1 class="entry-title">Profil</h1>
-          <p class="entry-subtitle">
-            Saját Hódító.com profiloldalad. Itt később helyet kaphatnak a statisztikáid,
-            eredményeid és a játékbeli előrehaladásod.
-          </p>
-        </header>
+    <main class="content-body profile-modern-content">
+      <section class="page-intro-card profile-modern-header-card">
+        <div class="profile-modern-summary">
+          <div class="waiting-room-v2-kicker">Profil</div>
+          <h1>A saját Hódító profilod</h1>
+          <p>Itt látod a fiókadataidat és a játékhoz kapcsolódó alapinformációkat. A dizájn most a lobby vizuális rendszeréhez igazodik, reszponzívan.</p>
+        </div>
+      </section>
 
-        <section class="profile-card">
-          <div class="profile-layout">
-            <aside class="profile-avatar-panel">
-              <img src="http://placehold.it/380x500" alt="Profilkép" class="profile-avatar">
-              <div class="profile-badge">
-                <i class="ion-trophy"></i>
-                Hódító játékos
-              </div>
-            </aside>
-
-            <div class="profile-main">
-              <div class="profile-headline">
-                <h2 class="profile-name"><%= username %></h2>
-                <div class="profile-email">
-                  <i class="glyphicon glyphicon-envelope"></i><%= email %>
-                </div>
-              </div>
-
-              <div>
-                <h3 class="profile-section-title">Játékstatisztikák</h3>
-                <div class="profile-stats">
-                  <div class="profile-stat-card">
-                    <div class="profile-stat-label">Lejátszott meccsek</div>
-                    <div class="profile-stat-value">--</div>
-                    <div class="profile-stat-note">Játsz több meccset!</div>
-                  </div>
-
-                  <div class="profile-stat-card">
-                    <div class="profile-stat-label">Nyert meccsek</div>
-                    <div class="profile-stat-value">--</div>
-                    <div class="profile-stat-note">Menj fel a ranglistán!</div>
-                  </div>
-
-                  <div class="profile-stat-card">
-                    <div class="profile-stat-label">Fiók állapota</div>
-                    <div class="profile-stat-value">Aktív</div>
-                    <div class="profile-stat-note">Regisztrált felhasználó</div>
-                  </div>
-                </div>
-              </div>
-
-              <div class="profile-info-box">
-                Játsz több meccset, hogy megjelenjenek a statisztikáid!
-                
-            
-              </div>
-            </div>
+      <section class="profile-modern-grid">
+        <aside class="profile-modern-card profile-modern-sidebar reveal-delay-1">
+          <div class="profile-modern-avatar-wrap">
+            <img src="http://placehold.it/380x500" alt="Profilkép" class="profile-modern-avatar">
           </div>
-        </section>
-      </div>
-    </div>
+          <div class="profile-modern-badge">
+            <i class="ion-trophy"></i>
+            Hódító játékos
+          </div>
+        </aside>
+
+        <div class="profile-modern-main">
+          <section class="profile-modern-card profile-modern-headline reveal-delay-1">
+            <div class="profile-modern-kicker">Fiók</div>
+            <h2 class="profile-modern-name"><%= username %></h2>
+            <div class="profile-modern-email">
+              <i class="glyphicon glyphicon-envelope"></i>
+              <span><%= email %></span>
+            </div>
+          </section>
+
+          <section>
+            <div class="profile-modern-stats">
+              <article class="profile-modern-card profile-modern-stat reveal-delay-1">
+                <div class="profile-modern-stat-label">Lejátszott meccsek</div>
+                <div class="profile-modern-stat-value">--</div>
+                <div class="profile-modern-stat-note">Játsz több meccset, hogy itt valódi stat jelenjen meg.</div>
+              </article>
+
+              <article class="profile-modern-card profile-modern-stat reveal-delay-2">
+                <div class="profile-modern-stat-label">Nyert meccsek</div>
+                <div class="profile-modern-stat-value">--</div>
+                <div class="profile-modern-stat-note">Menj fel a ranglistán és töltsd meg ezt a mezőt.</div>
+              </article>
+
+              <article class="profile-modern-card profile-modern-stat reveal-delay-2">
+                <div class="profile-modern-stat-label">Fiók állapota</div>
+                <div class="profile-modern-stat-value">Aktív</div>
+                <div class="profile-modern-stat-note">A profil használatra kész és a lobby dizájnjához igazodik.</div>
+              </article>
+            </div>
+          </section>
+
+          <section class="profile-modern-card profile-modern-info reveal-delay-2">
+            Játsz több meccset, hogy később megjelenhessenek a részletes eredményeid, előrehaladásod és további profilstatisztikáid.
+          </section>
+        </div>
+      </section>
+    </main>
 
     <footer id="site-footer">
       <div class="row">
         <div class="col-md-12">
-          <p class="copyright">&copy; Hódító.com</p>
+          <p class="copyright">HÓDÍTÓ</p>
         </div>
       </div>
     </footer>
