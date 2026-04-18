@@ -113,7 +113,65 @@ module.exports = function(app, io, db) {
     return null;
   }
 
-  function getSuggestionFlash(code) {
+async function getLeaderboardViewModel(viewerUsername) {
+  if (!User || typeof User.getRandomMatchmakingLeaderboardData !== 'function') {
+    return {
+      leaderboardTop5: [],
+      leaderboardTop20: [],
+      myStats: { wins: 0, games: 0, rank: null },
+      totalPlayers: 0
+    };
+  }
+
+  var leaderboardData = await User.getRandomMatchmakingLeaderboardData(viewerUsername);
+  var viewer = leaderboardData.viewer;
+
+  return {
+    leaderboardTop5: leaderboardData.top5,
+    leaderboardTop20: leaderboardData.top20,
+    totalPlayers: leaderboardData.totalPlayers,
+    myStats: {
+      wins: viewer ? Number(viewer.randomMatchmakingWins || 0) : 0,
+      games: viewer ? Number(viewer.randomMatchmakingGames || 0) : 0,
+      rank: viewer ? viewer.rank : null
+    }
+  };
+}
+
+function getProfileTrophy(rank) {
+  if (!rank || rank > 20) {
+    return { tier: 'shadow', label: 'Fekete kupa', note: 'Még nem vagy benne a top 20-ban.' };
+  }
+  if (rank === 1) {
+    return { tier: 'emerald', label: 'Emeráld kupa', note: 'Az első hely a tiéd.' };
+  }
+  if (rank === 2) {
+    return { tier: 'violet', label: 'Világítós lila kupa', note: 'Egyetlen hely választ el a csúcstól.' };
+  }
+  if (rank === 3) {
+    return { tier: 'diamond', label: 'Gyémánt kupa', note: 'Dobogós helyezés.' };
+  }
+  if (rank <= 5) {
+    return { tier: 'gold', label: 'Arany kupa', note: 'Top 5-ben vagy.' };
+  }
+  if (rank <= 10) {
+    return { tier: 'silver', label: 'Ezüst kupa', note: 'Top 10-es helyezés.' };
+  }
+  return { tier: 'bronze', label: 'Bronz kupa', note: 'Bent vagy a top 20-ban.' };
+}
+
+async function buildProfileViewModel(profileUser) {
+  var username = profileUser && profileUser.username ? String(profileUser.username) : '';
+  var leaderboardViewModel = await getLeaderboardViewModel(username);
+  return {
+    username: username,
+    randomMatchmakingWins: leaderboardViewModel.myStats.wins,
+    randomMatchmakingRank: leaderboardViewModel.myStats.rank,
+    trophy: getProfileTrophy(leaderboardViewModel.myStats.rank)
+  };
+}
+
+function getSuggestionFlash(code) {
     if (code === 'success') {
       return {
         type: 'success',
@@ -153,12 +211,30 @@ module.exports = function(app, io, db) {
   }
 
 router.get('/lobby', function(req, res) {
-  withAuthenticatedUser(req, res, function(user) {
-    res.render('lobby', {
-      username: user.username,
-      email: user.email || '',
-      suggestionFlash: null
-    });
+  withAuthenticatedUser(req, res, async function(user) {
+    try {
+      var leaderboardViewModel = await getLeaderboardViewModel(user.username);
+      res.render('lobby', {
+        username: user.username,
+        email: user.email || '',
+        suggestionFlash: getSuggestionFlash(req.query && req.query.suggestion),
+        leaderboardTop5: leaderboardViewModel.leaderboardTop5,
+        leaderboardTop20: leaderboardViewModel.leaderboardTop20,
+        leaderboardTotalPlayers: leaderboardViewModel.totalPlayers,
+        myStats: leaderboardViewModel.myStats
+      });
+    } catch (error) {
+      console.log('Lobby leaderboard error:', error);
+      res.render('lobby', {
+        username: user.username,
+        email: user.email || '',
+        suggestionFlash: getSuggestionFlash(req.query && req.query.suggestion),
+        leaderboardTop5: [],
+        leaderboardTop20: [],
+        leaderboardTotalPlayers: 0,
+        myStats: { wins: 0, games: 0, rank: null }
+      });
+    }
   });
 });
 
@@ -365,24 +441,31 @@ router.get('/lobby', function(req, res) {
     }
   });
 
-  router.get('/profile', function(req, res, next) {
-    withAuthenticatedUser(req, res, function(user) {
-      res.render('profile', { username: user.username, email: user.email });
-    });
+router.get('/profile', function(req, res, next) {
+  withAuthenticatedUser(req, res, async function(user) {
+    try {
+      res.render('profile', await buildProfileViewModel(user));
+    } catch (error) {
+      console.log('Profile render error:', error);
+      return res.redirect('/lobby');
+    }
   });
+});
 
-  router.get('/profile/:username', function(req, res, next) {
-    withAuthenticatedUser(req, res, function(user) {
-      var where = { username: req.params.username };
-      User.getUser(where, function(err, email) {
-        if (err) {
-          console.log('Socket error occured.');
-          return res.redirect('/lobby');
-        }
-        res.render('profile', { username: email[0].username, email: email[0].email });
-      });
-    });
+router.get('/profile/:username', function(req, res, next) {
+  withAuthenticatedUser(req, res, async function(user) {
+    try {
+      var profileUser = await User.findOne({ username: req.params.username }).lean();
+      if (!profileUser) {
+        return res.redirect('/lobby');
+      }
+      res.render('profile', await buildProfileViewModel(profileUser));
+    } catch (error) {
+      console.log('Profile lookup error:', error);
+      return res.redirect('/lobby');
+    }
   });
+});
 
   router.get('/logout', function(req, res, next) {
     if (req.session) {
@@ -408,7 +491,7 @@ router.get('/lobby', function(req, res) {
       var howmany = 3;
       var maplevel = req.body.maplevel || 'hard';
 
-      require('./game')(io, Number(gameid), user.username, howmany, maplevel, db);
+      require('./game')(io, Number(gameid), user.username, howmany, maplevel, { matchSource: 'custom_lobby' });
       LobbyStore.createLobby({
         gameid: gameid,
         host: user.username,

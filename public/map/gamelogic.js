@@ -3230,14 +3230,19 @@ function buildWinnerPodiumHtml(ranking) {
   ].join('');
 }
 
-function showWinnerModal(winner) {
+function showWinnerModal(winner, meta) {
   if (!winnerModal || !winnerTitle || !winnerSubtitle) return;
 
   var ranking = getWinnerRankingPlayers();
   var champion = winner || ranking[0] || null;
+  var championName = champion ? getPlayerDisplayName(champion) : 'Ismeretlen';
 
-  winnerTitle.textContent = champion ? (getPlayerDisplayName(champion) + ' nyert!') : 'A meccs véget ért';
-  winnerSubtitle.textContent = champion ? 'Dobogó kész. Vissza a lobbiba bármikor.' : 'A győztes nem ismert.';
+  winnerTitle.textContent = champion ? (championName + ' nyert!') : 'A meccs véget ért';
+  if (meta && meta.matchSource === 'random_matchmaking' && meta.isOwnWin && Number.isFinite(meta.winnerRandomMatchmakingWins)) {
+    winnerSubtitle.textContent = 'Random matchmaking győzelmeid: ' + meta.winnerRandomMatchmakingWins;
+  } else {
+    winnerSubtitle.textContent = champion ? 'Dobogó kész. Vissza a lobbiba bármikor.' : 'A győztes nem ismert.';
+  }
 
   if (winnerPodium) {
     winnerPodium.innerHTML = buildWinnerPodiumHtml(ranking);
@@ -3254,18 +3259,31 @@ function showWinnerModal(winner) {
   winnerModal.setAttribute('aria-hidden', 'false');
 }
 
-function finishGame(winnerPid) {
+function finishGame(result) {
   gameFinished = true;
   hideCastleCinematic(true);
   hideQuestion();
+
+  var payload = (result && typeof result === 'object') ? result : { winner: result };
+  var winnerPid = payload && Object.prototype.hasOwnProperty.call(payload, 'winner') ? payload.winner : null;
   var winner = getPlayerByPid(winnerPid);
-  setStatus(winner && USER && winner.pid === USER.pid ? 'Megnyerted a meccset.' : 'A meccs véget ért. Győztes: ' + (winner ? getPlayerDisplayName(winner) : 'ismeretlen'));
+  var matchSource = payload && payload.matchSource ? payload.matchSource : (state && state.game ? state.game.matchSource : null);
+  var winnerRandomMatchmakingWins = (payload && Number.isFinite(payload.winnerRandomMatchmakingWins))
+    ? payload.winnerRandomMatchmakingWins
+    : (state && state.game && Number.isFinite(state.game.winnerRandomMatchmakingWins) ? state.game.winnerRandomMatchmakingWins : null);
+  var isOwnWin = Boolean(winner && USER && winner.pid === USER.pid);
+
+  setStatus(isOwnWin ? 'Megnyerted a meccset.' : 'A meccs véget ért. Győztes: ' + (winner ? getPlayerDisplayName(winner) : 'ismeretlen'));
   renderAllTerritories();
   renderHUD();
   syncBackgroundMusic();
   cancelInterstitialAdTimer();
   hideInterstitialAd();
-  showWinnerModal(winner);
+  showWinnerModal(winner, {
+    matchSource: matchSource,
+    winnerRandomMatchmakingWins: winnerRandomMatchmakingWins,
+    isOwnWin: isOwnWin
+  });
 }
 
 
@@ -3331,7 +3349,7 @@ function onStateSnapshot(payload) {
   scheduleInterstitialAdIfNeeded();
   renderAfkWarning();
   if (state.game && state.game.phase === 'FINISHED' && !gameFinished) {
-    finishGame(state.game.winner);
+    finishGame(state.game);
   }
 }
 
@@ -3567,7 +3585,9 @@ socket.on('szilardBombLaunched', function (payload) {
 });
 socket.on('gamefinish', function (data) {
   if (data && data.length) {
-    finishGame(data[0].winner);
+    finishGame(data[0]);
+  } else if (state && state.game) {
+    finishGame(state.game);
   } else {
     finishGame();
   }
@@ -3829,7 +3849,7 @@ function revealWinnerPlacement(placement, className) {
   return slot;
 }
 
-function showWinnerModal(winner) {
+function showWinnerModal(winner, meta) {
   if (!winnerModal || !winnerTitle || !winnerSubtitle || !winnerPodium) return;
 
   syncWinnerViewportUnit();
@@ -3840,9 +3860,13 @@ function showWinnerModal(winner) {
   var championName = champion ? getPlayerDisplayName(champion) : 'Ismeretlen';
 
   winnerTitle.textContent = 'KI FOG ÁTMENNI AZ ÉRETTSÉGIN?';
-  winnerSubtitle.textContent = champion
-    ? (championName + ' végzett az első helyen. A dobogó eldőlt.')
-    : 'A meccs véget ért. A győztes nem ismert.';
+  if (meta && meta.matchSource === 'random_matchmaking' && meta.isOwnWin && Number.isFinite(meta.winnerRandomMatchmakingWins)) {
+    winnerSubtitle.textContent = 'Random matchmaking győzelmeid: ' + meta.winnerRandomMatchmakingWins;
+  } else {
+    winnerSubtitle.textContent = champion
+      ? (championName + ' végzett az első helyen. A dobogó eldőlt.')
+      : 'A meccs véget ért. A győztes nem ismert.';
+  }
 
   winnerPodium.innerHTML = buildWinnerPodiumHtml(ranking);
   if (winnerSummary) winnerSummary.innerHTML = '';

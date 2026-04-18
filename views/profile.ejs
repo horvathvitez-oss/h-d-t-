@@ -8,12 +8,42 @@
   <link rel="stylesheet" href="/views/css/bootstrap.min.css">
   <link rel="stylesheet" href="/views/css/ionicons.min.css">
   <link rel="stylesheet" href="/views/css/pace.css">
-  <link rel="stylesheet" href="/views/css/custom.css?v=waiting-profile-2026-04-16-1">
+  <link rel="stylesheet" href="/views/css/custom.css?v=leaderboard-profile-2026-04-18-1">
 
   <script src="/views/js/jquery-2.1.3.min.js"></script>
   <script src="/views/js/bootstrap.min.js"></script>
   <script src="/views/js/pace.min.js"></script>
   <script src="/views/js/modernizr.custom.js"></script>
+
+  <style>
+    .profile-rank-shell { max-width: 1120px; margin: 0 auto; }
+    .profile-rank-hero { display:grid; grid-template-columns:minmax(280px, 380px) minmax(0, 1fr); gap:24px; align-items:stretch; }
+    .profile-rank-card { border-radius:28px; padding:28px; background:linear-gradient(145deg, rgba(255,255,255,0.90), rgba(245,229,205,0.92)); border:1px solid rgba(126,85,42,0.18); box-shadow:0 24px 50px rgba(43,27,12,0.12); }
+    .profile-rank-kicker { font-size:12px; letter-spacing:.12em; text-transform:uppercase; color:rgba(80,56,31,0.66); }
+    .profile-rank-title { margin:12px 0 0; font-size:clamp(28px, 5vw, 52px); line-height:1; color:#2f1f12; word-break:break-word; }
+    .profile-rank-subtitle { margin:14px 0 0; color:rgba(63,43,24,0.74); font-size:15px; }
+    .profile-rank-cup-card { display:flex; flex-direction:column; justify-content:center; align-items:center; text-align:center; overflow:hidden; position:relative; }
+    .profile-rank-cup-card::after { content:''; position:absolute; inset:auto -20% -35% -20%; height:180px; background:radial-gradient(circle, rgba(255,255,255,0.35), transparent 65%); pointer-events:none; }
+    .profile-rank-cup { position:relative; font-size:clamp(84px, 14vw, 160px); line-height:1; filter:drop-shadow(0 20px 32px rgba(0,0,0,0.18)); }
+    .profile-rank-cup span { display:inline-block; -webkit-background-clip:text; background-clip:text; color:transparent; }
+    .profile-rank-cup--shadow span { background-image:linear-gradient(180deg, #191919, #4b4b4b); }
+    .profile-rank-cup--bronze span { background-image:linear-gradient(180deg, #f3c6a2, #b66a2f 58%, #7b3411); }
+    .profile-rank-cup--silver span { background-image:linear-gradient(180deg, #ffffff, #cfd5df 58%, #7e8a9b); }
+    .profile-rank-cup--gold span { background-image:linear-gradient(180deg, #fff6b8, #ffc531 58%, #ad6f00); }
+    .profile-rank-cup--diamond span { background-image:linear-gradient(180deg, #f4ffff, #8fe2ff 55%, #3d7dff); }
+    .profile-rank-cup--violet span { background-image:linear-gradient(180deg, #ffe1ff, #b87bff 55%, #6f3cff); }
+    .profile-rank-cup--emerald span { background-image:linear-gradient(180deg, #e7fff6, #2fe49e 55%, #0f8b67); }
+    .profile-rank-cup--diamond, .profile-rank-cup--violet, .profile-rank-cup--emerald { animation: profileCupGlow 3.1s ease-in-out infinite; }
+    .profile-rank-cup-label { margin-top:14px; font-weight:800; color:#2f1f12; }
+    .profile-rank-cup-note { margin-top:6px; color:rgba(63,43,24,0.72); font-size:14px; }
+    .profile-rank-stats { margin-top:24px; display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:16px; }
+    .profile-rank-stat { min-height:160px; display:flex; flex-direction:column; justify-content:space-between; }
+    .profile-rank-stat-label { font-size:12px; letter-spacing:.12em; text-transform:uppercase; color:rgba(80,56,31,0.66); }
+    .profile-rank-stat-value { margin-top:10px; font-size:clamp(32px, 5vw, 56px); line-height:1; font-weight:900; color:#2f1f12; word-break:break-word; }
+    .profile-rank-stat-note { margin-top:14px; color:rgba(63,43,24,0.72); font-size:14px; }
+    @keyframes profileCupGlow { 0%, 100% { transform:translateY(0) scale(1); filter:drop-shadow(0 20px 32px rgba(0,0,0,0.18)); } 50% { transform:translateY(-4px) scale(1.02); filter:drop-shadow(0 18px 44px rgba(115,94,255,0.22)); } }
+    @media (max-width: 991px) { .profile-rank-hero { grid-template-columns:1fr; } .profile-rank-stats { grid-template-columns:1fr; } .profile-rank-card { padding:22px; } }
+  </style>
 </head>
 <body class="parchment-screen app-shell-screen lobby-screen-modern profile-modern-screen" data-sound-base="/sounds">
   <div class="parchment-overlay"></div>
@@ -26,7 +56,7 @@
     </div>
   </div>
 
-  <div class="container parchment-app-container profile-modern-shell">
+  <div class="container parchment-app-container profile-modern-shell profile-rank-shell">
     <header id="site-header" class="parchment-header profile-modern-header">
       <div class="row">
         <div class="col-md-4 col-sm-5 col-xs-8">
@@ -52,61 +82,45 @@
     </header>
 
     <main class="content-body profile-modern-content">
-      <section class="page-intro-card profile-modern-header-card">
-        <div class="profile-modern-summary">
-          <div class="waiting-room-v2-kicker">Profil</div>
-          <h1>A saját Hódító profilod</h1>
-          <p>Itt látod a fiókadataidat és a játékhoz kapcsolódó alapinformációkat. A dizájn most a lobby vizuális rendszeréhez igazodik, reszponzívan.</p>
-        </div>
-      </section>
-
-      <section class="profile-modern-grid">
-        <aside class="profile-modern-card profile-modern-sidebar reveal-delay-1">
-          <div class="profile-modern-avatar-wrap">
-            <img src="http://placehold.it/380x500" alt="Profilkép" class="profile-modern-avatar">
-          </div>
-          <div class="profile-modern-badge">
-            <i class="ion-trophy"></i>
-            Hódító játékos
-          </div>
+      <section class="profile-rank-hero">
+        <aside class="profile-rank-card profile-rank-cup-card">
+          <div class="profile-rank-kicker">Kupa</div>
+          <div class="profile-rank-cup profile-rank-cup--<%= trophy && trophy.tier ? trophy.tier : 'shadow' %>"><span>🏆</span></div>
+          <div class="profile-rank-cup-label"><%= trophy && trophy.label ? trophy.label : 'Fekete kupa' %></div>
+          <div class="profile-rank-cup-note"><%= trophy && trophy.note ? trophy.note : 'Dolgozd be magad a top 20-ba.' %></div>
         </aside>
 
-        <div class="profile-modern-main">
-          <section class="profile-modern-card profile-modern-headline reveal-delay-1">
-            <div class="profile-modern-kicker">Fiók</div>
-            <h2 class="profile-modern-name"><%= username %></h2>
-            <div class="profile-modern-email">
-              <i class="glyphicon glyphicon-envelope"></i>
-              <span><%= email %></span>
-            </div>
-          </section>
+        <section class="profile-rank-card">
+          <div class="profile-rank-kicker">Hódító ranglétra - ki a legokosabb?</div>
+          <h1 class="profile-rank-title"><%= username %></h1>
+          <p class="profile-rank-subtitle">Csak az online random matchmaking győzelmek számítanak bele a profilrangodba.</p>
 
-          <section>
-            <div class="profile-modern-stats">
-              <article class="profile-modern-card profile-modern-stat reveal-delay-1">
-                <div class="profile-modern-stat-label">Lejátszott meccsek</div>
-                <div class="profile-modern-stat-value">--</div>
-                <div class="profile-modern-stat-note">Játsz több meccset, hogy itt valódi stat jelenjen meg.</div>
-              </article>
+          <div class="profile-rank-stats">
+            <article class="profile-rank-card profile-rank-stat">
+              <div>
+                <div class="profile-rank-stat-label">Felhasználónév</div>
+                <div class="profile-rank-stat-value"><%= username %></div>
+              </div>
+              <div class="profile-rank-stat-note">Ez jelenik meg a ranglétrán is.</div>
+            </article>
 
-              <article class="profile-modern-card profile-modern-stat reveal-delay-2">
-                <div class="profile-modern-stat-label">Nyert meccsek</div>
-                <div class="profile-modern-stat-value">--</div>
-                <div class="profile-modern-stat-note">Menj fel a ranglistán és töltsd meg ezt a mezőt.</div>
-              </article>
+            <article class="profile-rank-card profile-rank-stat">
+              <div>
+                <div class="profile-rank-stat-label">Nyert meccsek</div>
+                <div class="profile-rank-stat-value"><%= randomMatchmakingWins || 0 %></div>
+              </div>
+              <div class="profile-rank-stat-note">Ennyi online random matchmaking győzelmed van.</div>
+            </article>
 
-              <article class="profile-modern-card profile-modern-stat reveal-delay-2">
-                <div class="profile-modern-stat-label">Fiók állapota</div>
-                <div class="profile-modern-stat-value">Aktív</div>
-                <div class="profile-modern-stat-note">A profil használatra kész és a lobby dizájnjához igazodik.</div>
-              </article>
-            </div>
-          </section>
-
-          <section class="profile-modern-card profile-modern-info reveal-delay-2">
-            Játsz több meccset, hogy később megjelenhessenek a részletes eredményeid, előrehaladásod és további profilstatisztikáid.
-          </section>
-        </div>
+            <article class="profile-rank-card profile-rank-stat">
+              <div>
+                <div class="profile-rank-stat-label">Ranglétra helyezés</div>
+                <div class="profile-rank-stat-value"><%= randomMatchmakingRank ? ('#' + randomMatchmakingRank) : '--' %></div>
+              </div>
+              <div class="profile-rank-stat-note">Ha döntetlen van, a betűrend dönt.</div>
+            </article>
+          </div>
+        </section>
       </section>
     </main>
 

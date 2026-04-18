@@ -3,6 +3,7 @@ const Territory = require('./public/models/territory');
 const Gameutils = require('./public/models/gameutils');
 const Player = require('./public/models/players');
 const Castle = require('./public/models/castle');
+const User = require('./public/models/user');
 const { MULTIPLE_CHOICE_QUESTIONS, GUESS_QUESTIONS, ULTRAHARD_QUESTIONS = [] } = require('./questions');
 const LobbyStore = require('./lobbyStore');
 const MatchmakingStore = require('./matchmakingStore');
@@ -177,7 +178,72 @@ function getBaseKozepsuliHelpPerPlayer(room) {
 }
 
 
-module.exports = function createGame(io, rawGameId, creatorUsername, howmany, maplevel) {
+function normalizeMatchSource(value) {
+  return String(value || '').trim() === 'random_matchmaking' ? 'random_matchmaking' : 'custom_lobby';
+}
+
+async function emitRandomMatchmakingLeaderboardUpdate(io) {
+  if (!io || typeof io.of !== 'function' || !User || typeof User.getRandomMatchmakingLeaderboardData !== 'function') {
+    return;
+  }
+
+  try {
+    const leaderboardData = await User.getRandomMatchmakingLeaderboardData();
+    const lobbyNamespace = io.of('/lobby');
+    if (!lobbyNamespace) return;
+    if (typeof lobbyNamespace.emitLeaderboardUpdate === 'function') {
+      lobbyNamespace.emitLeaderboardUpdate();
+      return;
+    }
+    lobbyNamespace.emit('leaderboard:update', {
+      leaderboardTop5: leaderboardData.top5,
+      leaderboardTop20: leaderboardData.top20,
+      totalPlayers: leaderboardData.totalPlayers,
+    });
+  } catch (error) {
+    console.error('Failed to emit leaderboard update:', error);
+  }
+}
+
+async function recordRandomMatchmakingStats(room, winner) {
+  if (!room || !room.game || room.game.matchSource !== 'random_matchmaking' || room.game.randomMatchmakingStatsRecorded) {
+    return;
+  }
+
+  const humanPlayers = room.players.filter((player) => {
+    return player && !player.isBot && player.name && player.name !== 'x';
+  });
+
+  if (!humanPlayers.length) {
+    room.game.randomMatchmakingStatsRecorded = true;
+    return;
+  }
+
+  await Promise.all(humanPlayers.map((player) => {
+    return User.updateOne(
+      { username: player.name },
+      { $inc: { randomMatchmakingGames: 1 } }
+    );
+  }));
+
+  if (winner && !winner.isBot && winner.name && winner.name !== 'x') {
+    const updatedWinner = await User.findOneAndUpdate(
+      { username: winner.name },
+      { $inc: { randomMatchmakingWins: 1 } },
+      { new: true }
+    ).select('randomMatchmakingWins').lean();
+
+    room.game.winnerRandomMatchmakingWins = updatedWinner
+      ? Number(updatedWinner.randomMatchmakingWins || 0)
+      : null;
+  }
+
+  room.game.randomMatchmakingStatsRecorded = true;
+  await emitRandomMatchmakingLeaderboardUpdate(room.io);
+}
+
+module.exports = function createGame(io, rawGameId, creatorUsername, howmany, maplevel, options) {
+
   const gameid = Number(rawGameId);
   if (ACTIVE_GAMES.has(gameid)) {
     return ACTIVE_GAMES.get(gameid);
@@ -188,6 +254,7 @@ module.exports = function createGame(io, rawGameId, creatorUsername, howmany, ma
 
   const namespace = io.of(`/${gameid}`);
   const room = {
+    matchSource: normalizeMatchSource(options && options.matchSource),
     io,
     namespace,
     gameid,
@@ -244,6 +311,9 @@ async function setupGame(room) {
     howmany: room.howmany,
     maplevel: room.maplevel,
     creater: room.creatorUsername,
+    matchSource: room.matchSource,
+    randomMatchmakingStatsRecorded: false,
+    winnerRandomMatchmakingWins: null,
     baseOrder: [],
     orderCycle: createOrderCycle(room.players.map((player) => player.pid)),
     baseSelectionIndex: 0,
@@ -2561,23 +2631,41 @@ async function advanceBattleTurn(room) {
 }
 
 async function finishMatch(room, winnerPid) {
+  if (!room || !room.game || room.game.phase === PHASES.FINISHED || room.game.gamefinish) {
+    return;
+  }
+
   stopInactivityMonitor(room);
+  clearQuestionTimer(room);
+
+  const winner = getPlayerByPid(room, winnerPid) || getHighestScorePlayer(room);
+
   room.game.phase = PHASES.FINISHED;
   room.game.currentplayer = -1;
   room.game.gamefinish = true;
   room.game.activeQuestion = null;
-  room.game.winner = winnerPid;
+  room.game.winner = winner ? winner.pid : winnerPid;
+
+  if (room.game.matchSource === 'random_matchmaking' && !room.game.randomMatchmakingStatsRecorded) {
+    await recordRandomMatchmakingStats(room, winner);
+  }
+
   await persistGame(room);
 
+  if (winner) {
+    gameLog(room, `A meccs véget ért. Győztes: ${winner.name} (${winner.score} pont).`);
+    sendStatus(room, `A meccs véget ért. Győztes: ${winner.name}.`);
+  } else {
+    gameLog(room, 'A meccs véget ért. A győztes nem ismert.');
+    sendStatus(room, 'A meccs véget ért. A győztes nem ismert.');
+  }
 
-
-
-  clearQuestionTimer(room);
-  const winner = getPlayerByPid(room, winnerPid) || getHighestScorePlayer(room);
-  gameLog(room, `A meccs véget ért. Győztes: ${winner.name} (${winner.score} pont).`);
-  sendStatus(room, `A meccs véget ért. Győztes: ${winner.name}.`);
   emitSnapshot(room);
-  room.namespace.emit('gamefinish', [{ winner: winner.pid }]);
+  room.namespace.emit('gamefinish', [{
+    winner: winner ? winner.pid : winnerPid,
+    matchSource: room.game.matchSource,
+    winnerRandomMatchmakingWins: room.game.winnerRandomMatchmakingWins
+  }]);
 
   try {
     MatchmakingStore.clearMatch(room.gameid);
@@ -3147,6 +3235,8 @@ function buildSnapshotPayload(room, includeStaticTerritories) {
       horthyHomelandTerritoryTids: room.game.horthyHomelandTerritoryTids || [],
       gamefinish: room.game.gamefinish,
       winner: room.game.winner ?? null,
+      matchSource: room.game.matchSource || 'custom_lobby',
+      winnerRandomMatchmakingWins: Number.isFinite(room.game.winnerRandomMatchmakingWins) ? room.game.winnerRandomMatchmakingWins : null,
     },
     territories: buildTerritorySnapshot(room, includeStaticTerritories),
     territoriesMode: includeStaticTerritories ? 'full' : 'dynamic',

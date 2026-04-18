@@ -1,6 +1,7 @@
 
 module.exports = function(io, db) {
   var LobbyStore = require('./lobbyStore');
+  var User = require('./public/models/user');
   var client = io.of('/lobby');
 
   if (client.__privateLobbyInitialized) {
@@ -8,6 +9,43 @@ module.exports = function(io, db) {
   }
 
   client.__privateLobbyInitialized = true;
+
+  async function getLeaderboardPayload(viewerUsername) {
+    if (!User || typeof User.getRandomMatchmakingLeaderboardData !== 'function') {
+      return {
+        leaderboardTop5: [],
+        leaderboardTop20: [],
+        totalPlayers: 0,
+        myStats: { wins: 0, games: 0, rank: null }
+      };
+    }
+
+    var leaderboardData = await User.getRandomMatchmakingLeaderboardData(viewerUsername);
+    var viewer = leaderboardData.viewer;
+
+    return {
+      leaderboardTop5: leaderboardData.top5,
+      leaderboardTop20: leaderboardData.top20,
+      totalPlayers: leaderboardData.totalPlayers,
+      myStats: {
+        wins: viewer ? Number(viewer.randomMatchmakingWins || 0) : 0,
+        games: viewer ? Number(viewer.randomMatchmakingGames || 0) : 0,
+        rank: viewer ? viewer.rank : null
+      }
+    };
+  }
+
+  client.emitLeaderboardUpdate = function() {
+    getLeaderboardPayload('').then(function(payload) {
+      client.emit('leaderboard:update', {
+        leaderboardTop5: payload.leaderboardTop5,
+        leaderboardTop20: payload.leaderboardTop20,
+        totalPlayers: payload.totalPlayers
+      });
+    }).catch(function(error) {
+      console.log('Leaderboard update error:', error);
+    });
+  };
 
   function roomName(gameid) {
     return 'lobby-' + String(gameid);
@@ -46,6 +84,21 @@ module.exports = function(io, db) {
   }
 
   client.on('connection', function(socket) {
+
+    socket.on('getLeaderboard', function(data) {
+      var username = data && data.username ? String(data.username).trim() : '';
+      getLeaderboardPayload(username).then(function(payload) {
+        socket.emit('leaderboard:init', payload);
+      }).catch(function(error) {
+        console.log('Leaderboard init error:', error);
+        socket.emit('leaderboard:init', {
+          leaderboardTop5: [],
+          leaderboardTop20: [],
+          totalPlayers: 0,
+          myStats: { wins: 0, games: 0, rank: null }
+        });
+      });
+    });
 
     socket.on('joinLobby', function(data) {
       var gameid = String((data && data.gameid) || '');

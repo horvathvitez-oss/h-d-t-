@@ -26,6 +26,16 @@ var UserSchema = new mongoose.Schema({
     type:Boolean,
     default: false,
     required: false
+  },
+  randomMatchmakingWins: {
+    type: Number,
+    default: 0,
+    required: false
+  },
+  randomMatchmakingGames: {
+    type: Number,
+    default: 0,
+    required: false
   }
 });
 
@@ -65,6 +75,57 @@ UserSchema.pre('save', function (next) {
 });
 
 var User = module.exports = mongoose.model('User', UserSchema );
+
+var leaderboardCollator = new Intl.Collator('hu', { sensitivity: 'base' });
+
+function normalizeLeaderboardNumber(value) {
+  var number = Number(value || 0);
+  return Number.isFinite(number) && number > 0 ? number : 0;
+}
+
+function buildLeaderboardRows(users) {
+  return (Array.isArray(users) ? users : [])
+    .map(function(user) {
+      return {
+        username: String((user && user.username) || '').trim(),
+        randomMatchmakingWins: normalizeLeaderboardNumber(user && user.randomMatchmakingWins),
+        randomMatchmakingGames: normalizeLeaderboardNumber(user && user.randomMatchmakingGames)
+      };
+    })
+    .filter(function(user) {
+      return Boolean(user.username);
+    })
+    .sort(function(a, b) {
+      var winDiff = b.randomMatchmakingWins - a.randomMatchmakingWins;
+      if (winDiff !== 0) return winDiff;
+      return leaderboardCollator.compare(a.username, b.username);
+    })
+    .map(function(user, index) {
+      user.rank = index + 1;
+      return user;
+    });
+}
+
+User.getRandomMatchmakingLeaderboardData = async function(viewerUsername) {
+  var users = await this.find({}).select('username randomMatchmakingWins randomMatchmakingGames -_id').lean();
+  var rows = buildLeaderboardRows(users);
+  var top20 = rows.slice(0, 20);
+  var viewer = null;
+  var normalizedViewerUsername = String(viewerUsername || '').trim();
+
+  if (normalizedViewerUsername) {
+    viewer = rows.find(function(row) {
+      return row.username === normalizedViewerUsername;
+    }) || null;
+  }
+
+  return {
+    top5: top20.slice(0, 5),
+    top20: top20,
+    totalPlayers: rows.length,
+    viewer: viewer
+  };
+};
 
 // Make a User Online
 module.exports.setOnline = function(where, updateOnUser, options, callback){
