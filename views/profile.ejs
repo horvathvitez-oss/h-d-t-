@@ -8,7 +8,7 @@
   <link rel="stylesheet" href="/views/css/bootstrap.min.css">
   <link rel="stylesheet" href="/views/css/ionicons.min.css">
   <link rel="stylesheet" href="/views/css/pace.css">
-  <link rel="stylesheet" href="/views/css/custom.css?v=leaderboard-profile-2026-04-18-1">
+  <link rel="stylesheet" href="/views/css/custom.css?v=profile-neon-2026-04-18-2">
 
   <script src="/views/js/jquery-2.1.3.min.js"></script>
   <script src="/views/js/bootstrap.min.js"></script>
@@ -16,48 +16,277 @@
   <script src="/views/js/modernizr.custom.js"></script>
 
   <style>
-    .profile-rank-shell { max-width: 1120px; margin: 0 auto; }
-    .profile-rank-hero { display:grid; grid-template-columns:minmax(280px, 380px) minmax(0, 1fr); gap:24px; align-items:stretch; }
-    .profile-rank-card { border-radius:28px; padding:28px; background:linear-gradient(145deg, rgba(255,255,255,0.90), rgba(245,229,205,0.92)); border:1px solid rgba(126,85,42,0.18); box-shadow:0 24px 50px rgba(43,27,12,0.12); }
-    .profile-rank-kicker { font-size:12px; letter-spacing:.12em; text-transform:uppercase; color:rgba(80,56,31,0.66); }
-    .profile-rank-title { margin:12px 0 0; font-size:clamp(28px, 5vw, 52px); line-height:1; color:#2f1f12; word-break:break-word; }
-    .profile-rank-subtitle { margin:14px 0 0; color:rgba(63,43,24,0.74); font-size:15px; }
-    .profile-rank-cup-card { display:flex; flex-direction:column; justify-content:center; align-items:center; text-align:center; overflow:hidden; position:relative; }
-    .profile-rank-cup-card::after { content:''; position:absolute; inset:auto -20% -35% -20%; height:180px; background:radial-gradient(circle, rgba(255,255,255,0.35), transparent 65%); pointer-events:none; }
-    .profile-rank-cup { position:relative; font-size:clamp(84px, 14vw, 160px); line-height:1; filter:drop-shadow(0 20px 32px rgba(0,0,0,0.18)); }
-    .profile-rank-cup span { display:inline-block; -webkit-background-clip:text; background-clip:text; color:transparent; }
-    .profile-rank-cup--shadow span { background-image:linear-gradient(180deg, #191919, #4b4b4b); }
-    .profile-rank-cup--bronze span { background-image:linear-gradient(180deg, #f3c6a2, #b66a2f 58%, #7b3411); }
-    .profile-rank-cup--silver span { background-image:linear-gradient(180deg, #ffffff, #cfd5df 58%, #7e8a9b); }
-    .profile-rank-cup--gold span { background-image:linear-gradient(180deg, #fff6b8, #ffc531 58%, #ad6f00); }
-    .profile-rank-cup--diamond span { background-image:linear-gradient(180deg, #f4ffff, #8fe2ff 55%, #3d7dff); }
-    .profile-rank-cup--violet span { background-image:linear-gradient(180deg, #ffe1ff, #b87bff 55%, #6f3cff); }
-    .profile-rank-cup--emerald span { background-image:linear-gradient(180deg, #e7fff6, #2fe49e 55%, #0f8b67); }
-    .profile-rank-cup--diamond, .profile-rank-cup--violet, .profile-rank-cup--emerald { animation: profileCupGlow 3.1s ease-in-out infinite; }
-    .profile-rank-cup-label { margin-top:14px; font-weight:800; color:#2f1f12; }
-    .profile-rank-cup-note { margin-top:6px; color:rgba(63,43,24,0.72); font-size:14px; }
-    .profile-rank-stats { margin-top:24px; display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:16px; }
-    .profile-rank-stat { min-height:160px; display:flex; flex-direction:column; justify-content:space-between; }
-    .profile-rank-stat-label { font-size:12px; letter-spacing:.12em; text-transform:uppercase; color:rgba(80,56,31,0.66); }
-    .profile-rank-stat-value { margin-top:10px; font-size:clamp(32px, 5vw, 56px); line-height:1; font-weight:900; color:#2f1f12; word-break:break-word; }
-    .profile-rank-stat-note { margin-top:14px; color:rgba(63,43,24,0.72); font-size:14px; }
-    @keyframes profileCupGlow { 0%, 100% { transform:translateY(0) scale(1); filter:drop-shadow(0 20px 32px rgba(0,0,0,0.18)); } 50% { transform:translateY(-4px) scale(1.02); filter:drop-shadow(0 18px 44px rgba(115,94,255,0.22)); } }
-    @media (max-width: 991px) { .profile-rank-hero { grid-template-columns:1fr; } .profile-rank-stats { grid-template-columns:1fr; } .profile-rank-card { padding:22px; } }
+    body.profile-neon-screen {
+      background: #040404;
+      color: #f6f1e8;
+      min-height: 100vh;
+    }
+    .profile-neon-screen .parchment-overlay {
+      background:
+        radial-gradient(circle at top, rgba(130, 24, 24, 0.18), transparent 34%),
+        radial-gradient(circle at bottom, rgba(173, 121, 52, 0.12), transparent 36%),
+        linear-gradient(180deg, rgba(0,0,0,0.18), rgba(0,0,0,0.64));
+    }
+    .profile-neon-shell {
+      max-width: 980px;
+      margin: 0 auto;
+      padding-bottom: 32px;
+    }
+    .profile-neon-header {
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+      background: rgba(0,0,0,0.32);
+      backdrop-filter: blur(8px);
+    }
+    .profile-neon-screen .brand-wordmark,
+    .profile-neon-screen .copyright {
+      color: #ff3939;
+      text-shadow: 0 0 8px rgba(255, 56, 56, 0.55), 0 0 20px rgba(196, 20, 20, 0.38);
+    }
+    .profile-neon-screen .brand-tagline,
+    .profile-neon-screen .main-nav a,
+    .profile-neon-screen .main-nav a:hover,
+    .profile-neon-screen .main-nav a:focus {
+      color: #f5efe7 !important;
+      text-shadow: 0 0 10px rgba(255,255,255,0.16);
+    }
+    .profile-neon-main {
+      padding-top: 38px;
+    }
+    .profile-neon-grid {
+      display: grid;
+      grid-template-columns: minmax(250px, 320px) minmax(0, 1fr);
+      gap: 22px;
+      align-items: stretch;
+    }
+    .profile-neon-card {
+      background: linear-gradient(145deg, rgba(10,10,10,0.95), rgba(18,18,18,0.88));
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 28px;
+      box-shadow: 0 22px 48px rgba(0,0,0,0.42), inset 0 1px 0 rgba(255,255,255,0.03);
+    }
+    .profile-neon-cup {
+      padding: 28px 24px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+    }
+    .profile-neon-cup::after {
+      content: '';
+      position: absolute;
+      inset: auto -10% -28% -10%;
+      height: 180px;
+      background: radial-gradient(circle, rgba(255,255,255,0.12), transparent 68%);
+      pointer-events: none;
+    }
+    .profile-neon-kicker {
+      font-size: 12px;
+      letter-spacing: .18em;
+      text-transform: uppercase;
+      color: #d8c2a3;
+      text-shadow: 0 0 12px rgba(214, 186, 148, 0.16);
+    }
+    .profile-neon-trophy {
+      margin-top: 18px;
+      font-size: clamp(84px, 14vw, 168px);
+      line-height: 1;
+    }
+    .profile-neon-trophy i {
+      background-clip: text;
+      -webkit-background-clip: text;
+      color: transparent;
+      display: inline-block;
+      filter: drop-shadow(0 14px 28px rgba(0,0,0,0.40));
+    }
+    .trophy-shadow i {
+      background-image: linear-gradient(180deg, #111111, #303030 58%, #050505);
+      text-shadow: 0 0 16px rgba(255,255,255,0.06);
+    }
+    .trophy-bronze i {
+      background-image: linear-gradient(180deg, #f4d0b3, #bb7440 58%, #6f2f10);
+      text-shadow: 0 0 16px rgba(203, 130, 74, 0.22);
+    }
+    .trophy-silver i {
+      background-image: linear-gradient(180deg, #ffffff, #d8dfe8 58%, #79889c);
+      text-shadow: 0 0 18px rgba(205, 219, 241, 0.26);
+    }
+    .trophy-gold i {
+      background-image: linear-gradient(180deg, #fff8c2, #ffc736 58%, #a35f00);
+      text-shadow: 0 0 18px rgba(255, 204, 67, 0.30);
+    }
+    .trophy-diamond i {
+      background-image: linear-gradient(180deg, #f4ffff, #95e5ff 55%, #407dff);
+      text-shadow: 0 0 20px rgba(127, 219, 255, 0.34);
+    }
+    .trophy-violet i {
+      background-image: linear-gradient(180deg, #ffe1ff, #be86ff 55%, #7040ff);
+      text-shadow: 0 0 24px rgba(171, 122, 255, 0.42);
+    }
+    .trophy-emerald i {
+      background-image: linear-gradient(180deg, #eefff8, #33eba5 55%, #0f8d68);
+      text-shadow: 0 0 24px rgba(59, 231, 160, 0.44);
+    }
+    .trophy-diamond i,
+    .trophy-violet i,
+    .trophy-emerald i {
+      animation: trophyPulse 3s ease-in-out infinite;
+    }
+    .profile-neon-cup-label {
+      margin-top: 12px;
+      font-size: 22px;
+      font-weight: 800;
+      color: #fff7eb;
+      text-shadow: 0 0 14px rgba(255,255,255,0.16);
+    }
+    .profile-neon-cup-note {
+      margin-top: 8px;
+      color: #d6be9e;
+      text-shadow: 0 0 10px rgba(214, 190, 158, 0.12);
+      max-width: 240px;
+    }
+    .profile-neon-panel {
+      padding: 30px;
+      display: grid;
+      gap: 22px;
+    }
+    .profile-neon-title {
+      margin: 10px 0 0;
+      font-size: clamp(34px, 5.5vw, 60px);
+      line-height: .98;
+      color: #fffdf7;
+      text-shadow: 0 0 18px rgba(255,255,255,0.18);
+      word-break: break-word;
+    }
+    .profile-neon-brand {
+      color: #ff3535;
+      text-shadow: 0 0 10px rgba(255, 57, 57, 0.56), 0 0 24px rgba(186, 24, 24, 0.40);
+    }
+    .profile-neon-subtitle {
+      margin: 0;
+      color: #d6be9e;
+      font-size: 15px;
+      text-shadow: 0 0 10px rgba(214, 190, 158, 0.10);
+      max-width: 560px;
+    }
+    .profile-neon-stats {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 16px;
+    }
+    .profile-neon-stat {
+      padding: 22px 20px;
+      border-radius: 22px;
+      background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.015));
+      border: 1px solid rgba(255,255,255,0.07);
+      min-height: 158px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+    .profile-neon-stat-label {
+      font-size: 12px;
+      letter-spacing: .16em;
+      text-transform: uppercase;
+      color: #d8c2a3;
+      text-shadow: 0 0 10px rgba(214, 186, 148, 0.12);
+    }
+    .profile-neon-stat-value {
+      margin-top: 12px;
+      font-size: clamp(34px, 5vw, 58px);
+      line-height: 1;
+      font-weight: 900;
+      color: #fffdf8;
+      text-shadow: 0 0 16px rgba(255,255,255,0.18);
+      word-break: break-word;
+    }
+    .profile-neon-stat-note {
+      margin-top: 14px;
+      color: #d6be9e;
+      text-shadow: 0 0 10px rgba(214, 190, 158, 0.10);
+      font-size: 14px;
+    }
+    @keyframes trophyPulse {
+      0%, 100% {
+        transform: translateY(0) scale(1);
+        filter: drop-shadow(0 14px 28px rgba(0,0,0,0.40));
+      }
+      50% {
+        transform: translateY(-4px) scale(1.02);
+        filter: drop-shadow(0 16px 34px rgba(92, 74, 255, 0.24));
+      }
+    }
+    @media (max-width: 991px) {
+      .profile-neon-grid {
+        grid-template-columns: 1fr;
+      }
+      .profile-neon-panel {
+        padding: 24px;
+      }
+      .profile-neon-stats {
+        grid-template-columns: 1fr;
+      }
+    }
+    @media (max-width: 640px) {
+      .profile-neon-shell {
+        padding-bottom: 22px;
+      }
+      .profile-neon-main {
+        padding-top: 24px;
+      }
+      .profile-neon-cup,
+      .profile-neon-panel {
+        padding: 20px;
+      }
+      .profile-neon-title {
+        font-size: 34px;
+      }
+      .profile-neon-cup-label {
+        font-size: 20px;
+      }
+    }
   </style>
 </head>
-<body class="parchment-screen app-shell-screen lobby-screen-modern profile-modern-screen" data-sound-base="/sounds">
+<body class="parchment-screen app-shell-screen profile-neon-screen" data-sound-base="/sounds">
+  <%
+    var rankValue = Number(randomMatchmakingRank || 0);
+    var winsValue = Number(randomMatchmakingWins || 0);
+    var trophyTier = 'shadow';
+    var trophyLabel = 'Fekete kupa';
+    var trophyNote = 'Nincs benne a top 20-ban.';
+
+    if (rankValue === 1) {
+      trophyTier = 'emerald';
+      trophyLabel = 'Emeráld kupa';
+      trophyNote = 'Te vezeted a ranglétrát.';
+    } else if (rankValue === 2) {
+      trophyTier = 'violet';
+      trophyLabel = 'Világítós lila kupa';
+      trophyNote = 'A 2. helyen állsz.';
+    } else if (rankValue === 3) {
+      trophyTier = 'diamond';
+      trophyLabel = 'Gyémánt kupa';
+      trophyNote = 'A dobogó 3. fokán állsz.';
+    } else if (rankValue >= 4 && rankValue <= 5) {
+      trophyTier = 'gold';
+      trophyLabel = 'Arany kupa';
+      trophyNote = 'Top 5-ös helyezés.';
+    } else if (rankValue >= 6 && rankValue <= 10) {
+      trophyTier = 'silver';
+      trophyLabel = 'Ezüst kupa';
+      trophyNote = 'Top 10-es helyezés.';
+    } else if (rankValue >= 11 && rankValue <= 20) {
+      trophyTier = 'bronze';
+      trophyLabel = 'Bronz kupa';
+      trophyNote = 'Bent vagy a top 20-ban.';
+    }
+  %>
   <div class="parchment-overlay"></div>
 
-  <div class="top-promo-strip">
-    <div class="top-promo-strip-track">
-      <span>NEM MENNEK A KÉRDÉSEK? - KÖZÉPSULINEKED.COM</span>
-      <span>NEM MENNEK A KÉRDÉSEK? - KÖZÉPSULINEKED.COM</span>
-      <span>NEM MENNEK A KÉRDÉSEK? - KÖZÉPSULINEKED.COM</span>
-    </div>
-  </div>
-
-  <div class="container parchment-app-container profile-modern-shell profile-rank-shell">
-    <header id="site-header" class="parchment-header profile-modern-header">
+  <div class="container parchment-app-container profile-neon-shell">
+    <header id="site-header" class="parchment-header profile-neon-header">
       <div class="row">
         <div class="col-md-4 col-sm-5 col-xs-8">
           <div class="logo parchment-wordmark-wrap">
@@ -81,43 +310,45 @@
       </div>
     </header>
 
-    <main class="content-body profile-modern-content">
-      <section class="profile-rank-hero">
-        <aside class="profile-rank-card profile-rank-cup-card">
-          <div class="profile-rank-kicker">Kupa</div>
-          <div class="profile-rank-cup profile-rank-cup--<%= trophy && trophy.tier ? trophy.tier : 'shadow' %>"><span>🏆</span></div>
-          <div class="profile-rank-cup-label"><%= trophy && trophy.label ? trophy.label : 'Fekete kupa' %></div>
-          <div class="profile-rank-cup-note"><%= trophy && trophy.note ? trophy.note : 'Dolgozd be magad a top 20-ba.' %></div>
+    <main class="content-body profile-neon-main">
+      <section class="profile-neon-grid">
+        <aside class="profile-neon-card profile-neon-cup">
+          <div class="profile-neon-kicker">Kupa</div>
+          <div class="profile-neon-trophy trophy-<%= trophyTier %>"><i class="ion-trophy"></i></div>
+          <div class="profile-neon-cup-label"><%= trophyLabel %></div>
+          <div class="profile-neon-cup-note"><%= trophyNote %></div>
         </aside>
 
-        <section class="profile-rank-card">
-          <div class="profile-rank-kicker">Hódító ranglétra - ki a legokosabb?</div>
-          <h1 class="profile-rank-title"><%= username %></h1>
-          <p class="profile-rank-subtitle">Csak az online random matchmaking győzelmek számítanak bele a profilrangodba.</p>
+        <section class="profile-neon-card profile-neon-panel">
+          <div>
+            <div class="profile-neon-kicker profile-neon-brand">HÓDÍTÓ</div>
+            <h1 class="profile-neon-title"><%= username %></h1>
+            <p class="profile-neon-subtitle">Csak az 'online-random'  győzelmek számítanak bele a ranglétrába.</p>
+          </div>
 
-          <div class="profile-rank-stats">
-            <article class="profile-rank-card profile-rank-stat">
+          <div class="profile-neon-stats">
+            <article class="profile-neon-stat">
               <div>
-                <div class="profile-rank-stat-label">Felhasználónév</div>
-                <div class="profile-rank-stat-value"><%= username %></div>
+                <div class="profile-neon-stat-label">Felhasználónév</div>
+                <div class="profile-neon-stat-value"><%= username %></div>
               </div>
-              <div class="profile-rank-stat-note">Ez jelenik meg a ranglétrán is.</div>
+              <div class="profile-neon-stat-note">Ezt mindenki látja a ranglétrán.</div>
             </article>
 
-            <article class="profile-rank-card profile-rank-stat">
+            <article class="profile-neon-stat">
               <div>
-                <div class="profile-rank-stat-label">Nyert meccsek</div>
-                <div class="profile-rank-stat-value"><%= randomMatchmakingWins || 0 %></div>
+                <div class="profile-neon-stat-label">Nyert meccsek</div>
+                <div class="profile-neon-stat-value"><%= winsValue %></div>
               </div>
-              <div class="profile-rank-stat-note">Ennyi online random matchmaking győzelmed van.</div>
+              <div class="profile-neon-stat-note">Ennyi online győzelmed van.</div>
             </article>
 
-            <article class="profile-rank-card profile-rank-stat">
+            <article class="profile-neon-stat">
               <div>
-                <div class="profile-rank-stat-label">Ranglétra helyezés</div>
-                <div class="profile-rank-stat-value"><%= randomMatchmakingRank ? ('#' + randomMatchmakingRank) : '--' %></div>
+                <div class="profile-neon-stat-label">Ranglétra helyezés</div>
+                <div class="profile-neon-stat-value"><%= rankValue ? ('#' + rankValue) : '--' %></div>
               </div>
-              <div class="profile-rank-stat-note">Ha döntetlen van, a betűrend dönt.</div>
+              <div class="profile-neon-stat-note">Több meccs = magasabb rang</div>
             </article>
           </div>
         </section>

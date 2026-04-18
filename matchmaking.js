@@ -113,7 +113,7 @@ module.exports = function(io, db) {
       var host = randomItem(players);
       var gameid = LobbyStore.generateLobbyCode();
 
-      createGame(io, Number(gameid), host, 3, 'world', db);
+      createGame(io, Number(gameid), host, 3, 'world', { matchSource: 'random_matchmaking' });
       LobbyStore.createLobby({
         gameid: gameid,
         host: host,

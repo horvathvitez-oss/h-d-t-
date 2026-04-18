@@ -14,37 +14,136 @@
   <script defer src="/views/js/bootstrap.min.js"></script>
   <script defer src="/views/js/pace.min.js"></script>
   <script defer src="/views/js/modernizr.custom.js"></script>
-  <script defer src="/socket.io/socket.io.js"></script>
   <style>
-    .hodito-leaderboard-card { margin-top:24px; }
-    .hodito-leaderboard-shell { display:grid; gap:18px; }
-    .hodito-leaderboard-head { display:flex; align-items:flex-start; justify-content:space-between; gap:16px; flex-wrap:wrap; }
-    .hodito-leaderboard-head h3 { margin:0; font-size:clamp(24px, 3vw, 34px); }
-    .hodito-leaderboard-head p { margin:8px 0 0; color:rgba(50,38,24,0.78); }
-    .hodito-leaderboard-summary { display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:12px; }
-    .hodito-leaderboard-stat { background:rgba(255,255,255,0.5); border:1px solid rgba(118,81,44,0.16); border-radius:18px; padding:14px 16px; box-shadow:0 12px 24px rgba(38,24,12,0.06); min-height:92px; }
-    .hodito-leaderboard-stat-label { display:block; font-size:12px; text-transform:uppercase; letter-spacing:.08em; color:rgba(72,50,28,0.66); }
-    .hodito-leaderboard-stat-value { display:block; margin-top:6px; font-size:clamp(24px, 4vw, 36px); font-weight:800; color:#3b2816; line-height:1; }
-    .hodito-leaderboard-stat-note { display:block; margin-top:8px; font-size:13px; color:rgba(59,40,22,0.74); }
-    .hodito-leaderboard-list { list-style:none; margin:0; padding:0; display:grid; gap:10px; }
-    .hodito-leaderboard-row { display:grid; grid-template-columns:64px minmax(0,1fr) auto; align-items:center; gap:12px; padding:14px 16px; border-radius:18px; background:linear-gradient(135deg, rgba(255,255,255,0.82), rgba(248,236,218,0.92)); border:1px solid rgba(121,86,47,0.18); box-shadow:0 14px 26px rgba(36,22,10,0.08); }
-    .hodito-leaderboard-row.is-current-user { border-color:rgba(200,132,21,0.44); box-shadow:0 16px 32px rgba(160,102,18,0.16); }
-    .hodito-leaderboard-rank { display:inline-flex; align-items:center; justify-content:center; width:48px; height:48px; border-radius:999px; font-weight:900; background:rgba(61,41,24,0.12); color:#3b2816; }
-    .hodito-leaderboard-rank.is-medal { color:#fff; box-shadow:0 12px 24px rgba(0,0,0,0.16); }
-    .hodito-leaderboard-rank.is-rank-1 { background:linear-gradient(135deg, #19d37d, #0b7f5f); }
-    .hodito-leaderboard-rank.is-rank-2 { background:linear-gradient(135deg, #cf8cff, #7a4cff); }
-    .hodito-leaderboard-rank.is-rank-3 { background:linear-gradient(135deg, #8fe2ff, #2c8fff); }
-    .hodito-leaderboard-player { min-width:0; }
-    .hodito-leaderboard-name { display:block; font-weight:800; color:#2d1b0f; text-decoration:none; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-    .hodito-leaderboard-name:hover { color:#7f4f19; text-decoration:none; }
-    .hodito-leaderboard-meta { display:block; margin-top:4px; color:rgba(63,43,24,0.72); font-size:13px; }
-    .hodito-leaderboard-wins { font-weight:800; color:#5d3411; white-space:nowrap; }
-    .hodito-leaderboard-controls { display:flex; align-items:center; justify-content:center; }
-    .hodito-leaderboard-toggle { min-width:160px; border-radius:999px; padding:12px 20px; border:0; background:linear-gradient(135deg, #49301a, #8c5a21); color:#fff; font-weight:800; letter-spacing:.02em; box-shadow:0 14px 26px rgba(73,48,26,0.22); }
-    .hodito-leaderboard-toggle[hidden] { display:none !important; }
-    .hodito-leaderboard-empty { padding:20px; text-align:center; border-radius:18px; background:rgba(255,255,255,0.58); color:rgba(63,43,24,0.76); }
-    @media (max-width: 991px) { .hodito-leaderboard-summary { grid-template-columns:1fr; } }
-    @media (max-width: 640px) { .hodito-leaderboard-row { grid-template-columns:52px minmax(0,1fr); } .hodito-leaderboard-wins { grid-column:2; white-space:normal; } .hodito-leaderboard-rank { width:42px; height:42px; } .hodito-leaderboard-head { align-items:stretch; } }
+    .hodito-leaderboard-card {
+      margin: 24px auto 0;
+      width: 100%;
+      max-width: 620px;
+    }
+    .hodito-leaderboard-shell {
+      display: grid;
+      gap: 14px;
+      width: 100%;
+    }
+    .hodito-leaderboard-head {
+      text-align: center;
+      max-width: 420px;
+      margin: 0 auto;
+    }
+    .hodito-leaderboard-head h3 {
+      margin: 0;
+      font-size: clamp(22px, 3vw, 30px);
+      line-height: 1.1;
+    }
+    .hodito-leaderboard-head p {
+      margin: 8px 0 0;
+      color: rgba(50,38,24,0.78);
+      font-size: 14px;
+    }
+    .hodito-leaderboard-list {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: grid;
+      gap: 8px;
+    }
+    .hodito-leaderboard-row {
+      display: grid;
+      grid-template-columns: 48px minmax(0,1fr) auto;
+      align-items: center;
+      gap: 10px;
+      padding: 11px 12px;
+      border-radius: 16px;
+      background: linear-gradient(135deg, rgba(255,255,255,0.82), rgba(248,236,218,0.92));
+      border: 1px solid rgba(121,86,47,0.18);
+      box-shadow: 0 10px 18px rgba(36,22,10,0.07);
+    }
+    .hodito-leaderboard-row.is-current-user {
+      border-color: rgba(200,132,21,0.48);
+      box-shadow: 0 12px 24px rgba(160,102,18,0.14);
+    }
+    .hodito-leaderboard-rank {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 36px;
+      height: 36px;
+      border-radius: 999px;
+      font-weight: 900;
+      font-size: 13px;
+      background: rgba(61,41,24,0.12);
+      color: #3b2816;
+    }
+    .hodito-leaderboard-rank.is-medal {
+      color: #fff;
+      box-shadow: 0 10px 18px rgba(0,0,0,0.14);
+    }
+    .hodito-leaderboard-rank.is-rank-1 { background: linear-gradient(135deg, #19d37d, #0b7f5f); }
+    .hodito-leaderboard-rank.is-rank-2 { background: linear-gradient(135deg, #cf8cff, #7a4cff); }
+    .hodito-leaderboard-rank.is-rank-3 { background: linear-gradient(135deg, #8fe2ff, #2c8fff); }
+    .hodito-leaderboard-name {
+      display: block;
+      font-weight: 800;
+      font-size: 15px;
+      color: #2d1b0f;
+      text-decoration: none;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .hodito-leaderboard-name:hover {
+      color: #7f4f19;
+      text-decoration: none;
+    }
+    .hodito-leaderboard-wins {
+      font-weight: 800;
+      font-size: 14px;
+      color: #5d3411;
+      white-space: nowrap;
+    }
+    .hodito-leaderboard-controls {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .hodito-leaderboard-toggle {
+      min-width: 120px;
+      border-radius: 999px;
+      padding: 10px 18px;
+      border: 0;
+      background: linear-gradient(135deg, #49301a, #8c5a21);
+      color: #fff;
+      font-weight: 800;
+      letter-spacing: .02em;
+      box-shadow: 0 12px 22px rgba(73,48,26,0.20);
+    }
+    .hodito-leaderboard-toggle[hidden] { display: none !important; }
+    .hodito-leaderboard-empty {
+      padding: 16px;
+      text-align: center;
+      border-radius: 16px;
+      background: rgba(255,255,255,0.58);
+      color: rgba(63,43,24,0.76);
+    }
+    @media (max-width: 640px) {
+      .hodito-leaderboard-card { max-width: 100%; }
+      .hodito-leaderboard-row {
+        grid-template-columns: 40px minmax(0,1fr);
+        gap: 8px;
+        padding: 10px;
+      }
+      .hodito-leaderboard-rank {
+        width: 32px;
+        height: 32px;
+        font-size: 12px;
+      }
+      .hodito-leaderboard-wins {
+        grid-column: 2;
+        font-size: 13px;
+      }
+      .hodito-leaderboard-name { font-size: 14px; }
+      .hodito-leaderboard-head h3 { font-size: 22px; }
+    }
   </style>
 </head>
 <body class="parchment-screen app-shell-screen lobby-screen-modern lobby-v3" data-sound-base="/sounds">
@@ -212,42 +311,20 @@
         <a href="/matchmaking" class="btn btn-warning btn-lg lobby-v3-primary-btn lobby-action-btn">Meccskeresés</a>
       </section>
 <section class="menu-card parchment-panel lobby-v3-action-card hodito-leaderboard-card reveal-card reveal-delay-4" aria-label="Hódító ranglétra">
-  <div class="hodito-leaderboard-shell">
-    <div class="hodito-leaderboard-head">
-      <div>
-        <div class="lobby-v3-action-kicker">Hódító ranglétra - ki a legokosabb?</div>
-        <h3>ONLINE RANDOM MATCHMAKING</h3>
-        <p>Alapból az első 5 helyezettet látod. A <strong>több...</strong> gomb lenyitja a top 20-at.</p>
-      </div>
-      <a href="/profile" class="btn btn-default lobby-action-btn">Saját profil</a>
-    </div>
+        <div class="hodito-leaderboard-shell">
+          <div class="hodito-leaderboard-head">
+            <div class="lobby-v3-action-kicker">JELENLEGI ONLINE RANGSOR</div>
+            <h3>Hódító ranglétra - ki a legokosabb?</h3>
+            <p>Alapból az első 5 helyezett látszik. A „több...” gomb megmutatja a top 20-at.</p>
+          </div>
 
-    <div class="hodito-leaderboard-summary">
-      <article class="hodito-leaderboard-stat">
-        <span class="hodito-leaderboard-stat-label">A te helyezésed</span>
-        <span id="hoditoLeaderboardMyRank" class="hodito-leaderboard-stat-value"><%= myStats && myStats.rank ? ('#' + myStats.rank) : '--' %></span>
-        <span class="hodito-leaderboard-stat-note">A rangsort győzelmek száma, döntetlennél betűrend dönti el.</span>
-      </article>
-      <article class="hodito-leaderboard-stat">
-        <span class="hodito-leaderboard-stat-label">Nyert random meccsek</span>
-        <span id="hoditoLeaderboardMyWins" class="hodito-leaderboard-stat-value"><%= myStats ? (myStats.wins || 0) : 0 %></span>
-        <span class="hodito-leaderboard-stat-note">Csak az online random matchmaking győzelmek számítanak.</span>
-      </article>
-      <article class="hodito-leaderboard-stat">
-        <span class="hodito-leaderboard-stat-label">Lejátszott random meccsek</span>
-        <span id="hoditoLeaderboardMyGames" class="hodito-leaderboard-stat-value"><%= myStats ? (myStats.games || 0) : 0 %></span>
-        <span class="hodito-leaderboard-stat-note">Összesen ennyi random ellen játszottál.</span>
-      </article>
-    </div>
-
-    <div id="hoditoLeaderboardEmpty" class="hodito-leaderboard-empty" hidden>Még nincs elérhető játékos a ranglétrán.</div>
-    <ol id="hoditoLeaderboardList" class="hodito-leaderboard-list"></ol>
-    <div class="hodito-leaderboard-controls">
-      <button id="hoditoLeaderboardToggle" type="button" class="hodito-leaderboard-toggle">több...</button>
-    </div>
-  </div>
-</section>
-
+          <div id="hoditoLeaderboardEmpty" class="hodito-leaderboard-empty" hidden>Még nincs elérhető játékos a ranglétrán.</div>
+          <ol id="hoditoLeaderboardList" class="hodito-leaderboard-list"></ol>
+          <div class="hodito-leaderboard-controls">
+            <button id="hoditoLeaderboardToggle" type="button" class="hodito-leaderboard-toggle" hidden>több...</button>
+          </div>
+        </div>
+      </section>
     </main>
 
     <footer id="site-footer" class="lobby-v3-footer">
@@ -544,18 +621,21 @@
   })();
 </script>
 
+<script id="hoditoLeaderboardData" type="application/json"><%- JSON.stringify({ currentUsername: username, leaderboardTop20: leaderboardTop20 || [], myStats: myStats || { wins: 0, games: 0, rank: null } }).replace(/</g, '\u003c') %></script>
 <script>
   (function () {
-    var currentUsername = <%- JSON.stringify(username) %>;
-    var leaderboardTop20 = <%- JSON.stringify(leaderboardTop20 || []) %>;
-    var myStats = <%- JSON.stringify(myStats || { wins: 0, games: 0, rank: null }) %>;
+    var bootstrapNode = document.getElementById('hoditoLeaderboardData');
+    var bootstrap = { currentUsername: '', leaderboardTop20: [], myStats: { wins: 0, games: 0, rank: null } };
+    try {
+      bootstrap = JSON.parse(bootstrapNode.textContent || '{}');
+    } catch (error) {}
+
+    var currentUsername = String(bootstrap.currentUsername || '');
+    var leaderboardTop20 = Array.isArray(bootstrap.leaderboardTop20) ? bootstrap.leaderboardTop20 : [];
     var expanded = false;
     var list = document.getElementById('hoditoLeaderboardList');
     var toggle = document.getElementById('hoditoLeaderboardToggle');
     var empty = document.getElementById('hoditoLeaderboardEmpty');
-    var myRank = document.getElementById('hoditoLeaderboardMyRank');
-    var myWins = document.getElementById('hoditoLeaderboardMyWins');
-    var myGames = document.getElementById('hoditoLeaderboardMyGames');
 
     function getRankClass(rank) {
       if (rank === 1) return 'is-medal is-rank-1';
@@ -573,17 +653,10 @@
         .replace(/'/g, '&#039;');
     }
 
-    function updateMyStats(nextStats) {
-      if (!nextStats) return;
-      myStats = nextStats;
-      if (myRank) myRank.textContent = nextStats.rank ? ('#' + nextStats.rank) : '--';
-      if (myWins) myWins.textContent = Number(nextStats.wins || 0);
-      if (myGames) myGames.textContent = Number(nextStats.games || 0);
-    }
-
     function renderLeaderboard() {
       if (!list || !toggle || !empty) return;
       var rows = Array.isArray(leaderboardTop20) ? leaderboardTop20 : [];
+      var visibleRows = expanded ? rows.slice(0, 20) : rows.slice(0, 5);
       list.innerHTML = '';
 
       if (!rows.length) {
@@ -594,20 +667,17 @@
 
       empty.hidden = true;
       toggle.hidden = rows.length <= 5;
-      rows.forEach(function (entry, index) {
+
+      visibleRows.forEach(function (entry, index) {
         if (!entry) return;
-        var row = document.createElement('li');
         var rank = Number(entry.rank || (index + 1));
+        var row = document.createElement('li');
         var rowClass = 'hodito-leaderboard-row';
         if (entry.username === currentUsername) rowClass += ' is-current-user';
-        if (!expanded && index >= 5) row.hidden = true;
         row.className = rowClass;
         row.innerHTML = [
           '<span class="hodito-leaderboard-rank ' + getRankClass(rank) + '">#' + rank + '</span>',
-          '<span class="hodito-leaderboard-player">',
-            '<a class="hodito-leaderboard-name" href="/profile/' + encodeURIComponent(entry.username) + '">' + safeText(entry.username) + '</a>',
-            '<span class="hodito-leaderboard-meta">Random meccsek: ' + Number(entry.randomMatchmakingGames || 0) + '</span>',
-          '</span>',
+          '<a class="hodito-leaderboard-name" href="/profile/' + encodeURIComponent(entry.username) + '">' + safeText(entry.username) + '</a>',
           '<span class="hodito-leaderboard-wins">' + Number(entry.randomMatchmakingWins || 0) + ' győzelem</span>'
         ].join('');
         list.appendChild(row);
@@ -624,27 +694,6 @@
     }
 
     renderLeaderboard();
-    updateMyStats(myStats);
-
-    if (typeof io !== 'function') return;
-    var lobbySocket = io('/lobby', {
-      transports: ['websocket', 'polling'],
-      upgrade: true
-    });
-
-    lobbySocket.on('connect', function () {
-      lobbySocket.emit('getLeaderboard', { username: currentUsername });
-    });
-
-    function applyPayload(payload) {
-      if (!payload) return;
-      leaderboardTop20 = Array.isArray(payload.leaderboardTop20) ? payload.leaderboardTop20 : leaderboardTop20;
-      if (payload.myStats) updateMyStats(payload.myStats);
-      renderLeaderboard();
-    }
-
-    lobbySocket.on('leaderboard:init', applyPayload);
-    lobbySocket.on('leaderboard:update', applyPayload);
   })();
 </script>
 
