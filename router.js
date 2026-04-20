@@ -46,40 +46,6 @@ module.exports = function(app, io, db) {
   require('./matchmaking')(io, db);
 
   var FEATURE_REQUEST_TO = 'kozepsulineked@gmail.com';
-  var STALE_MATCH_MAX_AGE_MS = 10 * 60 * 1000;
-
-  function isUnstartedMatchExpired(match) {
-    if (!match) return false;
-    var lobby = LobbyStore.getLobby(match.gameid);
-    if (!lobby) return true;
-    if (lobby.started) return false;
-    var createdAt = Number(lobby.createdAt || 0);
-    if (!createdAt) return true;
-    return (Date.now() - createdAt) >= STALE_MATCH_MAX_AGE_MS;
-  }
-
-  function destroyLobbyForMatch(match) {
-    if (!match || !Array.isArray(match.players)) return;
-    match.players.forEach(function(username) {
-      try {
-        LobbyStore.leaveLobby(match.gameid, username);
-      } catch (error) {}
-    });
-  }
-
-  function clearExpiredUnstartedMatch(match) {
-    if (!match) return false;
-    var lobby = LobbyStore.getLobby(match.gameid);
-    if (lobby && lobby.started) return false;
-    destroyLobbyForMatch(match);
-    try {
-      MatchmakingStore.clearMatch(match.gameid);
-    } catch (error) {
-      console.log('clearExpiredUnstartedMatch error', error);
-    }
-    return true;
-  }
-
 
   function getSuggestionTransport() {
     var gmailUser = String(process.env.GMAIL_USER || '').trim();
@@ -124,6 +90,76 @@ module.exports = function(app, io, db) {
       .trim();
   }
 
+
+  var STALE_PENDING_MATCH_MAX_AGE_MS = 15 * 60 * 1000;
+
+  function getMatchAgeMs(match) {
+    if (!match || !match.createdAt) return 0;
+    return Math.max(0, Date.now() - Number(match.createdAt || 0));
+  }
+
+  function isStalePendingMatch(match, lobby, maxAgeMs) {
+    if (!match) return false;
+    if (lobby && lobby.started) return false;
+    return getMatchAgeMs(match) >= Number(maxAgeMs || STALE_PENDING_MATCH_MAX_AGE_MS);
+  }
+
+  function destroyPendingLobby(gameid, match, lobby) {
+    var key = String(gameid || '').trim();
+    var lobbyState = lobby || LobbyStore.getLobby(key);
+    if (!key || !lobbyState || lobbyState.started) return;
+
+    var players = [];
+    if (match && Array.isArray(match.players)) {
+      players = match.players.slice();
+    } else if (Array.isArray(lobbyState.players)) {
+      players = lobbyState.players.slice();
+    }
+
+    if (lobbyState.host && players.indexOf(lobbyState.host) === -1) {
+      players.unshift(lobbyState.host);
+    }
+
+    var destroyed = false;
+    players.some(function(username) {
+      if (!username) return false;
+      var result = LobbyStore.leaveLobby(key, username);
+      if (result && result.destroyed) {
+        destroyed = true;
+        return true;
+      }
+      return false;
+    });
+
+    if (!destroyed && lobbyState.host) {
+      LobbyStore.leaveLobby(key, lobbyState.host);
+    }
+  }
+
+  function clearPendingMatchArtifacts(gameid, match, lobby) {
+    destroyPendingLobby(gameid, match, lobby);
+    MatchmakingStore.clearMatch(String(gameid || ''));
+  }
+
+  function purgeStalePendingMatch(gameid, match, lobby, maxAgeMs) {
+    var key = String(gameid || (match && match.gameid) || '').trim();
+    var matchState = match || (key ? MatchmakingStore.getMatch(key) : null);
+    var lobbyState = typeof lobby === 'undefined' ? (key ? LobbyStore.getLobby(key) : null) : lobby;
+
+    if (!key || !isStalePendingMatch(matchState, lobbyState, maxAgeMs)) {
+      return false;
+    }
+
+    clearPendingMatchArtifacts(key, matchState, lobbyState);
+    return true;
+  }
+
+  function purgeStalePendingMatchForUser(username, maxAgeMs) {
+    var match = MatchmakingStore.getMatchByUsername(username);
+    if (!match) return false;
+    return purgeStalePendingMatch(match.gameid, match, LobbyStore.getLobby(match.gameid), maxAgeMs);
+  }
+
   function getRegisterErrorRedirect(code) {
     return '/register?error=' + encodeURIComponent(String(code || 'unknown'));
   }
@@ -147,7 +183,65 @@ module.exports = function(app, io, db) {
     return null;
   }
 
-  function getSuggestionFlash(code) {
+async function getLeaderboardViewModel(viewerUsername) {
+  if (!User || typeof User.getRandomMatchmakingLeaderboardData !== 'function') {
+    return {
+      leaderboardTop5: [],
+      leaderboardTop20: [],
+      myStats: { wins: 0, games: 0, rank: null },
+      totalPlayers: 0
+    };
+  }
+
+  var leaderboardData = await User.getRandomMatchmakingLeaderboardData(viewerUsername);
+  var viewer = leaderboardData.viewer;
+
+  return {
+    leaderboardTop5: leaderboardData.top5,
+    leaderboardTop20: leaderboardData.top20,
+    totalPlayers: leaderboardData.totalPlayers,
+    myStats: {
+      wins: viewer ? Number(viewer.randomMatchmakingWins || 0) : 0,
+      games: viewer ? Number(viewer.randomMatchmakingGames || 0) : 0,
+      rank: viewer ? viewer.rank : null
+    }
+  };
+}
+
+function getProfileTrophy(rank) {
+  if (!rank || rank > 20) {
+    return { tier: 'shadow', label: 'Fekete kupa', note: 'Még nem vagy benne a top 20-ban.' };
+  }
+  if (rank === 1) {
+    return { tier: 'emerald', label: 'Emeráld kupa', note: 'Az első hely a tiéd.' };
+  }
+  if (rank === 2) {
+    return { tier: 'violet', label: 'Világítós lila kupa', note: 'Egyetlen hely választ el a csúcstól.' };
+  }
+  if (rank === 3) {
+    return { tier: 'diamond', label: 'Gyémánt kupa', note: 'Dobogós helyezés.' };
+  }
+  if (rank <= 5) {
+    return { tier: 'gold', label: 'Arany kupa', note: 'Top 5-ben vagy.' };
+  }
+  if (rank <= 10) {
+    return { tier: 'silver', label: 'Ezüst kupa', note: 'Top 10-es helyezés.' };
+  }
+  return { tier: 'bronze', label: 'Bronz kupa', note: 'Bent vagy a top 20-ban.' };
+}
+
+async function buildProfileViewModel(profileUser) {
+  var username = profileUser && profileUser.username ? String(profileUser.username) : '';
+  var leaderboardViewModel = await getLeaderboardViewModel(username);
+  return {
+    username: username,
+    randomMatchmakingWins: leaderboardViewModel.myStats.wins,
+    randomMatchmakingRank: leaderboardViewModel.myStats.rank,
+    trophy: getProfileTrophy(leaderboardViewModel.myStats.rank)
+  };
+}
+
+function getSuggestionFlash(code) {
     if (code === 'success') {
       return {
         type: 'success',
@@ -187,12 +281,30 @@ module.exports = function(app, io, db) {
   }
 
 router.get('/lobby', function(req, res) {
-  withAuthenticatedUser(req, res, function(user) {
-    res.render('lobby', {
-      username: user.username,
-      email: user.email || '',
-      suggestionFlash: null
-    });
+  withAuthenticatedUser(req, res, async function(user) {
+    try {
+      var leaderboardViewModel = await getLeaderboardViewModel(user.username);
+      res.render('lobby', {
+        username: user.username,
+        email: user.email || '',
+        suggestionFlash: getSuggestionFlash(req.query && req.query.suggestion),
+        leaderboardTop5: leaderboardViewModel.leaderboardTop5,
+        leaderboardTop20: leaderboardViewModel.leaderboardTop20,
+        leaderboardTotalPlayers: leaderboardViewModel.totalPlayers,
+        myStats: leaderboardViewModel.myStats
+      });
+    } catch (error) {
+      console.log('Lobby leaderboard error:', error);
+      res.render('lobby', {
+        username: user.username,
+        email: user.email || '',
+        suggestionFlash: getSuggestionFlash(req.query && req.query.suggestion),
+        leaderboardTop5: [],
+        leaderboardTop20: [],
+        leaderboardTotalPlayers: 0,
+        myStats: { wins: 0, games: 0, rank: null }
+      });
+    }
   });
 });
 
@@ -257,12 +369,9 @@ router.get('/lobby', function(req, res) {
 
   router.get('/matchmaking', function(req, res) {
     withAuthenticatedUser(req, res, function(user) {
-      var activeMatch = MatchmakingStore.getMatchByUsername(user.username);
-      if (activeMatch && isUnstartedMatchExpired(activeMatch)) {
-        clearExpiredUnstartedMatch(activeMatch);
-        activeMatch = null;
-      }
+      purgeStalePendingMatchForUser(user.username, STALE_PENDING_MATCH_MAX_AGE_MS);
 
+      var activeMatch = MatchmakingStore.getMatchByUsername(user.username);
       if (!activeMatch) {
         return res.render('matchmaking', { username: user.username });
       }
@@ -273,11 +382,11 @@ router.get('/lobby', function(req, res) {
         return res.render('matchmaking', { username: user.username });
       }
 
+      if (purgeStalePendingMatch(activeMatch.gameid, activeMatch, activeLobby, STALE_PENDING_MATCH_MAX_AGE_MS)) {
+        return res.render('matchmaking', { username: user.username });
+      }
+
       if (!activeLobby.started) {
-        if (isUnstartedMatchExpired(activeMatch)) {
-          clearExpiredUnstartedMatch(activeMatch);
-          return res.render('matchmaking', { username: user.username });
-        }
         return res.redirect('/matchdraw/' + activeMatch.gameid);
       }
 
@@ -304,10 +413,12 @@ router.get('/lobby', function(req, res) {
       var lobby = LobbyStore.getLobby(gameid);
       var match = MatchmakingStore.getMatch(gameid);
 
-      if (match && isUnstartedMatchExpired(match)) {
-        clearExpiredUnstartedMatch(match);
+      if (purgeStalePendingMatch(gameid, match, lobby, STALE_PENDING_MATCH_MAX_AGE_MS)) {
         return res.redirect('/matchmaking');
       }
+
+      lobby = LobbyStore.getLobby(gameid);
+      match = MatchmakingStore.getMatch(gameid);
 
       if (lobby && lobby.started) {
         if (!LobbyStore.isParticipant(gameid, user.username)) return res.redirect('/lobby');
@@ -331,10 +442,9 @@ router.get('/lobby', function(req, res) {
       var lobby = LobbyStore.getLobby(gameid);
       var match = MatchmakingStore.getMatch(gameid);
 
-      if (match && isUnstartedMatchExpired(match)) {
-        clearExpiredUnstartedMatch(match);
-        match = null;
+      if (purgeStalePendingMatch(gameid, match, lobby, STALE_PENDING_MATCH_MAX_AGE_MS)) {
         lobby = LobbyStore.getLobby(gameid);
+        match = MatchmakingStore.getMatch(gameid);
       }
 
       if (!lobby) return res.redirect('/lobby');
@@ -419,24 +529,31 @@ router.get('/lobby', function(req, res) {
     }
   });
 
-  router.get('/profile', function(req, res, next) {
-    withAuthenticatedUser(req, res, function(user) {
-      res.render('profile', { username: user.username, email: user.email });
-    });
+router.get('/profile', function(req, res, next) {
+  withAuthenticatedUser(req, res, async function(user) {
+    try {
+      res.render('profile', await buildProfileViewModel(user));
+    } catch (error) {
+      console.log('Profile render error:', error);
+      return res.redirect('/lobby');
+    }
   });
+});
 
-  router.get('/profile/:username', function(req, res, next) {
-    withAuthenticatedUser(req, res, function(user) {
-      var where = { username: req.params.username };
-      User.getUser(where, function(err, email) {
-        if (err) {
-          console.log('Socket error occured.');
-          return res.redirect('/lobby');
-        }
-        res.render('profile', { username: email[0].username, email: email[0].email });
-      });
-    });
+router.get('/profile/:username', function(req, res, next) {
+  withAuthenticatedUser(req, res, async function(user) {
+    try {
+      var profileUser = await User.findOne({ username: req.params.username }).lean();
+      if (!profileUser) {
+        return res.redirect('/lobby');
+      }
+      res.render('profile', await buildProfileViewModel(profileUser));
+    } catch (error) {
+      console.log('Profile lookup error:', error);
+      return res.redirect('/lobby');
+    }
   });
+});
 
   router.get('/logout', function(req, res, next) {
     if (req.session) {
@@ -462,7 +579,7 @@ router.get('/lobby', function(req, res) {
       var howmany = 3;
       var maplevel = req.body.maplevel || 'hard';
 
-      require('./game')(io, Number(gameid), user.username, howmany, maplevel, db);
+      require('./game')(io, Number(gameid), user.username, howmany, maplevel, { matchSource: 'custom_lobby' });
       LobbyStore.createLobby({
         gameid: gameid,
         host: user.username,

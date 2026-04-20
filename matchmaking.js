@@ -18,10 +18,196 @@ module.exports = function(io, db) {
     'world_post_1848',
     'literature'
   ];
-  var DISCONNECT_GRACE_MS = 60000;
-  var STALE_MATCH_MAX_AGE_MS = 10 * 60 * 1000;
-  var disconnectCleanupTimers = new Map();
-  var connectedSocketsByUsername = new Map();
+
+
+  var DISCONNECT_CLEANUP_GRACE_MS = 60000;
+  var STALE_PENDING_MATCH_MAX_AGE_MS = 15 * 60 * 1000;
+  var connectedSocketCounts = Object.create(null);
+  var disconnectCleanupTimers = Object.create(null);
+  var matchRunTokens = Object.create(null);
+
+  function normalizeUsername(value) {
+    return String(value || '').trim();
+  }
+
+  function getMatchAgeMs(match) {
+    if (!match || !match.createdAt) return 0;
+    return Math.max(0, Date.now() - Number(match.createdAt || 0));
+  }
+
+  function isPendingMatch(match, lobby) {
+    if (!match) return false;
+    if (lobby && lobby.started) return false;
+    return true;
+  }
+
+  function isStalePendingMatch(match, lobby, maxAgeMs) {
+    if (!isPendingMatch(match, lobby)) return false;
+    return getMatchAgeMs(match) >= Number(maxAgeMs || STALE_PENDING_MATCH_MAX_AGE_MS);
+  }
+
+  function incrementRunToken(gameid) {
+    var key = String(gameid || '').trim();
+    if (!key) return 0;
+    matchRunTokens[key] = (matchRunTokens[key] || 0) + 1;
+    return matchRunTokens[key];
+  }
+
+  function getRunToken(gameid) {
+    return matchRunTokens[String(gameid || '').trim()] || 0;
+  }
+
+  function isRunActive(gameid, token) {
+    var key = String(gameid || '').trim();
+    if (!key) return false;
+    if (getRunToken(key) !== token) return false;
+    return Boolean(MatchmakingStore.getMatch(key));
+  }
+
+  function clearDisconnectCleanupTimer(username) {
+    var normalized = normalizeUsername(username);
+    if (!normalized || !disconnectCleanupTimers[normalized]) return;
+    clearTimeout(disconnectCleanupTimers[normalized]);
+    delete disconnectCleanupTimers[normalized];
+  }
+
+  function bindSocketToUsername(socket, username) {
+    var normalized = normalizeUsername(username);
+    if (!normalized) return '';
+
+    var previous = normalizeUsername(socket._matchmakingRegisteredUsername);
+    if (previous && previous !== normalized) {
+      releaseSocketUsername(socket, true);
+    }
+
+    socket._matchmakingUsername = normalized;
+    socket._matchmakingRegisteredUsername = normalized;
+    socket.join(userRoom(normalized));
+    clearDisconnectCleanupTimer(normalized);
+
+    if (!socket._matchmakingPresenceCounted) {
+      connectedSocketCounts[normalized] = (connectedSocketCounts[normalized] || 0) + 1;
+      socket._matchmakingPresenceCounted = true;
+    }
+
+    return normalized;
+  }
+
+  function releaseSocketUsername(socket, skipCleanupSchedule) {
+    var normalized = normalizeUsername(socket && socket._matchmakingRegisteredUsername);
+    if (!normalized) return;
+
+    if (socket._matchmakingPresenceCounted) {
+      connectedSocketCounts[normalized] = Math.max(0, Number(connectedSocketCounts[normalized] || 0) - 1);
+      if (!connectedSocketCounts[normalized]) {
+        delete connectedSocketCounts[normalized];
+      }
+      socket._matchmakingPresenceCounted = false;
+    }
+
+    socket._matchmakingRegisteredUsername = '';
+    if (!skipCleanupSchedule && !connectedSocketCounts[normalized]) {
+      scheduleDisconnectCleanup(normalized);
+    }
+  }
+
+  function destroyPendingLobby(gameid, match) {
+    var key = String(gameid || '').trim();
+    if (!key) return;
+
+    var lobby = LobbyStore.getLobby(key);
+    if (!lobby || lobby.started) return;
+
+    var players = [];
+    if (match && Array.isArray(match.players)) {
+      players = match.players.slice();
+    } else if (Array.isArray(lobby.players)) {
+      players = lobby.players.slice();
+    }
+
+    if (lobby.host && players.indexOf(lobby.host) === -1) {
+      players.unshift(lobby.host);
+    }
+
+    var destroyed = false;
+    players.some(function(username) {
+      if (!username) return false;
+      var result = LobbyStore.leaveLobby(key, username);
+      if (result && result.destroyed) {
+        destroyed = true;
+        return true;
+      }
+      return false;
+    });
+
+    if (!destroyed && lobby.host) {
+      LobbyStore.leaveLobby(key, lobby.host);
+    }
+  }
+
+  function clearPendingMatchArtifacts(gameid, reason) {
+    var key = String(gameid || '').trim();
+    if (!key) return false;
+
+    var match = MatchmakingStore.getMatch(key);
+    if (!match) return false;
+
+    incrementRunToken(key);
+    destroyPendingLobby(key, match);
+    MatchmakingStore.clearMatch(key);
+
+    match.players.forEach(function(username) {
+      client.to(userRoom(username)).emit('match:aborted', {
+        gameid: key,
+        reason: reason || 'aborted'
+      });
+      emitQueueState(username);
+    });
+
+    return true;
+  }
+
+  function purgeStalePendingMatch(gameid, maxAgeMs, reason) {
+    var key = String(gameid || '').trim();
+    if (!key) return false;
+
+    var match = MatchmakingStore.getMatch(key);
+    var lobby = LobbyStore.getLobby(key);
+    if (!isStalePendingMatch(match, lobby, maxAgeMs)) {
+      return false;
+    }
+
+    return clearPendingMatchArtifacts(key, reason || 'stale_pending_match');
+  }
+
+  function purgeStalePendingMatchForUsername(username, maxAgeMs, reason) {
+    var normalized = normalizeUsername(username);
+    if (!normalized) return false;
+
+    var match = MatchmakingStore.getMatchByUsername(normalized);
+    if (!match) return false;
+
+    return purgeStalePendingMatch(match.gameid, maxAgeMs, reason);
+  }
+
+  function cleanupDisconnectedUsername(username) {
+    var normalized = normalizeUsername(username);
+    if (!normalized || connectedSocketCounts[normalized]) return;
+
+    purgeStalePendingMatchForUsername(normalized, 1, 'player_disconnected');
+    MatchmakingStore.dequeue(normalized);
+    emitQueueState(normalized);
+  }
+
+  function scheduleDisconnectCleanup(username) {
+    var normalized = normalizeUsername(username);
+    if (!normalized) return;
+    clearDisconnectCleanupTimer(normalized);
+    disconnectCleanupTimers[normalized] = setTimeout(function() {
+      delete disconnectCleanupTimers[normalized];
+      cleanupDisconnectedUsername(normalized);
+    }, DISCONNECT_CLEANUP_GRACE_MS);
+  }
 
   function userRoom(username) {
     return 'user-' + String(username || '').trim();
@@ -29,150 +215,6 @@ module.exports = function(io, db) {
 
   function matchRoom(gameid) {
     return 'match-' + String(gameid);
-  }
-
-  function incrementUserSocketCount(username) {
-    var key = String(username || '').trim();
-    if (!key) return;
-    connectedSocketsByUsername.set(key, (connectedSocketsByUsername.get(key) || 0) + 1);
-  }
-
-  function decrementUserSocketCount(username) {
-    var key = String(username || '').trim();
-    if (!key) return;
-    var next = (connectedSocketsByUsername.get(key) || 0) - 1;
-    if (next > 0) {
-      connectedSocketsByUsername.set(key, next);
-      return;
-    }
-    connectedSocketsByUsername.delete(key);
-  }
-
-  function hasConnectedUserSocket(username) {
-    return (connectedSocketsByUsername.get(String(username || '').trim()) || 0) > 0;
-  }
-
-  function clearDisconnectCleanupTimer(username) {
-    var key = String(username || '').trim();
-    var existing = disconnectCleanupTimers.get(key);
-    if (!existing) return;
-    clearTimeout(existing);
-    disconnectCleanupTimers.delete(key);
-  }
-
-  function getLobbyAgeMs(gameid) {
-    var lobby = LobbyStore.getLobby(gameid);
-    if (!lobby) return Infinity;
-    var createdAt = Number(lobby.createdAt || 0);
-    if (!createdAt) return Infinity;
-    return Date.now() - createdAt;
-  }
-
-  function isUnstartedMatchStale(gameid) {
-    var lobby = LobbyStore.getLobby(gameid);
-    if (!lobby) return true;
-    if (lobby.started) return false;
-    return getLobbyAgeMs(gameid) >= STALE_MATCH_MAX_AGE_MS;
-  }
-
-  function safeEmitMatchExpired(match, reason) {
-    if (!match || !Array.isArray(match.players)) return;
-    match.players.forEach(function(username) {
-      client.to(userRoom(username)).emit('match:expired', {
-        gameid: String(match.gameid),
-        reason: reason || 'stale_match'
-      });
-    });
-  }
-
-  function safeDestroyLobbyForMatch(match) {
-    if (!match || !Array.isArray(match.players)) return;
-    match.players.forEach(function(username) {
-      try {
-        LobbyStore.leaveLobby(match.gameid, username);
-      } catch (error) {}
-    });
-  }
-
-  function cleanupMatch(gameid, reason) {
-    var key = String(gameid || '').trim();
-    if (!key) return false;
-
-    var match = MatchmakingStore.getMatch(key);
-    if (!match) return false;
-
-    var lobby = LobbyStore.getLobby(key);
-    if (lobby && lobby.started) {
-      return false;
-    }
-
-    safeEmitMatchExpired(match, reason);
-    safeDestroyLobbyForMatch(match);
-
-    try {
-      MatchmakingStore.clearMatch(key);
-    } catch (error) {
-      console.error('Failed to clear stale matchmaking match:', error);
-    }
-
-    if (Array.isArray(match.players)) {
-      match.players.forEach(function(username) {
-        clearDisconnectCleanupTimer(username);
-        emitQueueState(username);
-      });
-    }
-
-    return true;
-  }
-
-  function maybeCleanupStaleMatchForUsername(username) {
-    var key = String(username || '').trim();
-    if (!key) return false;
-    var activeMatch = MatchmakingStore.getMatchByUsername(key);
-    if (!activeMatch) return false;
-
-    var lobby = LobbyStore.getLobby(activeMatch.gameid);
-    if (!lobby) {
-      return cleanupMatch(activeMatch.gameid, 'missing_lobby');
-    }
-
-    if (lobby.started) return false;
-
-    if (isUnstartedMatchStale(activeMatch.gameid)) {
-      return cleanupMatch(activeMatch.gameid, 'expired_before_start');
-    }
-
-    return false;
-  }
-
-  function scheduleDisconnectCleanup(username) {
-    var key = String(username || '').trim();
-    if (!key) return;
-
-    clearDisconnectCleanupTimer(key);
-    disconnectCleanupTimers.set(key, setTimeout(function() {
-      disconnectCleanupTimers.delete(key);
-      if (hasConnectedUserSocket(key)) return;
-
-      var activeMatch = MatchmakingStore.getMatchByUsername(key);
-      if (activeMatch) {
-        cleanupMatch(activeMatch.gameid, 'player_disconnected');
-        return;
-      }
-
-      MatchmakingStore.dequeue(key);
-      emitQueueState(key);
-    }, DISCONNECT_GRACE_MS));
-  }
-
-  function isMatchStillPending(gameid) {
-    var key = String(gameid || '').trim();
-    if (!key) return false;
-    var match = MatchmakingStore.getMatch(key);
-    if (!match) return false;
-    var lobby = LobbyStore.getLobby(key);
-    if (!lobby) return false;
-    return !lobby.started;
   }
 
   function randomInt(min, max) {
@@ -205,13 +247,24 @@ module.exports = function(io, db) {
     return sequence;
   }
 
-  function runRouletteSequence(sequence, onTick, onDone) {
+  function runRouletteSequence(sequence, onTick, onDone, shouldContinue) {
     var index = 0;
     var delay = 95;
 
+    function canContinue() {
+      return !shouldContinue || shouldContinue() !== false;
+    }
+
     function step() {
+      if (!canContinue()) {
+        return;
+      }
+
       if (index >= sequence.length) {
-        return onDone();
+        if (canContinue()) {
+          onDone();
+        }
+        return;
       }
 
       onTick(sequence[index], index, sequence.length);
@@ -261,7 +314,7 @@ module.exports = function(io, db) {
       var host = randomItem(players);
       var gameid = LobbyStore.generateLobbyCode();
 
-      createGame(io, Number(gameid), host, 3, 'world', db);
+      createGame(io, Number(gameid), host, 3, 'world', { matchSource: 'random_matchmaking' });
       LobbyStore.createLobby({
         gameid: gameid,
         host: host,
@@ -282,6 +335,7 @@ module.exports = function(io, db) {
         maplevel: 'world',
         status: 'awaiting_draw'
       });
+      incrementRunToken(gameid);
 
       emitMatchFound(match);
       players.forEach(emitQueueState);
@@ -322,12 +376,16 @@ module.exports = function(io, db) {
     });
   }
 
-  function startTopicDraw(gameid) {
+  function startTopicDraw(gameid, runToken) {
+    if (!isRunActive(gameid, runToken)) {
+      return;
+    }
+
     var firstTopic = randomItem(TOPIC_OPTIONS);
     var firstSequence = buildRouletteSequence(TOPIC_OPTIONS, firstTopic);
 
     runRouletteSequence(firstSequence, function(activeKey) {
-      if (!isMatchStillPending(gameid)) return;
+      if (!isRunActive(gameid, runToken)) return;
       MatchmakingStore.setTopicTick(gameid, 0, activeKey);
       client.in(matchRoom(gameid)).emit('draw:topic:tick', {
         pickIndex: 0,
@@ -335,7 +393,7 @@ module.exports = function(io, db) {
         topicLabel: MatchmakingStore.TOPIC_META[activeKey].label
       });
     }, function() {
-      if (!isMatchStillPending(gameid)) return;
+      if (!isRunActive(gameid, runToken)) return;
       MatchmakingStore.lockTopic(gameid, firstTopic);
       client.in(matchRoom(gameid)).emit('draw:topic:locked', {
         pickIndex: 0,
@@ -344,7 +402,8 @@ module.exports = function(io, db) {
       });
 
       setTimeout(function() {
-        if (!isMatchStillPending(gameid)) return;
+        if (!isRunActive(gameid, runToken)) return;
+
         var remaining = TOPIC_OPTIONS.filter(function(item) {
           return item !== firstTopic;
         });
@@ -352,7 +411,7 @@ module.exports = function(io, db) {
         var secondSequence = buildRouletteSequence(remaining, secondTopic);
 
         runRouletteSequence(secondSequence, function(activeKey) {
-          if (!isMatchStillPending(gameid)) return;
+          if (!isRunActive(gameid, runToken)) return;
           MatchmakingStore.setTopicTick(gameid, 1, activeKey);
           client.in(matchRoom(gameid)).emit('draw:topic:tick', {
             pickIndex: 1,
@@ -360,15 +419,18 @@ module.exports = function(io, db) {
             topicLabel: MatchmakingStore.TOPIC_META[activeKey].label
           });
         }, function() {
-          if (!isMatchStillPending(gameid)) return;
-          var match = MatchmakingStore.lockTopic(gameid, secondTopic);
+          if (!isRunActive(gameid, runToken)) return;
+
+          MatchmakingStore.lockTopic(gameid, secondTopic);
           client.in(matchRoom(gameid)).emit('draw:topic:locked', {
             pickIndex: 1,
             topicKey: secondTopic,
             topicLabel: MatchmakingStore.TOPIC_META[secondTopic].label
           });
 
-          match = MatchmakingStore.getSerializableState(gameid);
+          var match = MatchmakingStore.getSerializableState(gameid);
+          if (!match) return;
+
           client.in(matchRoom(gameid)).emit('draw:complete', {
             gameid: String(gameid),
             players: match.players,
@@ -379,17 +441,24 @@ module.exports = function(io, db) {
             selectedTopicLabels: match.selectedTopicLabels,
             questionFilters: match.questionFilters
           });
+        }, function() {
+          return isRunActive(gameid, runToken);
         });
       }, 850);
+    }, function() {
+      return isRunActive(gameid, runToken);
     });
   }
 
   function startCeremony(gameid) {
+    purgeStalePendingMatch(gameid, STALE_PENDING_MATCH_MAX_AGE_MS, 'stale_before_ceremony');
+
     var markResult = MatchmakingStore.markCeremonyStarted(gameid);
     if (!markResult.ok || markResult.alreadyStarted) {
       return;
     }
 
+    var runToken = getRunToken(gameid) || incrementRunToken(gameid);
     var finalMap = randomItem(MAP_OPTIONS);
     var mapSequence = buildRouletteSequence(MAP_OPTIONS, finalMap);
 
@@ -398,14 +467,14 @@ module.exports = function(io, db) {
     });
 
     runRouletteSequence(mapSequence, function(activeMap) {
-      if (!isMatchStillPending(gameid)) return;
+      if (!isRunActive(gameid, runToken)) return;
       MatchmakingStore.setMapTick(gameid, activeMap);
       client.in(matchRoom(gameid)).emit('draw:map:tick', {
         value: activeMap,
         label: MatchmakingStore.MAP_META[activeMap].label
       });
     }, function() {
-      if (!isMatchStillPending(gameid)) return;
+      if (!isRunActive(gameid, runToken)) return;
       MatchmakingStore.setMapResult(gameid, finalMap);
       client.in(matchRoom(gameid)).emit('draw:map:result', {
         value: finalMap,
@@ -413,12 +482,14 @@ module.exports = function(io, db) {
       });
 
       setTimeout(function() {
-        if (!isMatchStillPending(gameid)) return;
+        if (!isRunActive(gameid, runToken)) return;
         client.in(matchRoom(gameid)).emit('draw:stage', {
           stage: 'drawing_topics'
         });
-        startTopicDraw(gameid);
+        startTopicDraw(gameid, runToken);
       }, 1000);
+    }, function() {
+      return isRunActive(gameid, runToken);
     });
   }
 
@@ -430,15 +501,8 @@ module.exports = function(io, db) {
         return;
       }
 
-      if (socket._matchmakingUsername && socket._matchmakingUsername !== username) {
-        decrementUserSocketCount(socket._matchmakingUsername);
-      }
-
-      socket._matchmakingUsername = username;
-      incrementUserSocketCount(username);
-      clearDisconnectCleanupTimer(username);
-      maybeCleanupStaleMatchForUsername(username);
-      socket.join(userRoom(username));
+      purgeStalePendingMatchForUsername(username, STALE_PENDING_MATCH_MAX_AGE_MS, 'stale_rejoin');
+      bindSocketToUsername(socket, username);
 
       var enqueueResult = MatchmakingStore.enqueue(username);
       if (!enqueueResult.ok) {
@@ -448,24 +512,6 @@ module.exports = function(io, db) {
 
       emitQueueState(username);
       if (enqueueResult.alreadyMatched && enqueueResult.gameid) {
-        if (isUnstartedMatchStale(enqueueResult.gameid)) {
-          cleanupMatch(enqueueResult.gameid, 'expired_before_rejoin');
-          var retryEnqueueResult = MatchmakingStore.enqueue(username);
-          if (!retryEnqueueResult.ok) {
-            socket.emit('queue:error', { message: 'Nem sikerült újraindítani a meccskeresést.' });
-            return;
-          }
-          emitQueueState(username);
-          if (retryEnqueueResult.alreadyMatched && retryEnqueueResult.gameid) {
-            socket.emit('match:found', {
-              gameid: String(retryEnqueueResult.gameid)
-            });
-            return;
-          }
-          maybeCreateMatches();
-          return;
-        }
-
         socket.emit('match:found', {
           gameid: String(enqueueResult.gameid)
         });
@@ -479,14 +525,6 @@ module.exports = function(io, db) {
       var username = String((data && data.username) || socket._matchmakingUsername || '').trim();
       if (!username) {
         socket.emit('queue:error', { message: 'Hiányzik a felhasználónév.' });
-        return;
-      }
-
-      clearDisconnectCleanupTimer(username);
-      var activeMatch = MatchmakingStore.getMatchByUsername(username);
-      if (activeMatch) {
-        cleanupMatch(activeMatch.gameid, 'player_cancelled');
-        socket.emit('queue:left');
         return;
       }
 
@@ -504,21 +542,13 @@ module.exports = function(io, db) {
         return;
       }
 
-      if (socket._matchmakingUsername && socket._matchmakingUsername !== username) {
-        decrementUserSocketCount(socket._matchmakingUsername);
-      }
-
-      socket._matchmakingUsername = username;
-      incrementUserSocketCount(username);
-      clearDisconnectCleanupTimer(username);
-      maybeCleanupStaleMatchForUsername(username);
-
+      purgeStalePendingMatch(gameid, STALE_PENDING_MATCH_MAX_AGE_MS, 'stale_draw_watch');
       if (!MatchmakingStore.isParticipant(gameid, username)) {
         socket.emit('match:not-found');
         return;
       }
 
-      socket.join(userRoom(username));
+      bindSocketToUsername(socket, username);
       socket.join(matchRoom(gameid));
       emitDrawInit(socket, gameid);
       startCeremony(gameid);
@@ -527,17 +557,12 @@ module.exports = function(io, db) {
     socket.on('match:start-requested', function(data) {
       var gameid = String((data && data.gameid) || '').trim();
       if (!gameid) return;
-      if (!isMatchStillPending(gameid)) return;
       MatchmakingStore.markStartRequested(gameid);
       client.in(matchRoom(gameid)).emit('draw:launching', { gameid: gameid });
     });
 
     socket.on('disconnect', function() {
-      var username = String(socket._matchmakingUsername || '').trim();
-      if (!username) return;
-      decrementUserSocketCount(username);
-      if (hasConnectedUserSocket(username)) return;
-      scheduleDisconnectCleanup(username);
+      releaseSocketUsername(socket, false);
     });
   });
 
