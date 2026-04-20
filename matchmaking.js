@@ -18,6 +18,10 @@ module.exports = function(io, db) {
     'world_post_1848',
     'literature'
   ];
+  var DISCONNECT_GRACE_MS = 60000;
+  var STALE_MATCH_MAX_AGE_MS = 10 * 60 * 1000;
+  var disconnectCleanupTimers = new Map();
+  var connectedSocketsByUsername = new Map();
 
   function userRoom(username) {
     return 'user-' + String(username || '').trim();
@@ -25,6 +29,150 @@ module.exports = function(io, db) {
 
   function matchRoom(gameid) {
     return 'match-' + String(gameid);
+  }
+
+  function incrementUserSocketCount(username) {
+    var key = String(username || '').trim();
+    if (!key) return;
+    connectedSocketsByUsername.set(key, (connectedSocketsByUsername.get(key) || 0) + 1);
+  }
+
+  function decrementUserSocketCount(username) {
+    var key = String(username || '').trim();
+    if (!key) return;
+    var next = (connectedSocketsByUsername.get(key) || 0) - 1;
+    if (next > 0) {
+      connectedSocketsByUsername.set(key, next);
+      return;
+    }
+    connectedSocketsByUsername.delete(key);
+  }
+
+  function hasConnectedUserSocket(username) {
+    return (connectedSocketsByUsername.get(String(username || '').trim()) || 0) > 0;
+  }
+
+  function clearDisconnectCleanupTimer(username) {
+    var key = String(username || '').trim();
+    var existing = disconnectCleanupTimers.get(key);
+    if (!existing) return;
+    clearTimeout(existing);
+    disconnectCleanupTimers.delete(key);
+  }
+
+  function getLobbyAgeMs(gameid) {
+    var lobby = LobbyStore.getLobby(gameid);
+    if (!lobby) return Infinity;
+    var createdAt = Number(lobby.createdAt || 0);
+    if (!createdAt) return Infinity;
+    return Date.now() - createdAt;
+  }
+
+  function isUnstartedMatchStale(gameid) {
+    var lobby = LobbyStore.getLobby(gameid);
+    if (!lobby) return true;
+    if (lobby.started) return false;
+    return getLobbyAgeMs(gameid) >= STALE_MATCH_MAX_AGE_MS;
+  }
+
+  function safeEmitMatchExpired(match, reason) {
+    if (!match || !Array.isArray(match.players)) return;
+    match.players.forEach(function(username) {
+      client.to(userRoom(username)).emit('match:expired', {
+        gameid: String(match.gameid),
+        reason: reason || 'stale_match'
+      });
+    });
+  }
+
+  function safeDestroyLobbyForMatch(match) {
+    if (!match || !Array.isArray(match.players)) return;
+    match.players.forEach(function(username) {
+      try {
+        LobbyStore.leaveLobby(match.gameid, username);
+      } catch (error) {}
+    });
+  }
+
+  function cleanupMatch(gameid, reason) {
+    var key = String(gameid || '').trim();
+    if (!key) return false;
+
+    var match = MatchmakingStore.getMatch(key);
+    if (!match) return false;
+
+    var lobby = LobbyStore.getLobby(key);
+    if (lobby && lobby.started) {
+      return false;
+    }
+
+    safeEmitMatchExpired(match, reason);
+    safeDestroyLobbyForMatch(match);
+
+    try {
+      MatchmakingStore.clearMatch(key);
+    } catch (error) {
+      console.error('Failed to clear stale matchmaking match:', error);
+    }
+
+    if (Array.isArray(match.players)) {
+      match.players.forEach(function(username) {
+        clearDisconnectCleanupTimer(username);
+        emitQueueState(username);
+      });
+    }
+
+    return true;
+  }
+
+  function maybeCleanupStaleMatchForUsername(username) {
+    var key = String(username || '').trim();
+    if (!key) return false;
+    var activeMatch = MatchmakingStore.getMatchByUsername(key);
+    if (!activeMatch) return false;
+
+    var lobby = LobbyStore.getLobby(activeMatch.gameid);
+    if (!lobby) {
+      return cleanupMatch(activeMatch.gameid, 'missing_lobby');
+    }
+
+    if (lobby.started) return false;
+
+    if (isUnstartedMatchStale(activeMatch.gameid)) {
+      return cleanupMatch(activeMatch.gameid, 'expired_before_start');
+    }
+
+    return false;
+  }
+
+  function scheduleDisconnectCleanup(username) {
+    var key = String(username || '').trim();
+    if (!key) return;
+
+    clearDisconnectCleanupTimer(key);
+    disconnectCleanupTimers.set(key, setTimeout(function() {
+      disconnectCleanupTimers.delete(key);
+      if (hasConnectedUserSocket(key)) return;
+
+      var activeMatch = MatchmakingStore.getMatchByUsername(key);
+      if (activeMatch) {
+        cleanupMatch(activeMatch.gameid, 'player_disconnected');
+        return;
+      }
+
+      MatchmakingStore.dequeue(key);
+      emitQueueState(key);
+    }, DISCONNECT_GRACE_MS));
+  }
+
+  function isMatchStillPending(gameid) {
+    var key = String(gameid || '').trim();
+    if (!key) return false;
+    var match = MatchmakingStore.getMatch(key);
+    if (!match) return false;
+    var lobby = LobbyStore.getLobby(key);
+    if (!lobby) return false;
+    return !lobby.started;
   }
 
   function randomInt(min, max) {
@@ -113,7 +261,7 @@ module.exports = function(io, db) {
       var host = randomItem(players);
       var gameid = LobbyStore.generateLobbyCode();
 
-      createGame(io, Number(gameid), host, 3, 'world', { matchSource: 'random_matchmaking' });
+      createGame(io, Number(gameid), host, 3, 'world', db);
       LobbyStore.createLobby({
         gameid: gameid,
         host: host,
@@ -179,6 +327,7 @@ module.exports = function(io, db) {
     var firstSequence = buildRouletteSequence(TOPIC_OPTIONS, firstTopic);
 
     runRouletteSequence(firstSequence, function(activeKey) {
+      if (!isMatchStillPending(gameid)) return;
       MatchmakingStore.setTopicTick(gameid, 0, activeKey);
       client.in(matchRoom(gameid)).emit('draw:topic:tick', {
         pickIndex: 0,
@@ -186,6 +335,7 @@ module.exports = function(io, db) {
         topicLabel: MatchmakingStore.TOPIC_META[activeKey].label
       });
     }, function() {
+      if (!isMatchStillPending(gameid)) return;
       MatchmakingStore.lockTopic(gameid, firstTopic);
       client.in(matchRoom(gameid)).emit('draw:topic:locked', {
         pickIndex: 0,
@@ -194,6 +344,7 @@ module.exports = function(io, db) {
       });
 
       setTimeout(function() {
+        if (!isMatchStillPending(gameid)) return;
         var remaining = TOPIC_OPTIONS.filter(function(item) {
           return item !== firstTopic;
         });
@@ -201,6 +352,7 @@ module.exports = function(io, db) {
         var secondSequence = buildRouletteSequence(remaining, secondTopic);
 
         runRouletteSequence(secondSequence, function(activeKey) {
+          if (!isMatchStillPending(gameid)) return;
           MatchmakingStore.setTopicTick(gameid, 1, activeKey);
           client.in(matchRoom(gameid)).emit('draw:topic:tick', {
             pickIndex: 1,
@@ -208,6 +360,7 @@ module.exports = function(io, db) {
             topicLabel: MatchmakingStore.TOPIC_META[activeKey].label
           });
         }, function() {
+          if (!isMatchStillPending(gameid)) return;
           var match = MatchmakingStore.lockTopic(gameid, secondTopic);
           client.in(matchRoom(gameid)).emit('draw:topic:locked', {
             pickIndex: 1,
@@ -245,12 +398,14 @@ module.exports = function(io, db) {
     });
 
     runRouletteSequence(mapSequence, function(activeMap) {
+      if (!isMatchStillPending(gameid)) return;
       MatchmakingStore.setMapTick(gameid, activeMap);
       client.in(matchRoom(gameid)).emit('draw:map:tick', {
         value: activeMap,
         label: MatchmakingStore.MAP_META[activeMap].label
       });
     }, function() {
+      if (!isMatchStillPending(gameid)) return;
       MatchmakingStore.setMapResult(gameid, finalMap);
       client.in(matchRoom(gameid)).emit('draw:map:result', {
         value: finalMap,
@@ -258,6 +413,7 @@ module.exports = function(io, db) {
       });
 
       setTimeout(function() {
+        if (!isMatchStillPending(gameid)) return;
         client.in(matchRoom(gameid)).emit('draw:stage', {
           stage: 'drawing_topics'
         });
@@ -274,7 +430,14 @@ module.exports = function(io, db) {
         return;
       }
 
+      if (socket._matchmakingUsername && socket._matchmakingUsername !== username) {
+        decrementUserSocketCount(socket._matchmakingUsername);
+      }
+
       socket._matchmakingUsername = username;
+      incrementUserSocketCount(username);
+      clearDisconnectCleanupTimer(username);
+      maybeCleanupStaleMatchForUsername(username);
       socket.join(userRoom(username));
 
       var enqueueResult = MatchmakingStore.enqueue(username);
@@ -285,6 +448,24 @@ module.exports = function(io, db) {
 
       emitQueueState(username);
       if (enqueueResult.alreadyMatched && enqueueResult.gameid) {
+        if (isUnstartedMatchStale(enqueueResult.gameid)) {
+          cleanupMatch(enqueueResult.gameid, 'expired_before_rejoin');
+          var retryEnqueueResult = MatchmakingStore.enqueue(username);
+          if (!retryEnqueueResult.ok) {
+            socket.emit('queue:error', { message: 'Nem sikerült újraindítani a meccskeresést.' });
+            return;
+          }
+          emitQueueState(username);
+          if (retryEnqueueResult.alreadyMatched && retryEnqueueResult.gameid) {
+            socket.emit('match:found', {
+              gameid: String(retryEnqueueResult.gameid)
+            });
+            return;
+          }
+          maybeCreateMatches();
+          return;
+        }
+
         socket.emit('match:found', {
           gameid: String(enqueueResult.gameid)
         });
@@ -298,6 +479,14 @@ module.exports = function(io, db) {
       var username = String((data && data.username) || socket._matchmakingUsername || '').trim();
       if (!username) {
         socket.emit('queue:error', { message: 'Hiányzik a felhasználónév.' });
+        return;
+      }
+
+      clearDisconnectCleanupTimer(username);
+      var activeMatch = MatchmakingStore.getMatchByUsername(username);
+      if (activeMatch) {
+        cleanupMatch(activeMatch.gameid, 'player_cancelled');
+        socket.emit('queue:left');
         return;
       }
 
@@ -315,12 +504,20 @@ module.exports = function(io, db) {
         return;
       }
 
+      if (socket._matchmakingUsername && socket._matchmakingUsername !== username) {
+        decrementUserSocketCount(socket._matchmakingUsername);
+      }
+
+      socket._matchmakingUsername = username;
+      incrementUserSocketCount(username);
+      clearDisconnectCleanupTimer(username);
+      maybeCleanupStaleMatchForUsername(username);
+
       if (!MatchmakingStore.isParticipant(gameid, username)) {
         socket.emit('match:not-found');
         return;
       }
 
-      socket._matchmakingUsername = username;
       socket.join(userRoom(username));
       socket.join(matchRoom(gameid));
       emitDrawInit(socket, gameid);
@@ -330,8 +527,17 @@ module.exports = function(io, db) {
     socket.on('match:start-requested', function(data) {
       var gameid = String((data && data.gameid) || '').trim();
       if (!gameid) return;
+      if (!isMatchStillPending(gameid)) return;
       MatchmakingStore.markStartRequested(gameid);
       client.in(matchRoom(gameid)).emit('draw:launching', { gameid: gameid });
+    });
+
+    socket.on('disconnect', function() {
+      var username = String(socket._matchmakingUsername || '').trim();
+      if (!username) return;
+      decrementUserSocketCount(username);
+      if (hasConnectedUserSocket(username)) return;
+      scheduleDisconnectCleanup(username);
     });
   });
 

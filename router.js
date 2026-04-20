@@ -46,6 +46,39 @@ module.exports = function(app, io, db) {
   require('./matchmaking')(io, db);
 
   var FEATURE_REQUEST_TO = 'kozepsulineked@gmail.com';
+  var STALE_MATCH_MAX_AGE_MS = 10 * 60 * 1000;
+
+  function isUnstartedMatchExpired(match) {
+    if (!match) return false;
+    var lobby = LobbyStore.getLobby(match.gameid);
+    if (!lobby) return true;
+    if (lobby.started) return false;
+    var createdAt = Number(lobby.createdAt || 0);
+    if (!createdAt) return true;
+    return (Date.now() - createdAt) >= STALE_MATCH_MAX_AGE_MS;
+  }
+
+  function destroyLobbyForMatch(match) {
+    if (!match || !Array.isArray(match.players)) return;
+    match.players.forEach(function(username) {
+      try {
+        LobbyStore.leaveLobby(match.gameid, username);
+      } catch (error) {}
+    });
+  }
+
+  function clearExpiredUnstartedMatch(match) {
+    if (!match) return false;
+    var lobby = LobbyStore.getLobby(match.gameid);
+    if (lobby && lobby.started) return false;
+    destroyLobbyForMatch(match);
+    try {
+      MatchmakingStore.clearMatch(match.gameid);
+    } catch (error) {
+      console.log('clearExpiredUnstartedMatch error', error);
+    }
+    return true;
+  }
 
   function getSuggestionTransport() {
     var gmailUser = String(process.env.GMAIL_USER || '').trim();
@@ -113,65 +146,7 @@ module.exports = function(app, io, db) {
     return null;
   }
 
-async function getLeaderboardViewModel(viewerUsername) {
-  if (!User || typeof User.getRandomMatchmakingLeaderboardData !== 'function') {
-    return {
-      leaderboardTop5: [],
-      leaderboardTop20: [],
-      myStats: { wins: 0, games: 0, rank: null },
-      totalPlayers: 0
-    };
-  }
-
-  var leaderboardData = await User.getRandomMatchmakingLeaderboardData(viewerUsername);
-  var viewer = leaderboardData.viewer;
-
-  return {
-    leaderboardTop5: leaderboardData.top5,
-    leaderboardTop20: leaderboardData.top20,
-    totalPlayers: leaderboardData.totalPlayers,
-    myStats: {
-      wins: viewer ? Number(viewer.randomMatchmakingWins || 0) : 0,
-      games: viewer ? Number(viewer.randomMatchmakingGames || 0) : 0,
-      rank: viewer ? viewer.rank : null
-    }
-  };
-}
-
-function getProfileTrophy(rank) {
-  if (!rank || rank > 20) {
-    return { tier: 'shadow', label: 'Fekete kupa', note: 'Még nem vagy benne a top 20-ban.' };
-  }
-  if (rank === 1) {
-    return { tier: 'emerald', label: 'Emeráld kupa', note: 'Az első hely a tiéd.' };
-  }
-  if (rank === 2) {
-    return { tier: 'violet', label: 'Világítós lila kupa', note: 'Egyetlen hely választ el a csúcstól.' };
-  }
-  if (rank === 3) {
-    return { tier: 'diamond', label: 'Gyémánt kupa', note: 'Dobogós helyezés.' };
-  }
-  if (rank <= 5) {
-    return { tier: 'gold', label: 'Arany kupa', note: 'Top 5-ben vagy.' };
-  }
-  if (rank <= 10) {
-    return { tier: 'silver', label: 'Ezüst kupa', note: 'Top 10-es helyezés.' };
-  }
-  return { tier: 'bronze', label: 'Bronz kupa', note: 'Bent vagy a top 20-ban.' };
-}
-
-async function buildProfileViewModel(profileUser) {
-  var username = profileUser && profileUser.username ? String(profileUser.username) : '';
-  var leaderboardViewModel = await getLeaderboardViewModel(username);
-  return {
-    username: username,
-    randomMatchmakingWins: leaderboardViewModel.myStats.wins,
-    randomMatchmakingRank: leaderboardViewModel.myStats.rank,
-    trophy: getProfileTrophy(leaderboardViewModel.myStats.rank)
-  };
-}
-
-function getSuggestionFlash(code) {
+  function getSuggestionFlash(code) {
     if (code === 'success') {
       return {
         type: 'success',
@@ -211,30 +186,12 @@ function getSuggestionFlash(code) {
   }
 
 router.get('/lobby', function(req, res) {
-  withAuthenticatedUser(req, res, async function(user) {
-    try {
-      var leaderboardViewModel = await getLeaderboardViewModel(user.username);
-      res.render('lobby', {
-        username: user.username,
-        email: user.email || '',
-        suggestionFlash: getSuggestionFlash(req.query && req.query.suggestion),
-        leaderboardTop5: leaderboardViewModel.leaderboardTop5,
-        leaderboardTop20: leaderboardViewModel.leaderboardTop20,
-        leaderboardTotalPlayers: leaderboardViewModel.totalPlayers,
-        myStats: leaderboardViewModel.myStats
-      });
-    } catch (error) {
-      console.log('Lobby leaderboard error:', error);
-      res.render('lobby', {
-        username: user.username,
-        email: user.email || '',
-        suggestionFlash: getSuggestionFlash(req.query && req.query.suggestion),
-        leaderboardTop5: [],
-        leaderboardTop20: [],
-        leaderboardTotalPlayers: 0,
-        myStats: { wins: 0, games: 0, rank: null }
-      });
-    }
+  withAuthenticatedUser(req, res, function(user) {
+    res.render('lobby', {
+      username: user.username,
+      email: user.email || '',
+      suggestionFlash: null
+    });
   });
 });
 
@@ -300,6 +257,11 @@ router.get('/lobby', function(req, res) {
   router.get('/matchmaking', function(req, res) {
     withAuthenticatedUser(req, res, function(user) {
       var activeMatch = MatchmakingStore.getMatchByUsername(user.username);
+      if (activeMatch && isUnstartedMatchExpired(activeMatch)) {
+        clearExpiredUnstartedMatch(activeMatch);
+        activeMatch = null;
+      }
+
       if (!activeMatch) {
         return res.render('matchmaking', { username: user.username });
       }
@@ -311,6 +273,10 @@ router.get('/lobby', function(req, res) {
       }
 
       if (!activeLobby.started) {
+        if (isUnstartedMatchExpired(activeMatch)) {
+          clearExpiredUnstartedMatch(activeMatch);
+          return res.render('matchmaking', { username: user.username });
+        }
         return res.redirect('/matchdraw/' + activeMatch.gameid);
       }
 
@@ -337,6 +303,11 @@ router.get('/lobby', function(req, res) {
       var lobby = LobbyStore.getLobby(gameid);
       var match = MatchmakingStore.getMatch(gameid);
 
+      if (match && isUnstartedMatchExpired(match)) {
+        clearExpiredUnstartedMatch(match);
+        return res.redirect('/matchmaking');
+      }
+
       if (lobby && lobby.started) {
         if (!LobbyStore.isParticipant(gameid, user.username)) return res.redirect('/lobby');
         return res.redirect('/game/' + gameid);
@@ -358,6 +329,12 @@ router.get('/lobby', function(req, res) {
       var gameid = String(req.params.gameid);
       var lobby = LobbyStore.getLobby(gameid);
       var match = MatchmakingStore.getMatch(gameid);
+
+      if (match && isUnstartedMatchExpired(match)) {
+        clearExpiredUnstartedMatch(match);
+        match = null;
+        lobby = LobbyStore.getLobby(gameid);
+      }
 
       if (!lobby) return res.redirect('/lobby');
 
@@ -441,31 +418,24 @@ router.get('/lobby', function(req, res) {
     }
   });
 
-router.get('/profile', function(req, res, next) {
-  withAuthenticatedUser(req, res, async function(user) {
-    try {
-      res.render('profile', await buildProfileViewModel(user));
-    } catch (error) {
-      console.log('Profile render error:', error);
-      return res.redirect('/lobby');
-    }
+  router.get('/profile', function(req, res, next) {
+    withAuthenticatedUser(req, res, function(user) {
+      res.render('profile', { username: user.username, email: user.email });
+    });
   });
-});
 
-router.get('/profile/:username', function(req, res, next) {
-  withAuthenticatedUser(req, res, async function(user) {
-    try {
-      var profileUser = await User.findOne({ username: req.params.username }).lean();
-      if (!profileUser) {
-        return res.redirect('/lobby');
-      }
-      res.render('profile', await buildProfileViewModel(profileUser));
-    } catch (error) {
-      console.log('Profile lookup error:', error);
-      return res.redirect('/lobby');
-    }
+  router.get('/profile/:username', function(req, res, next) {
+    withAuthenticatedUser(req, res, function(user) {
+      var where = { username: req.params.username };
+      User.getUser(where, function(err, email) {
+        if (err) {
+          console.log('Socket error occured.');
+          return res.redirect('/lobby');
+        }
+        res.render('profile', { username: email[0].username, email: email[0].email });
+      });
+    });
   });
-});
 
   router.get('/logout', function(req, res, next) {
     if (req.session) {
@@ -491,7 +461,7 @@ router.get('/profile/:username', function(req, res, next) {
       var howmany = 3;
       var maplevel = req.body.maplevel || 'hard';
 
-      require('./game')(io, Number(gameid), user.username, howmany, maplevel, { matchSource: 'custom_lobby' });
+      require('./game')(io, Number(gameid), user.username, howmany, maplevel, db);
       LobbyStore.createLobby({
         gameid: gameid,
         host: user.username,
