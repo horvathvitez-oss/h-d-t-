@@ -80,6 +80,7 @@ module.exports = function(app, io, db) {
     return true;
   }
 
+
   function getSuggestionTransport() {
     var gmailUser = String(process.env.GMAIL_USER || '').trim();
     var gmailPassword = String(process.env.GMAIL_APP_PASSWORD || '').replace(/\s+/g, '');
