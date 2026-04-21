@@ -1,10 +1,12 @@
 const mongoose = require('mongoose');
 
+const MAX_CASTLE_HP = 3;
+
 const castleSchema = new mongoose.Schema({
   gameid: { type: Number, required: true, index: true },
   pid: { type: Number, required: true },
   tid: { type: Number, required: true },
-  hp: { type: Number, default: 3 },
+  hp: { type: Number, default: MAX_CASTLE_HP, min: 0, max: MAX_CASTLE_HP },
   active: { type: Boolean, default: true },
 }, { minimize: false });
 
@@ -30,7 +32,10 @@ module.exports.getCastleByPid = function getCastleByPid(gameid, pid, callback) {
 };
 
 module.exports.updateCastle = function updateCastle(filter, update, callback) {
-  return Castle.findOneAndUpdate(filter, update, { new: true }, callback);
+  return Castle.findOneAndUpdate(filter, update, {
+    new: true,
+    runValidators: true
+  }, callback);
 };
 
 module.exports.deleteGameCastles = function deleteGameCastles(gameid, callback) {
