@@ -337,61 +337,11 @@ function territoryHasSzechenyiCasino(tid) {
 
 
 
-function getCastleTowerState(hp, maxHp) {
-  var total = Math.max(1, Math.min(3, Number(maxHp) || 3));
-  var value = Math.max(0, Math.min(total, Number(hp) || 0));
-
-  return {
-    left: value >= 2,
-    center: value >= 1,
-    right: value >= 3
-  };
-}
-
-
-
-
-function buildCastleTowerHtml(side, alive) {
-  return [
-    '<span class="castle-3d-tower castle-3d-tower--' + side + (alive ? '' : ' is-destroyed') + '">',
-      '<span class="castle-3d-roof"></span>',
-      '<span class="castle-3d-body"></span>',
-      '<span class="castle-3d-window castle-3d-window--top"></span>',
-      '<span class="castle-3d-window castle-3d-window--mid"></span>',
-    '</span>'
-  ].join('');
-}
-
-
-
-
-function buildCastleMarkerHtml(castle) {
-  if (!castle || !castle.active) return '';
-
-  var towers = getCastleTowerState(castle.hp, castle.maxHp);
-
-  return [
-    '<div class="castle-3d-marker" data-hp="' + castle.hp + '">',
-      '<div class="castle-3d-shadow"></div>',
-      '<div class="castle-3d-towers">',
-        buildCastleTowerHtml('left', towers.left),
-        buildCastleTowerHtml('center', towers.center),
-        buildCastleTowerHtml('right', towers.right),
-      '</div>',
-      '<div class="castle-3d-wall"></div>',
-      '<div class="castle-3d-gate"></div>',
-    '</div>'
-  ].join('');
-}
-
-
-
-
 function buildTerritoryOverlayHtml(tid) {
   var parts = [];
   var castle = getCastleByTid(tid);
   if (castle) {
-    parts.push(buildCastleMarkerHtml(castle));
+    parts.push('<div class="castle-pill"><span class="castle-pill-icon">♜</span><span>' + castle.hp + '</span></div>');
   }
   if (territoryHasSzechenyiCasino(tid)) {
     parts.push('<div class="pending-selection-badge pending-selection-badge--casino">★</div>');
@@ -489,12 +439,14 @@ function ensureCastleCinematicOverlay() {
 
 
 function buildCastleCinematicTowers(remainingHp, maxHp) {
-  var state = getCastleTowerState(remainingHp, maxHp);
-  return [
-    '<span class="castle-cinematic-tower castle-cinematic-tower--left' + (state.left ? '' : ' is-broken') + '"><span class="castle-cinematic-tower-icon">♜</span><span class="castle-cinematic-tower-base"></span></span>',
-    '<span class="castle-cinematic-tower castle-cinematic-tower--center' + (state.center ? '' : ' is-broken') + '"><span class="castle-cinematic-tower-icon">♜</span><span class="castle-cinematic-tower-base"></span></span>',
-    '<span class="castle-cinematic-tower castle-cinematic-tower--right' + (state.right ? '' : ' is-broken') + '"><span class="castle-cinematic-tower-icon">♜</span><span class="castle-cinematic-tower-base"></span></span>'
-  ].join('');
+  var total = Number(maxHp) || 3;
+  var active = Math.max(0, Math.min(total, Number(remainingHp) || 0));
+  var html = [];
+  for (var i = 0; i < total; i += 1) {
+    var broken = i >= active;
+    html.push('<span class="castle-cinematic-tower' + (broken ? ' is-broken' : '') + '"><span class="castle-cinematic-tower-icon">♜</span><span class="castle-cinematic-tower-base"></span></span>');
+  }
+  return html.join('');
 }
 
 

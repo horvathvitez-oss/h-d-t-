@@ -2442,226 +2442,32 @@ body.game-screen .leaflet-popup-tip {
 
 
 body.game-screen .castle-label {
-  background: transparent !important;
-  border: none !important;
-  box-shadow: none !important;
-  padding: 0 !important;
+  background: transparent;
+  border: none;
+  box-shadow: none;
 }
 
 
-body.game-screen .castle-3d-marker {
-  position: relative;
-  width: 84px;
-  height: 76px;
-  display: block;
-  filter: drop-shadow(0 12px 18px rgba(0, 0, 0, 0.34));
-  transform: translateY(-2px);
-}
-
-
-body.game-screen .castle-3d-shadow {
-  position: absolute;
-  left: 10px;
-  right: 10px;
-  bottom: 2px;
-  height: 10px;
+body.game-screen .castle-pill {
+  min-width: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
   border-radius: 999px;
-  background: radial-gradient(ellipse at center, rgba(0,0,0,0.32), rgba(0,0,0,0));
-  z-index: 0;
+  padding: 4px 7px;
+  font-size: 11px;
+  font-weight: 900;
+  color: #fff4dd;
+  background: linear-gradient(180deg, rgba(95, 60, 31, 0.94), rgba(49, 29, 15, 0.96));
+  border: 1px solid rgba(243, 221, 168, 0.45);
+  box-shadow: 0 8px 16px rgba(0,0,0,0.24);
 }
 
 
-body.game-screen .castle-3d-towers {
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: 0;
-  bottom: 18px;
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-end;
-  padding: 0 6px;
-  z-index: 3;
-}
-
-
-body.game-screen .castle-3d-tower {
-  position: relative;
-  width: 20px;
-  border-radius: 6px 6px 3px 3px;
-  transition: transform 260ms ease, opacity 260ms ease, filter 260ms ease;
-}
-
-
-body.game-screen .castle-3d-tower--left,
-body.game-screen .castle-3d-tower--right {
-  height: 42px;
-}
-
-
-body.game-screen .castle-3d-tower--center {
-  height: 56px;
-  z-index: 4;
-}
-
-
-body.game-screen .castle-3d-roof {
-  position: absolute;
-  top: -12px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 0;
-  height: 0;
-  border-left: 12px solid transparent;
-  border-right: 12px solid transparent;
-  border-bottom: 14px solid #7d2323;
-  filter: drop-shadow(0 3px 2px rgba(0,0,0,0.22));
-}
-
-
-body.game-screen .castle-3d-body {
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  background:
-    linear-gradient(90deg,
-      #a67d4b 0%,
-      #f5e8c8 34%,
-      #d5ba8e 58%,
-      #8d6638 100%);
-  border: 1px solid rgba(92, 62, 33, 0.55);
-  box-shadow:
-    inset -4px 0 0 rgba(0, 0, 0, 0.12),
-    inset 0 1px 0 rgba(255,255,255,0.48),
-    0 4px 8px rgba(0,0,0,0.14);
-}
-
-
-body.game-screen .castle-3d-body::before {
-  content: '';
-  position: absolute;
-  top: -4px;
-  left: -1px;
-  right: -1px;
-  height: 7px;
-  background:
-    repeating-linear-gradient(
-      90deg,
-      #c7aa78 0 6px,
-      transparent 6px 9px
-    );
-  border-radius: 4px 4px 0 0;
-}
-
-
-body.game-screen .castle-3d-window {
-  position: absolute;
-  left: 50%;
-  width: 4px;
-  background: rgba(58, 36, 18, 0.72);
-  transform: translateX(-50%);
-  border-radius: 999px;
-  box-shadow: 0 0 0 1px rgba(255,255,255,0.08);
-}
-
-
-body.game-screen .castle-3d-window--top {
-  top: 9px;
-  height: 7px;
-}
-
-
-body.game-screen .castle-3d-window--mid {
-  top: 22px;
-  height: 8px;
-}
-
-
-body.game-screen .castle-3d-wall {
-  position: absolute;
-  left: 8px;
-  right: 8px;
-  bottom: 10px;
-  height: 26px;
-  z-index: 2;
-  border-radius: 6px;
-  background:
-    linear-gradient(90deg,
-      #9d7445 0%,
-      #f0dfb9 38%,
-      #c8a675 64%,
-      #815a31 100%);
-  border: 1px solid rgba(92, 62, 33, 0.55);
-  box-shadow:
-    inset -5px 0 0 rgba(0,0,0,0.12),
-    inset 0 1px 0 rgba(255,255,255,0.4),
-    0 5px 10px rgba(0,0,0,0.14);
-}
-
-
-body.game-screen .castle-3d-wall::before {
-  content: '';
-  position: absolute;
-  top: -5px;
-  left: -1px;
-  right: -1px;
-  height: 8px;
-  background:
-    repeating-linear-gradient(
-      90deg,
-      #ccb07e 0 8px,
-      transparent 8px 12px
-    );
-  border-radius: 4px 4px 0 0;
-}
-
-
-body.game-screen .castle-3d-gate {
-  position: absolute;
-  left: 50%;
-  bottom: 10px;
-  transform: translateX(-50%);
-  width: 16px;
-  height: 18px;
-  z-index: 4;
-  border-radius: 8px 8px 2px 2px;
-  background: linear-gradient(180deg, #5f3d22, #2b180e);
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.12);
-}
-
-
-body.game-screen .castle-3d-tower.is-destroyed {
-  opacity: 0.24;
-  filter: grayscale(1) saturate(0.3);
-}
-
-
-body.game-screen .castle-3d-tower.is-destroyed .castle-3d-roof {
-  border-bottom-color: #514949;
-}
-
-
-body.game-screen .castle-3d-tower.is-destroyed .castle-3d-body {
-  background:
-    linear-gradient(90deg,
-      #665f55 0%,
-      #8b857d 34%,
-      #5c554c 100%);
-}
-
-
-body.game-screen .castle-3d-tower--left.is-destroyed {
-  transform: translateY(12px) rotate(-9deg) scale(0.9);
-}
-
-
-body.game-screen .castle-3d-tower--right.is-destroyed {
-  transform: translateY(12px) rotate(9deg) scale(0.9);
-}
-
-
-body.game-screen .castle-3d-tower--center.is-destroyed {
-  transform: translateY(14px) scale(0.88);
+body.game-screen .castle-pill-icon {
+  font-size: 12px;
+  line-height: 1;
 }
 
 
@@ -5787,22 +5593,6 @@ body.castle-cinematic-active #game-shell {
   gap: 18px;
 }
 
-.castle-cinematic-tower--center {
-  transform: translateY(-10px) scale(1.06);
-}
-
-.castle-cinematic-tower--left.is-broken {
-  transform: rotate(-8deg) translateY(8px) scale(0.94);
-}
-
-.castle-cinematic-tower--right.is-broken {
-  transform: rotate(8deg) translateY(8px) scale(0.94);
-}
-
-.castle-cinematic-tower--center.is-broken {
-  transform: translateY(12px) scale(0.9);
-}
-
 .castle-cinematic-tower {
   position: relative;
   width: 76px;
@@ -5844,6 +5634,7 @@ body.castle-cinematic-active #game-shell {
 
 .castle-cinematic-tower.is-broken {
   background: linear-gradient(180deg, rgba(112, 112, 112, 0.16), rgba(58, 22, 22, 0.44));
+  transform: rotate(-7deg) translateY(8px) scale(0.94);
   opacity: 0.52;
 }
 
